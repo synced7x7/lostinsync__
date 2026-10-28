@@ -1,6 +1,6 @@
 # Lost in Sync
 
-An offline-first Windows game tracker starter built with React, Vite, TypeScript, and Tailwind CSS. The initial vertical slice is intentionally small: add a game, update its status, start/stop a manual session, and retain the data across restarts.
+An offline-first Windows game tracker built with React, Vite, TypeScript, Tailwind CSS, and Tauri 2. The current milestone includes the glassmorphism desktop shell, library workflows, dashboard, profile, activity, journal, settings, and persistent native SQLite state.
 
 ## Exact workspace paths
 
@@ -65,7 +65,8 @@ The `$env:Path` line applies Rust to the current PowerShell session. To add it p
 
 - `src/domain` contains status values, validation, and timestamp-based duration rules.
 - `src/data` contains the repository contract and a browser persistence adapter.
-- `src/main.tsx` contains the initial vertical slice UI.
+- `src/main.tsx` contains the current feature screens and application shell.
 - `docs/` records the SQLite and Tauri migration plan.
+- `docs/design-system.md` explains the tokenized Aurora Glass theme.
 
 The repository uses `src/` directly at the root and the native Tauri project at `src-tauri/`.

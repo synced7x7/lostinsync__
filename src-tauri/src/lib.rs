@@ -1,19 +1,75 @@
-use rusqlite::{Connection, params};
+use rusqlite::{Connection, OptionalExtension, params};
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
 use tauri::Manager;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 struct Game {
     id: String,
     title: String,
     platform: String,
+    genre: String,
+    tags: Vec<String>,
     status: String,
     notes: String,
+    rating: Option<i64>,
+    mastery: Option<i64>,
+    favorite: bool,
+    cover: Option<String>,
     total_seconds: i64,
     active_since: Option<String>,
     created_at: String,
+    started_at: Option<String>,
+    finished_at: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct ActivityEvent {
+    id: String,
+    #[serde(rename = "type")]
+    event_type: String,
+    title: String,
+    detail: String,
+    occurred_at: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct JournalEntry {
+    id: String,
+    title: String,
+    body: String,
+    mood: String,
+    created_at: String,
+    game_id: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct Profile {
+    display_name: String,
+    bio: String,
+    accent: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct Settings {
+    theme: String,
+    default_view: String,
+    timer_sound: bool,
+    automatic_tracking: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct AppData {
+    games: Vec<Game>,
+    activities: Vec<ActivityEvent>,
+    journal: Vec<JournalEntry>,
+    profile: Profile,
+    settings: Settings,
 }
 
 struct Database(Mutex<Connection>);
@@ -21,10 +77,14 @@ struct Database(Mutex<Connection>);
 fn migrate(connection: &Connection) -> Result<(), rusqlite::Error> {
     connection.execute_batch(
         "PRAGMA foreign_keys = ON;
-     CREATE TABLE IF NOT EXISTS schema_migrations (
-       version INTEGER PRIMARY KEY NOT NULL,
-       applied_at TEXT NOT NULL
-     );",
+         CREATE TABLE IF NOT EXISTS schema_migrations (
+           version INTEGER PRIMARY KEY NOT NULL,
+           applied_at TEXT NOT NULL
+         );
+         CREATE TABLE IF NOT EXISTS app_state (
+           id INTEGER PRIMARY KEY CHECK (id = 1),
+           data_json TEXT NOT NULL
+         );",
     )?;
     let applied: i64 = connection.query_row(
         "SELECT COUNT(*) FROM schema_migrations WHERE version = 1",
@@ -33,67 +93,44 @@ fn migrate(connection: &Connection) -> Result<(), rusqlite::Error> {
     )?;
     if applied == 0 {
         connection.execute_batch(
-            "BEGIN;
-       CREATE TABLE IF NOT EXISTS games (
-       id TEXT PRIMARY KEY NOT NULL,
-       title TEXT NOT NULL,
-       platform TEXT NOT NULL,
-       status TEXT NOT NULL,
-       notes TEXT NOT NULL DEFAULT '',
-       total_seconds INTEGER NOT NULL DEFAULT 0,
-       active_since TEXT,
-       created_at TEXT NOT NULL
-       );
-       CREATE INDEX IF NOT EXISTS idx_games_status ON games(status);
-       INSERT INTO schema_migrations (version, applied_at)
-       VALUES (1, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));
-       COMMIT;",
+            "INSERT INTO schema_migrations (version, applied_at)
+             VALUES (1, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));",
         )?;
     }
     Ok(())
 }
 
 #[tauri::command]
-fn list_games(database: tauri::State<'_, Database>) -> Result<Vec<Game>, String> {
+fn load_app_data(database: tauri::State<'_, Database>) -> Result<Option<AppData>, String> {
     let connection = database
         .0
         .lock()
         .map_err(|_| "Database lock failed".to_string())?;
-    let mut statement = connection
-    .prepare("SELECT id, title, platform, status, notes, total_seconds, active_since, created_at FROM games ORDER BY created_at DESC")
-    .map_err(|error| error.to_string())?;
-    let games = statement
-        .query_map([], |row| {
-            Ok(Game {
-                id: row.get(0)?,
-                title: row.get(1)?,
-                platform: row.get(2)?,
-                status: row.get(3)?,
-                notes: row.get(4)?,
-                total_seconds: row.get(5)?,
-                active_since: row.get(6)?,
-                created_at: row.get(7)?,
-            })
+    let json: Option<String> = connection
+        .query_row("SELECT data_json FROM app_state WHERE id = 1", [], |row| {
+            row.get(0)
         })
-        .map_err(|error| error.to_string())?
-        .collect::<Result<Vec<_>, _>>()
+        .optional()
         .map_err(|error| error.to_string())?;
-    Ok(games)
+    json.map(|value| serde_json::from_str(&value).map_err(|error| error.to_string()))
+        .transpose()
 }
 
 #[tauri::command]
-fn save_game(database: tauri::State<'_, Database>, game: Game) -> Result<(), String> {
+fn save_app_data(database: tauri::State<'_, Database>, data: AppData) -> Result<(), String> {
     let connection = database
         .0
         .lock()
         .map_err(|_| "Database lock failed".to_string())?;
-    connection.execute(
-    "INSERT INTO games (id, title, platform, status, notes, total_seconds, active_since, created_at)
-     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
-     ON CONFLICT(id) DO UPDATE SET title=excluded.title, platform=excluded.platform, status=excluded.status,
-       notes=excluded.notes, total_seconds=excluded.total_seconds, active_since=excluded.active_since",
-    params![game.id, game.title, game.platform, game.status, game.notes, game.total_seconds, game.active_since, game.created_at],
-  ).map(|_| ()).map_err(|error| error.to_string())
+    let json = serde_json::to_string(&data).map_err(|error| error.to_string())?;
+    connection
+        .execute(
+            "INSERT INTO app_state (id, data_json) VALUES (1, ?1)
+             ON CONFLICT(id) DO UPDATE SET data_json = excluded.data_json",
+            params![json],
+        )
+        .map(|_| ())
+        .map_err(|error| error.to_string())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -114,7 +151,7 @@ pub fn run() {
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![list_games, save_game])
+        .invoke_handler(tauri::generate_handler![load_app_data, save_app_data])
         .run(tauri::generate_context!())
         .expect("error while building tauri application");
 }
