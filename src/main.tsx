@@ -2,7 +2,6 @@ import { StrictMode, useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, useLocation, useNavigate } from "react-router-dom";
 import {
-  Activity,
   BookOpen,
   Check,
   ChevronRight,
@@ -11,7 +10,6 @@ import {
   Gamepad2,
   Grid2X2,
   Heart,
-  LayoutDashboard,
   List,
   PenLine,
   Play,
@@ -20,8 +18,6 @@ import {
   Settings,
   Sparkles,
   StopCircle,
-  UserRound,
-  X,
 } from "lucide-react";
 import { createAppRepository } from "./data/repository";
 import {
@@ -36,16 +32,12 @@ import {
   type View,
 } from "./domain/game";
 import "./style.css";
-
+import { Empty, GameMini, Header, Stat } from "./components/shared";
+import { AppLayout } from "./components/layout";
+import { Dashboard } from "./features/dashboard";
+import { ActivityView } from "./features/activity";
+import { AddGame, GameCard } from "./features/library-components";
 const repo = createAppRepository();
-const nav: { id: View; label: string; icon: typeof Activity }[] = [
-  { id: "dashboard", label: "Overview", icon: LayoutDashboard },
-  { id: "library", label: "Library", icon: Gamepad2 },
-  { id: "activity", label: "Activity", icon: Activity },
-  { id: "profile", label: "Profile", icon: UserRound },
-  { id: "journal", label: "Journal", icon: BookOpen },
-  { id: "settings", label: "Settings", icon: Settings },
-];
 const now = () => new Date().toISOString();
 function App() {
   const [data, setData] = useState<AppData>(defaultData);
@@ -121,77 +113,7 @@ function App() {
       </div>
     );
   return (
-    <div className="app-shell">
-      <aside className="sidebar">
-        <div className="brand">
-          <span className="brand-mark">
-            <Gamepad2 size={20} />
-          </span>
-          <span>
-            LOST IN SYNC<small>PERSONAL GAME OS</small>
-          </span>
-        </div>
-        <div className="profile-mini">
-          <div className="avatar">{data.profile.displayName.slice(0, 1)}</div>
-          <div>
-            <strong>{data.profile.displayName}</strong>
-            <span>Offline profile</span>
-          </div>
-        </div>
-        <nav>
-          {nav.map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              className={view === id ? "nav-item active" : "nav-item"}
-              onClick={() => setView(id)}
-            >
-              <Icon size={17} />
-              {label}
-              {id === "library" && data.games.length > 0 && (
-                <em>{data.games.length}</em>
-              )}
-            </button>
-          ))}
-        </nav>
-        <div className="sidebar-bottom">
-          <div className="offline">
-            <span></span> Local-first workspace
-          </div>
-          <small>v0.1.0 · Everything stays yours</small>
-        </div>
-      </aside>
-      <main className="main">
-        <header className="topbar">
-          <div className="crumb">
-            <span>Workspace</span>
-            <ChevronRight size={14} />
-            <strong>{nav.find((item) => item.id === view)?.label}</strong>
-          </div>
-          <div className="top-actions">
-            <div className="top-search">
-              <Search size={16} />
-              <span>Quick find</span>
-              <kbd>⌘ K</kbd>
-            </div>
-            <button
-              className="icon-btn"
-              onClick={() => setView("settings")}
-              aria-label="Settings"
-            >
-              <Settings size={18} />
-            </button>
-            <button className="avatar small" onClick={() => setView("profile")}>
-              {data.profile.displayName.slice(0, 1)}
-            </button>
-          </div>
-        </header>
-        {error && (
-          <div className="toast error">
-            <X size={15} />
-            {error}
-          </div>
-        )}
-        <div className="page">
+    <AppLayout data={data} view={view} onNavigate={setView} error={error}>
           {view === "dashboard" && (
             <Dashboard
               data={data}
@@ -233,209 +155,7 @@ function App() {
           )}{" "}
           {view === "journal" && <JournalView data={data} update={update} />}{" "}
           {view === "settings" && <SettingsView data={data} update={update} />}{" "}
-        </div>
-      </main>
-    </div>
-  );
-}
-function Header({
-  eyebrow,
-  title,
-  action,
-}: {
-  eyebrow: string;
-  title: string;
-  action?: React.ReactNode;
-}) {
-  return (
-    <div className="page-heading">
-      <div>
-        <p className="eyebrow">{eyebrow}</p>
-        <h1>{title}</h1>
-      </div>
-      {action}
-    </div>
-  );
-}
-function Dashboard({
-  data,
-  openLibrary,
-  openGame,
-}: {
-  data: AppData;
-  openLibrary: () => void;
-  openGame: (id: string) => void;
-}) {
-  const playing = data.games.filter((game) => game.status === "Playing");
-  const total = data.games.reduce((sum, game) => sum + game.totalSeconds, 0);
-  const completed = data.games.filter(
-    (game) => game.status === "Completed"
-  ).length;
-  return (
-    <>
-      <Header
-        eyebrow="GOOD EVENING, {data.profile.displayName.toUpperCase()}"
-        title="Your gaming universe"
-        action={
-          <button className="button primary" onClick={openLibrary}>
-            <Plus size={17} /> Add a game
-          </button>
-        }
-      />
-      <section className="hero glass">
-        <div className="hero-copy">
-          <span className="hero-icon">
-            <Sparkles size={22} />
-          </span>
-          <p className="eyebrow">YOUR OFFLINE SPACE</p>
-          <h2>
-            Make every session
-            <br />
-            <span>count.</span>
-          </h2>
-          <p>Track the games you love, one focused session at a time.</p>
-          <button className="button soft" onClick={openLibrary}>
-            Explore library <ChevronRight size={16} />
-          </button>
-        </div>
-        <div className="hero-orbit">
-          <div className="orbit orbit-one"></div>
-          <div className="orbit orbit-two"></div>
-          <Gamepad2 size={100} />
-        </div>
-      </section>
-      <div className="stats-row">
-        <Stat
-          label="Collection"
-          value={String(data.games.length)}
-          hint="games tracked"
-          icon={<Gamepad2 />}
-        />
-        <Stat
-          label="Playtime"
-          value={formatPlaytime(total)}
-          hint="verified time"
-          icon={<Clock3 />}
-        />
-        <Stat
-          label="Completed"
-          value={String(completed)}
-          hint="finished games"
-          icon={<Check />}
-        />
-        <Stat
-          label="Current streak"
-          value={playing.length ? `${playing.length}` : "0"}
-          hint="active games"
-          icon={<Activity />}
-        />
-      </div>
-      <div className="two-col">
-        <section className="section">
-          <div className="section-title">
-            <div>
-              <p className="eyebrow">IN PROGRESS</p>
-              <h2>Currently playing</h2>
-            </div>
-            <button className="text-button" onClick={openLibrary}>
-              View all <ChevronRight size={14} />
-            </button>
-          </div>
-          {playing.length ? (
-            <div className="mini-grid">
-              {playing.slice(0, 3).map((game) => (
-                <GameMini
-                  key={game.id}
-                  game={game}
-                  onClick={() => openGame(game.id)}
-                />
-              ))}
-            </div>
-          ) : (
-            <Empty
-              icon={<Play />}
-              title="No active adventures"
-              text="Start a session when you are ready to play."
-              action={openLibrary}
-            />
-          )}
-        </section>
-        <section className="section">
-          <div className="section-title">
-            <div>
-              <p className="eyebrow">LATEST SIGNALS</p>
-              <h2>Recent activity</h2>
-            </div>
-            <button className="text-button" onClick={() => {}}>
-              Timeline <ChevronRight size={14} />
-            </button>
-          </div>
-          <ActivityList items={data.activities.slice(0, 4)} />
-        </section>
-      </div>
-    </>
-  );
-}
-function Stat({
-  label,
-  value,
-  hint,
-  icon,
-}: {
-  label: string;
-  value: string;
-  hint: string;
-  icon: React.ReactNode;
-}) {
-  return (
-    <div className="stat glass">
-      <div className="stat-icon">{icon}</div>
-      <div>
-        <span>{label}</span>
-        <strong>{value}</strong>
-        <small>{hint}</small>
-      </div>
-    </div>
-  );
-}
-function GameMini({ game, onClick }: { game: Game; onClick: () => void }) {
-  return (
-    <button className="mini-card glass" onClick={onClick}>
-      <div className="art">
-        <Gamepad2 size={23} />
-      </div>
-      <div>
-        <strong>{game.title}</strong>
-        <span>
-          {game.platform} · {formatPlaytime(game.totalSeconds)}
-        </span>
-      </div>
-      <ChevronRight size={16} />
-    </button>
-  );
-}
-function Empty({
-  icon,
-  title,
-  text,
-  action,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  text: string;
-  action?: () => void;
-}) {
-  return (
-    <div className="empty glass">
-      {icon}
-      <h3>{title}</h3>
-      <p>{text}</p>
-      {action && (
-        <button className="button soft" onClick={action}>
-          Open library
-        </button>
-      )}
-    </div>
+    </AppLayout>
   );
 }
 function LibraryView({
@@ -566,185 +286,6 @@ function LibraryView({
         />
       )}
     </>
-  );
-}
-function GameCard({
-  game,
-  layout,
-  open,
-  save,
-}: {
-  game: Game;
-  layout: "grid" | "list";
-  open: () => void;
-  save: (
-    game: Game,
-    activity?: { type: "status" | "session" | "completed"; detail: string }
-  ) => void;
-}) {
-  const active = Boolean(game.activeSince);
-  const stop = () => {
-    const end = now();
-    save(
-      {
-        ...game,
-        activeSince: undefined,
-        totalSeconds:
-          game.totalSeconds + durationSeconds(game.activeSince!, end),
-      },
-      {
-        type: "session",
-        detail: `Session · ${formatPlaytime(
-          durationSeconds(game.activeSince!, end)
-        )}`,
-      }
-    );
-  };
-  return (
-    <article
-      className={layout === "grid" ? "game-card glass" : "game-row glass"}
-      onClick={open}
-    >
-      <div className="game-art">
-        <Gamepad2 size={layout === "grid" ? 34 : 24} />
-        <span>{game.platform}</span>
-      </div>
-      <div className="game-info">
-        <div className="game-top">
-          <span className="status">{game.status}</span>
-          <button
-            className="heart"
-            onClick={(e) => {
-              e.stopPropagation();
-              save({ ...game, favorite: !game.favorite });
-            }}
-          >
-            <Heart size={16} fill={game.favorite ? "currentColor" : "none"} />
-          </button>
-        </div>
-        <h3>{game.title}</h3>
-        <p>
-          {game.genre || "Uncategorized"} · {formatPlaytime(game.totalSeconds)}{" "}
-          played
-        </p>
-        {layout === "grid" && (
-          <div className="card-bottom">
-            <button
-              className={active ? "button stop" : "button soft"}
-              onClick={(e) => {
-                e.stopPropagation();
-                active
-                  ? stop()
-                  : save(
-                      { ...game, activeSince: now(), status: "Playing" },
-                      { type: "session", detail: "Session started" }
-                    );
-              }}
-            >
-              {active ? (
-                <>
-                  <StopCircle size={14} /> Stop session
-                </>
-              ) : (
-                <>
-                  <Play size={14} /> Start session
-                </>
-              )}
-            </button>
-            <ChevronRight size={16} />
-          </div>
-        )}
-      </div>
-    </article>
-  );
-}
-function AddGame({
-  onClose,
-  onAdd,
-}: {
-  onClose: () => void;
-  onAdd: (game: Game) => void;
-}) {
-  const [title, setTitle] = useState("");
-  const [platform, setPlatform] = useState("PC");
-  const [genre, setGenre] = useState("");
-  const [status, setStatus] = useState<Status>("Backlog");
-  const [error, setError] = useState("");
-  const submit = () => {
-    const issue = validateGame(title, platform);
-    if (issue) {
-      setError(issue);
-      return;
-    }
-    onAdd({
-      id: crypto.randomUUID(),
-      title: title.trim(),
-      platform: platform.trim(),
-      genre: genre.trim(),
-      tags: [],
-      status,
-      notes: "",
-      favorite: false,
-      totalSeconds: 0,
-      createdAt: now(),
-    });
-  };
-  return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal glass" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-head">
-          <div>
-            <p className="eyebrow">NEW ENTRY</p>
-            <h2>Add a game</h2>
-          </div>
-          <button className="icon-btn" onClick={onClose}>
-            <X size={18} />
-          </button>
-        </div>
-        <label>
-          Title
-          <input
-            autoFocus
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="What are you playing?"
-          />
-        </label>
-        <div className="form-grid">
-          <label>
-            Platform
-            <input
-              value={platform}
-              onChange={(e) => setPlatform(e.target.value)}
-              placeholder="PC, Switch…"
-            />
-          </label>
-          <label>
-            Genre
-            <input
-              value={genre}
-              onChange={(e) => setGenre(e.target.value)}
-              placeholder="RPG, strategy…"
-            />
-          </label>
-        </div>
-        <label>
-          Status
-          <select
-            value={status}
-            onChange={(e) => setStatus(e.target.value as Status)}
-          >
-            {STATUSES.map((item) => (
-              <option key={item}>{item}</option>
-            ))}
-          </select>
-        </label>
-        {error && <p className="error">{error}</p>}
-        <button className="button primary full" onClick={submit}>
-          <Plus size={17} /> Add to collection
-        </button>
-      </div>
-    </div>
   );
 }
 function Details({
@@ -890,49 +431,6 @@ function Details({
         </section>
       </div>
     </>
-  );
-}
-function ActivityView({ data }: { data: AppData }) {
-  return (
-    <>
-      <Header eyebrow="YOUR HISTORY" title="Activity" />
-      <div className="activity-layout glass">
-        <div className="activity-intro">
-          <span className="hero-icon">
-            <Activity size={20} />
-          </span>
-          <h2>
-            A quiet record
-            <br />
-            of your <span>play.</span>
-          </h2>
-          <p>Every addition, status change, and session is saved locally.</p>
-        </div>
-        <ActivityList items={data.activities} />
-      </div>
-    </>
-  );
-}
-function ActivityList({ items }: { items: AppData["activities"] }) {
-  return items.length ? (
-    <div className="timeline">
-      {items.map((item) => (
-        <div className="timeline-item" key={item.id}>
-          <span className={`timeline-dot ${item.type}`}></span>
-          <div>
-            <strong>{item.title}</strong>
-            <p>{item.detail}</p>
-            <small>{new Date(item.occurredAt).toLocaleString()}</small>
-          </div>
-        </div>
-      ))}
-    </div>
-  ) : (
-    <Empty
-      icon={<Activity />}
-      title="No activity yet"
-      text="Your local timeline will appear here."
-    />
   );
 }
 function ProfileView({

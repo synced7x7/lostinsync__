@@ -65,7 +65,9 @@ The `$env:Path` line applies Rust to the current PowerShell session. To add it p
 
 - `src/domain` contains status values, validation, and timestamp-based duration rules.
 - `src/data` contains the repository contract and a browser persistence adapter.
-- `src/main.tsx` contains the current feature screens and application shell.
+- `src/main.tsx` coordinates application state and screen selection.
+- `src/components/` contains the shared layout, navigation, headers, cards, and feedback components.
+- `src/features/` contains dashboard, activity, and library-specific components.
 - `docs/` records the SQLite and Tauri migration plan.
 - `docs/design-system.md` explains the tokenized Aurora Glass theme.
 
