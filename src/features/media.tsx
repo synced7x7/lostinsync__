@@ -11,6 +11,7 @@ export const ytId = (raw: string) => {
 const watchUrl = (id: string) => `https://www.youtube.com/watch?v=${id}`;
 const thumb = (id: string) => `https://img.youtube.com/vi/${id}/hqdefault.jpg`;
 const full = (u: string) => u.replace("t_screenshot_big", "t_1080p");
+const MAX_VIDEOS = 3;
 
 async function openUrl(url: string) {
   try {
@@ -62,9 +63,11 @@ export function MediaSection({ game, save }: { game: Game; save: (g: Game) => vo
   const addLink = () => {
     const id = ytId(link);
     if (!id) { setErr("That doesn't look like a YouTube link."); return; }
+    if (vids.length >= MAX_VIDEOS) { setErr(`You can keep up to ${MAX_VIDEOS} trailers. Remove one first.`); return; }
     if (!vids.some((v) => v.id === id)) save({ ...game, videos: [...vids, { id }] });
     setLink(""); setErr(""); setAdding(false);
   };
+
   const addFiles = async (files: FileList | null) => {
     if (!files?.length) return;
     try {
@@ -80,7 +83,7 @@ export function MediaSection({ game, save }: { game: Game; save: (g: Game) => vo
       <div className="about-head">
         <div><p className="eyebrow">GALLERY</p><h2>Trailer &amp; screenshots</h2></div>
         <div className="media-actions">
-          <button className="text-button" onClick={() => setAdding(!adding)}><Link2 size={14} /> Add trailer</button>
+          <button className="text-button" disabled={vids.length >= MAX_VIDEOS} title={vids.length >= MAX_VIDEOS ? "Limit reached: remove one first" : undefined} onClick={() => setAdding(!adding)}><Link2 size={14} /> Add trailer</button>
           <button className="text-button" onClick={() => fileRef.current?.click()}><ImagePlus size={14} /> Add screenshots</button>
           <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={(e) => { void addFiles(e.target.files); e.target.value = ""; }} />
         </div>

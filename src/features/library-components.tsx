@@ -132,7 +132,7 @@ export function AddGame({ onClose, onAdd, igdb, initial }: { onClose: () => void
       timeMainSeconds: picked?.timeMain ?? initial?.timeMainSeconds,
       timeFullSeconds: picked?.timeFull ?? initial?.timeFullSeconds,
       screenshots: picked?.screenshots ?? initial?.screenshots,
-      videos: picked ? picked.videos.map((v) => ({ id: v.videoId, name: v.name })) : initial?.videos,
+            videos: (picked ? picked.videos.map((v) => ({ id: v.videoId, name: v.name })) : initial?.videos)?.slice(0, 3),
     });
   };
 

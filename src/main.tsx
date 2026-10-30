@@ -20,7 +20,7 @@ import {
   Timer,
   Trash2,
   Trophy,
-  Lock,
+  Notebook,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { createAppRepository } from "./data/repository";
@@ -579,7 +579,7 @@ function Details({
       <MediaSection game={game} save={saveGame} />
 
       <section className="glass note-card" onClick={() => setEditing(true)} title="Edit note">
-        <Lock size={15} />
+        <Notebook size={15} />
         <div>
           <span className="eyebrow" style={{ margin: 0 }}>PERSONAL NOTE</span>
           <p>{game.notes || "No note yet. Tap to add one."}</p>
