@@ -442,7 +442,7 @@ function GridCard({
       <motion.div className="grid-card-glow-border" animate={hovered ? { opacity: 1 } : { opacity: 0 }} transition={{ duration: 0.18 }} />
       <div className="grid-card-info">
         <span className="grid-card-title">{game.title}</span>
-        {gridSize !== "sm" && <span className="grid-card-sub">{game.genre || "Uncategorized"} · {formatPlaytime(game.totalSeconds)}</span>}
+        {gridSize !== "sm" && <span className="grid-card-sub">{game.genre || "Uncategorized"}</span>} {/* · */}
       </div>
     </motion.div>
   );
