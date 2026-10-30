@@ -9,6 +9,7 @@ export type Game = {
   genres?: string[]; platforms?: string[]; igdbId?: number;
   igdbRating?: number; igdbRatingCount?: number;
   timeAvgSeconds?: number; timeMainSeconds?: number; timeFullSeconds?: number;
+  playedPlatforms?: string[]; emulatedOn?: string[];
 };
 export type ActivityEvent = { id: string; type: "added" | "status" | "completed" | "started" | "deleted"; title: string; detail: string; occurredAt: string };
 export type JournalEntry = { id: string; title: string; body: string; mood: string; createdAt: string; gameId?: string };

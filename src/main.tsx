@@ -17,7 +17,7 @@ import {
   Plus,
   Search,
   Sparkles,
-  Star,
+  Timer,
   Trash2,
   Trophy,
   Lock,
@@ -467,10 +467,13 @@ function Details({
     : undefined;
   const ringColor = (game.igdbRating ?? 0) >= 75 ? "var(--success)" : (game.igdbRating ?? 0) >= 50 ? "#f4c679" : "var(--rose)";
   const tiles = [
-    { label: "Average to complete", sec: game.timeAvgSeconds },
-    { label: "Main story", sec: game.timeMainSeconds },
-    { label: "100% completion", sec: game.timeFullSeconds },
+    { label: "Average to complete", sec: game.timeAvgSeconds, icon: Timer, cls: "avg" },
+    { label: "Main story", sec: game.timeMainSeconds, icon: BookOpen, cls: "main" },
+    { label: "100% completion", sec: game.timeFullSeconds, icon: Trophy, cls: "full" },
   ];
+  const genreList = game.genres?.length ? game.genres : game.genre ? game.genre.split(",").map((s) => s.trim()).filter(Boolean) : [];
+  const playedOn = game.playedPlatforms ?? (game.platform ? [game.platform] : []);
+  const emulated = game.emulatedOn ?? [];
   const hasAbout = game.description || game.igdbRating != null || game.developer || tiles.some((t) => t.sec);
   return (
     <>
@@ -504,36 +507,53 @@ function Details({
               <h2>About this game</h2>
             </div>
             {game.igdbRating != null && (
-              <div className="rating-ring" style={{ "--p": game.igdbRating, "--ring": ringColor } as React.CSSProperties}>
-                <strong>{game.igdbRating}</strong>
+              <div className="score-box">
+                <div className="rating-ring" style={{ "--p": game.igdbRating, "--ring": ringColor } as React.CSSProperties}>
+                  <strong>{(game.igdbRating / 10).toFixed(1)}</strong>
+                </div>
+                <span className="score-title">IGDB SCORE</span>
+                <small>{game.igdbRatingCount ? `Based on ${formatCount(game.igdbRatingCount)} ratings` : "Community score"}</small>
               </div>
             )}
           </div>
+
           {game.description
             ? <>
               <p className={`about-desc${expanded ? " open" : ""}`}>{game.description}</p>
               {game.description.length > 260 && <button className="text-button" style={{ marginTop: 6 }} onClick={() => setExpanded(!expanded)}>{expanded ? "Show less" : "Read more"}</button>}
             </>
             : <p className="muted">No description yet. Tap Edit game to add one.</p>}
-          {game.igdbRating != null && <p className="ttb-foot" style={{ marginTop: 10 }}>IGDB score · {formatCount(game.igdbRatingCount)} ratings</p>}
-          {(game.genres?.length || game.platforms?.length) ? <div className="igdb-chips" style={{ marginTop: 14 }}>{[...(game.genres ?? []), ...(game.platforms ?? [])].map((x) => <span className="pill" key={x}>{x}</span>)}</div> : null}
-          {hasAbout && (
-            <div className="ttb-list">
-              <p className="eyebrow" style={{ margin: 0 }}>TIME TO BEAT · YOUR PLAYTIME VS AVERAGE PLAYER</p>
-              {tiles.map((t) => {
-                const pct = t.sec ? Math.min(100, Math.round((played / t.sec) * 100)) : 0;
-                return (
-                  <div key={t.label}>
-                    <div className="ttb-row-top"><span>{t.label}</span><strong>{t.sec ? formatHours(t.sec) : "No data"}</strong></div>
-                    {t.sec ? (
-                      <>
-                        <div className="ttb-bar"><i className={pct >= 100 ? "done" : ""} style={{ width: `${pct}%` }} /></div>
-                        <div className="ttb-foot">{pct >= 100 ? "You've reached this time" : `You've played ${formatPlaytime(played)} · ${pct}% of the way`}</div>
-                      </>
-                    ) : <div className="ttb-bar" />}
-                  </div>
-                );
-              })}
+
+          <div className="plat-block">
+            {genreList.length > 0 && (
+              <div><span className="plat-label">Genres</span><div className="igdb-chips">{genreList.map((x) => <span className="pill" key={x}>{x}</span>)}</div></div>
+            )}
+            {(game.platforms?.length ?? 0) > 0 && (
+              <div><span className="plat-label">Released on</span><div className="igdb-chips">{game.platforms!.map((x) => <span className="pill plain" key={x}>{x}</span>)}</div></div>
+            )}
+            {playedOn.length > 0 && (
+              <div><span className="plat-label">Played on</span>
+                <div className="igdb-chips">{playedOn.map((x) => <span className={emulated.includes(x) ? "pill emu" : "pill success"} key={x}>{x}{emulated.includes(x) ? " · Emulated" : ""}</span>)}</div>
+              </div>
+            )}
+          </div>
+
+          {tiles.some((t) => t.sec) && (
+            <div className="ttb-wrap">
+              <p className="eyebrow">TIME TO BEAT</p>
+              <div className="ttb-tiles">
+                {tiles.map((t) => {
+                  const Icon = t.icon;
+                  const v = t.sec ? formatHours(t.sec).replace("h", "") : "—";
+                  return (
+                    <div className={`ttb-tile ${t.cls}`} key={t.label}>
+                      <span className="ttb-icon"><Icon size={16} /></span>
+                      <strong>{v}{t.sec ? <small>hrs</small> : null}</strong>
+                      <span className="ttb-label">{t.label}</span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
         </section>

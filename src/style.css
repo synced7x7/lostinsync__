@@ -2882,50 +2882,215 @@ nav {
     font-size: 19px
 }
 
-.ttb-list {
+.score-box {
+    display: grid;
+    justify-items: center;
+    gap: 4px;
+    text-align: center
+}
+
+.score-box .rating-ring strong {
+    font-size: 17px
+}
+
+.score-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 1.2px;
+    color: var(--accent)
+}
+
+.score-box small {
+    font-size: 9px;
+    color: var(--dim)
+}
+
+.plat-block {
     display: grid;
     gap: 14px;
+    margin-top: 18px
+}
+
+.plat-label {
+    display: block;
+    font-size: 10px;
+    color: var(--muted);
+    margin-bottom: 7px
+}
+
+.pill.plain {
+    color: var(--muted);
+    background: rgba(255, 255, 255, .06)
+}
+
+.pill.emu {
+    color: #f4c679;
+    background: rgba(244, 198, 121, .12)
+}
+
+.ttb-wrap {
     margin-top: 22px;
     padding-top: 18px;
     border-top: 1px solid var(--line-soft)
 }
 
-.ttb-row-top {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
+.ttb-wrap .eyebrow {
+    margin-bottom: 12px
+}
+
+.ttb-tiles {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px
+}
+
+.ttb-tile {
+    --c: var(--accent);
+    position: relative;
+    border-radius: 14px;
+    padding: 16px;
+    border: 1px solid var(--line-soft);
+    background: linear-gradient(160deg, color-mix(in srgb, var(--c) 14%, transparent), rgba(255, 255, 255, .02));
+    overflow: hidden
+}
+
+.ttb-tile.avg { --c: var(--cyan) }
+.ttb-tile.main { --c: var(--accent) }
+.ttb-tile.full { --c: #f4c679 }
+
+.ttb-icon {
+    width: 30px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+    border-radius: 9px;
+    color: var(--c);
+    background: color-mix(in srgb, var(--c) 16%, transparent)
+}
+
+.ttb-tile strong {
+    display: block;
+    font-size: 30px;
+    letter-spacing: -1px;
+    margin: 14px 0 2px;
+    color: var(--c)
+}
+
+.ttb-tile strong small {
+    font-size: 12px;
+    letter-spacing: 0;
+    margin-left: 4px;
+    color: var(--muted)
+}
+
+.ttb-label {
     font-size: 11px;
     color: var(--muted)
 }
 
-.ttb-row-top strong {
-    color: var(--text);
-    font-size: 15px
+/* platform picker */
+.pf {
+    position: relative;
+    min-width: 0;
+    margin: 8px 0
 }
 
-.ttb-bar {
-    height: 8px;
-    border-radius: 8px;
-    background: rgba(255, 255, 255, .07);
-    overflow: hidden;
-    margin: 7px 0 5px
-}
-
-.ttb-bar i {
+.pf-label {
     display: block;
-    height: 100%;
-    border-radius: 8px;
-    background: linear-gradient(90deg, var(--accent-strong), var(--cyan));
-    transition: width .5s
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 7px
 }
 
-.ttb-bar i.done {
-    background: linear-gradient(90deg, #4cc99a, var(--success))
+.pf-box {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: rgba(8, 10, 19, .52);
+    padding: 6px 8px
 }
 
-.ttb-foot {
+.pf-box:focus-within {
+    border-color: var(--accent)
+}
+
+.pf-box input {
+    border: 0;
+    background: transparent;
+    padding: 6px 4px;
+    font-size: 12px
+}
+
+.pf-box input:focus {
+    outline: 0
+}
+
+.pf-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    max-height: 64px;
+    overflow-y: auto;
+    padding-bottom: 4px;
+    scrollbar-width: thin
+}
+
+.pf-chip button {
+    background: transparent;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    opacity: .7
+}
+
+.pf-chip button:hover {
+    opacity: 1
+}
+
+.pf-menu {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 100%;
+    margin-top: 4px;
+    z-index: 20;
+    max-height: 200px;
+    overflow-y: auto;
+    border-radius: 10px;
+    padding: 5px;
+    background: var(--panel-strong);
+    scrollbar-width: thin
+}
+
+.pf-menu button {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: transparent;
+    padding: 7px 9px;
+    border-radius: 7px;
+    font-size: 11px;
+    color: var(--text)
+}
+
+.pf-menu button:hover {
+    background: rgba(164, 149, 255, .16)
+}
+
+.pf-hint {
+    display: block;
+    font-size: 9px;
+    color: var(--dim);
+    margin-top: 4px
+}
+
+.emu-note {
+    margin: 0 0 4px;
     font-size: 10px;
-    color: var(--dim)
+    color: #f4c679
+}
+
+@media (max-width: 750px) {
+    .ttb-tiles { grid-template-columns: 1fr }
 }
 
 .journey-grid {

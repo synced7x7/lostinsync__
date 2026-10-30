@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import {
   Activity,
   Award,
@@ -14,6 +14,7 @@ import {
   Shield,
   Star,
   Zap,
+  X,
 } from "lucide-react";
 import { formatPlaytime } from "../domain/game";
 import type { AppData, Game } from "../domain/game";
@@ -474,5 +475,59 @@ export function DateField({
       </div>
       {invalid && <span className="date-error">{invalid}</span>}
     </label>
+  );
+}
+
+export function PlatformPicker({
+  label, value, onChange, options, hint,
+}: {
+  label: string;
+  value: string[];
+  onChange: (v: string[]) => void;
+  options: string[];
+  hint?: string;
+}) {
+  const [q, setQ] = useState("");
+  const [open, setOpen] = useState(false);
+  const list = useMemo(
+    () => options.filter((o) => !value.includes(o) && o.toLowerCase().includes(q.toLowerCase())).slice(0, 40),
+    [options, value, q]
+  );
+  const add = (o: string) => { onChange([...value, o]); setQ(""); };
+  return (
+    <div className="pf">
+      <span className="pf-label">{label}</span>
+      <div className="pf-box">
+        {value.length > 0 && (
+          <div className="pf-chips">
+            {value.map((v) => (
+              <span className="pill pf-chip" key={v}>
+                {v}
+                <button type="button" onClick={() => onChange(value.filter((x) => x !== v))}><X size={10} /></button>
+              </span>
+            ))}
+          </div>
+        )}
+        <input
+          value={q}
+          placeholder={value.length ? "Add more…" : "Search platforms…"}
+          onFocus={() => setOpen(true)}
+          onBlur={() => setTimeout(() => setOpen(false), 120)}
+          onChange={(e) => { setQ(e.target.value); setOpen(true); }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") { e.preventDefault(); if (list[0]) add(list[0]); }
+            if (e.key === "Backspace" && !q && value.length) onChange(value.slice(0, -1));
+          }}
+        />
+      </div>
+      {open && list.length > 0 && (
+        <div className="pf-menu glass">
+          {list.map((o) => (
+            <button type="button" key={o} onMouseDown={(e) => { e.preventDefault(); add(o); }}>{o}</button>
+          ))}
+        </div>
+      )}
+      {hint && <span className="pf-hint">{hint}</span>}
+    </div>
   );
 }

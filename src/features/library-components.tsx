@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { ChevronRight, Gamepad2, Heart, Plus, X } from "lucide-react";
 import { formatCount, formatHours, formatPlaytime, STATUSES, validateGame, type Game, type Status } from "../domain/game";
-import { DateField, MasteryProgress, StarRating, type SaveGame } from "../components/shared";
 import { hasTauri, igdbDetails, igdbSearch, type IgdbCreds, type IgdbGame, type IgdbHit } from "../data/igdb";
 import { createPortal } from "react-dom";
+import { DateField, MasteryProgress, PlatformPicker, StarRating, type SaveGame } from "../components/shared";
+import { ALL_PLATFORMS, emulatedOn, PC } from "../data/platform";
 
 const now = () => new Date().toISOString();
 
@@ -16,7 +17,12 @@ export function GameCard({ game, layout, open, save }: { game: Game; layout: "gr
 
 export function AddGame({ onClose, onAdd, igdb, initial }: { onClose: () => void; onAdd: (game: Game) => void; igdb: IgdbCreds; initial?: Game }) {
   const [title, setTitle] = useState(initial?.title ?? "");
-  const [platform, setPlatform] = useState(initial?.platform ?? "PC");
+  const [played, setPlayed] = useState<string[]>(
+    initial?.playedPlatforms ?? (initial?.platform ? [initial.platform === "PC" ? PC : initial.platform] : [])
+  );
+  const [released, setReleased] = useState<string[]>(initial?.platforms ?? []);
+  const options = useMemo(() => [...new Set([...ALL_PLATFORMS, ...released, ...played])], [released, played]);
+  const emu = emulatedOn(played, released);
   const [genre, setGenre] = useState(initial?.genre ?? "");
   const [status, setStatus] = useState<Status>(initial?.status ?? "Backlog");
   const [rating, setRating] = useState(initial?.rating ?? 0);
@@ -61,7 +67,8 @@ export function AddGame({ onClose, onAdd, igdb, initial }: { onClose: () => void
       setReleaseDate(g.releaseTs ? new Date(g.releaseTs * 1000).toISOString().slice(0, 10) : "");
       setDescription(g.description ?? "");
       setGenre(g.genres.join(", "));
-      setPlatform(g.platforms[0] ?? platform);
+      setReleased(g.platforms);
+      setPlayed((p) => p.length ? p : [g.platforms.includes(PC) ? PC : g.platforms[0]].filter(Boolean));
       setCover(g.cover);
       setBackgroundCover(g.background);
     } catch (e) { setError(String(e)); }
@@ -89,7 +96,7 @@ export function AddGame({ onClose, onAdd, igdb, initial }: { onClose: () => void
   };
 
   const submit = () => {
-    const issue = validateGame(title, platform);
+    const issue = validateGame(title, played[0] ?? "");
     if (issue) { setError(issue); return; }
     if (startedAt && finishedAt && finishedAt < startedAt) { setError("Completion date cannot be before the starting date."); return; }
     const totalSeconds = (Math.max(0, Number(hours) || 0) * 3600) + (Math.min(59, Math.max(0, Number(minutes) || 0)) * 60);
@@ -97,7 +104,9 @@ export function AddGame({ onClose, onAdd, igdb, initial }: { onClose: () => void
       ...initial,
       id: initial?.id ?? crypto.randomUUID(),
       title: title.trim(),
-      platform: platform.trim(),
+      platform: played[0] ?? "",
+      playedPlatforms: played,
+      emulatedOn: emu,
       genre: genre.trim(),
       tags: initial?.tags ?? [],
       status,
@@ -115,7 +124,7 @@ export function AddGame({ onClose, onAdd, igdb, initial }: { onClose: () => void
       releaseDate: releaseDate || undefined,
       description: description.trim() || undefined,
       genres: picked?.genres ?? initial?.genres,
-      platforms: picked?.platforms ?? initial?.platforms,
+      platforms: released,
       igdbId: picked?.id ?? initial?.igdbId,
       igdbRating: picked?.rating ?? initial?.igdbRating,
       igdbRatingCount: picked?.ratingCount ?? initial?.igdbRatingCount,
@@ -178,9 +187,11 @@ export function AddGame({ onClose, onAdd, igdb, initial }: { onClose: () => void
             </div>
             <label>Description<textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="About the game…" /></label>
             <div className="form-grid">
-              <label>Platform<input value={platform} onChange={(e) => setPlatform(e.target.value)} placeholder="PC, Switch…" /></label>
-              <label>Genre<input value={genre} onChange={(e) => setGenre(e.target.value)} placeholder="RPG, strategy…" /></label>
+              <PlatformPicker label="Released on" value={released} onChange={setReleased} options={options} hint="Platforms the game came out for" />
+              <PlatformPicker label="Played on" value={played} onChange={setPlayed} options={options} hint="Where you played it" />
             </div>
+            {emu.length > 0 && <p className="emu-note">Emulation detected: {emu.join(", ")}</p>}
+            <label>Genre<input value={genre} onChange={(e) => setGenre(e.target.value)} placeholder="RPG, strategy…" /></label>
             <label>Personal note<textarea style={{ height: 56, minHeight: 56 }} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Your thoughts on this game…" /></label>
             {picked && <p className="muted add-igdb">IGDB {picked.rating ?? "—"}/100 · {formatCount(picked.ratingCount)} ratings · Avg {formatHours(picked.timeAvg)} · Main {formatHours(picked.timeMain)} · 100% {formatHours(picked.timeFull)}</p>}
           </div>
