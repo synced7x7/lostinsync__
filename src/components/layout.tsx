@@ -1,4 +1,15 @@
-import { Activity, BookOpen, ChevronRight, Gamepad2, LayoutDashboard, Search, Settings, UserRound, X } from "lucide-react";
+import { useState } from "react";
+import {
+  Activity,
+  BookOpen,
+  ChevronLeft,
+  ChevronRight,
+  Gamepad2,
+  LayoutDashboard,
+  Settings,
+  UserRound,
+  X,
+} from "lucide-react";
 import type { AppData, View } from "../domain/game";
 
 export const navigation: { id: View; label: string; icon: typeof Activity }[] = [
@@ -27,7 +38,6 @@ export function AppLayout({
     <div className="app-shell">
       <Sidebar data={data} view={view} onNavigate={onNavigate} />
       <main className="main">
-        <Topbar data={data} view={view} onNavigate={onNavigate} />
         {error && (
           <div className="toast error">
             <X size={15} />
@@ -49,49 +59,95 @@ function Sidebar({
   view: View;
   onNavigate: (view: View) => void;
 }) {
-  return (
-    <aside className="sidebar">
-      <div className="brand">
-        <span className="brand-mark"><Gamepad2 size={20} /></span>
-        <span>LOST IN SYNC<small>PERSONAL GAME OS</small></span>
-      </div>
-      <div className="profile-mini">
-        <div className="avatar">{data.profile.displayName.slice(0, 1)}</div>
-        <div><strong>{data.profile.displayName}</strong><span>Offline profile</span></div>
-      </div>
-      <nav>
-        {navigation.map(({ id, label, icon: Icon }) => (
-          <button key={id} className={view === id ? "nav-item active" : "nav-item"} onClick={() => onNavigate(id)}>
-            <Icon size={17} />{label}
-            {id === "library" && data.games.length > 0 && <em>{data.games.length}</em>}
-          </button>
-        ))}
-      </nav>
-      <div className="sidebar-bottom">
-        <div className="offline"><span></span> Local-first workspace</div>
-        <small>v0.1.0 · Everything stays yours</small>
-      </div>
-    </aside>
-  );
-}
+  const [isOpen, setIsOpen] = useState(false);
 
-function Topbar({
-  data,
-  view,
-  onNavigate,
-}: {
-  data: AppData;
-  view: View;
-  onNavigate: (view: View) => void;
-}) {
+  const handleNavigate = (id: View) => {
+    onNavigate(id);
+    if (typeof window !== "undefined" && window.innerWidth <= 750) {
+      setIsOpen(false);
+    }
+  };
+
   return (
-    <header className="topbar">
-      <div className="crumb"><span>Workspace</span><ChevronRight size={14}/><strong>{navigation.find((item) => item.id === view)?.label}</strong></div>
-      <div className="top-actions">
-        <div className="top-search"><Search size={16}/><span>Quick find</span><kbd>⌘ K</kbd></div>
-        <button className="icon-btn" onClick={() => onNavigate("settings")} aria-label="Settings"><Settings size={18}/></button>
-        <button className="avatar small" onClick={() => onNavigate("profile")}>{data.profile.displayName.slice(0, 1)}</button>
-      </div>
-    </header>
+    <>
+      {isOpen && (
+        <div
+          className="sidebar-backdrop"
+          onClick={() => setIsOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+      <aside
+        className={`sidebar ${isOpen ? "open" : "closed"}`}
+        aria-label="Sidebar navigation"
+      >
+        <div className="sidebar-header">
+          <div
+            className="brand"
+            onClick={() => !isOpen && setIsOpen(true)}
+            title={isOpen ? "Lost in Sync" : "Lost in Sync (Click to expand)"}
+            style={{ cursor: !isOpen ? "pointer" : "default" }}
+          >
+            <span className="brand-mark">
+              <Gamepad2 size={20} />
+            </span>
+            {isOpen && (
+              <span className="brand-text">
+                LOST IN SYNC
+                <small>PERSONAL GAME OS</small>
+              </span>
+            )}
+          </div>
+          <button
+            type="button"
+            className="sidebar-toggle"
+            onClick={() => setIsOpen((prev) => !prev)}
+            title={isOpen ? "Collapse sidebar" : "Expand sidebar"}
+            aria-label={isOpen ? "Collapse sidebar" : "Expand sidebar"}
+            aria-expanded={isOpen}
+          >
+            {isOpen ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
+          </button>
+        </div>
+
+        <div className="profile-mini" title={data.profile.displayName}>
+          <div className="avatar">{data.profile.displayName.slice(0, 1)}</div>
+          {isOpen && (
+            <div className="profile-info">
+              <strong>{data.profile.displayName}</strong>
+              <span>Offline profile</span>
+            </div>
+          )}
+        </div>
+
+        <nav>
+          {navigation.map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              className={view === id ? "nav-item active" : "nav-item"}
+              onClick={() => handleNavigate(id)}
+              title={label}
+              aria-label={label}
+            >
+              <Icon size={18} />
+              {isOpen && <span className="nav-label">{label}</span>}
+              {isOpen && id === "library" && data.games.length > 0 && (
+                <em>{data.games.length}</em>
+              )}
+            </button>
+          ))}
+        </nav>
+
+        <div className="sidebar-bottom">
+          <div className="offline">
+            <span title="Local-first workspace"></span>
+            {isOpen && (
+              <span className="sidebar-bottom-text">Local-first workspace</span>
+            )}
+          </div>
+          {isOpen && <small>v0.1.0 · Everything stays yours</small>}
+        </div>
+      </aside>
+    </>
   );
 }

@@ -63,7 +63,7 @@ The `$env:Path` line applies Rust to the current PowerShell session. To add it p
 
 ## Architecture
 
-- `src/domain` contains status values, validation, and timestamp-based duration rules.
+- `src/domain` contains status values, validation, and playtime formatting rules.
 - `src/data` contains the repository contract and a browser persistence adapter.
 - `src/main.tsx` coordinates application state and screen selection.
 - `src/components/` contains the shared layout, navigation, headers, cards, and feedback components.
