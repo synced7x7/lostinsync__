@@ -1,3 +1,4 @@
+
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Lost in Sync",
@@ -20,7 +21,7 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src 'self'; img-src 'self' data: asset: https://images.igdb.com https://img.youtube.com https://i.ytimg.com; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' ipc: http://ipc.localhost https://api.igdb.com https://id.twitch.tv; font-src 'self' data:;"
     }
   },
   "bundle": {

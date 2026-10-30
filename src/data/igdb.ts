@@ -3,7 +3,8 @@ export type IgdbHit = { id: number; name: string; releaseTs?: number; developer?
 export type IgdbGame = {
   id: number; name: string; developer?: string; releaseTs?: number; description?: string;
   genres: string[]; platforms: string[]; rating?: number; ratingCount?: number;
-  timeAvg?: number; timeMain?: number; timeFull?: number; cover?: string; background?: string;
+  timeAvg?: number; timeMain?: number; timeFull?: number; cover?: string; background?: string;   
+  videos: { videoId: string; name?: string }[]; screenshots: string[];
 };
 
 export const hasTauri = "__TAURI_INTERNALS__" in globalThis;

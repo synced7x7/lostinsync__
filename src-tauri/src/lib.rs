@@ -1,10 +1,10 @@
 #![allow(dead_code)]
 
-use rusqlite::{Connection, OptionalExtension, params};
-use serde::{Deserialize, Serialize};
+use rusqlite::{ Connection, OptionalExtension, params };
+use serde::{ Deserialize, Serialize };
 use serde_json::Value;
 use std::sync::Mutex;
-use std::time::{Duration, Instant};
+use std::time::{ Duration, Instant };
 use tauri::Manager;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -28,6 +28,17 @@ struct Game {
     created_at: String,
     started_at: Option<String>,
     finished_at: Option<String>,
+
+    #[serde(default)]
+    videos: Vec<Video>,
+    #[serde(default)]
+    screenshots: Vec<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct Video {
+    id: String,
+    name: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -90,50 +101,46 @@ fn migrate(connection: &Connection) -> Result<(), rusqlite::Error> {
          CREATE TABLE IF NOT EXISTS app_state (
            id INTEGER PRIMARY KEY CHECK (id = 1),
            data_json TEXT NOT NULL
-         );",
+         );"
     )?;
     let applied: i64 = connection.query_row(
         "SELECT COUNT(*) FROM schema_migrations WHERE version = 1",
         [],
-        |row| row.get(0),
+        |row| row.get(0)
     )?;
     if applied == 0 {
         connection.execute_batch(
             "INSERT INTO schema_migrations (version, applied_at)
-             VALUES (1, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));",
+             VALUES (1, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));"
         )?;
     }
     Ok(())
 }
 
 #[tauri::command]
-fn load_app_data(database: tauri::State<'_, Database>) -> Result<Option<serde_json::Value>, String> {
-    let connection = database
-        .0
-        .lock()
-        .map_err(|_| "Database lock failed".to_string())?;
+fn load_app_data(
+    database: tauri::State<'_, Database>
+) -> Result<Option<serde_json::Value>, String> {
+    let connection = database.0.lock().map_err(|_| "Database lock failed".to_string())?;
     let json: Option<String> = connection
-        .query_row("SELECT data_json FROM app_state WHERE id = 1", [], |row| {
-            row.get(0)
-        })
+        .query_row("SELECT data_json FROM app_state WHERE id = 1", [], |row| { row.get(0) })
         .optional()
         .map_err(|error| error.to_string())?;
-    json.map(|value| serde_json::from_str(&value).map_err(|error| error.to_string()))
-        .transpose()
+    json.map(|value| serde_json::from_str(&value).map_err(|error| error.to_string())).transpose()
 }
 
 #[tauri::command]
-fn save_app_data(database: tauri::State<'_, Database>, data: serde_json::Value) -> Result<(), String> {
-    let connection = database
-        .0
-        .lock()
-        .map_err(|_| "Database lock failed".to_string())?;
+fn save_app_data(
+    database: tauri::State<'_, Database>,
+    data: serde_json::Value
+) -> Result<(), String> {
+    let connection = database.0.lock().map_err(|_| "Database lock failed".to_string())?;
     let json = serde_json::to_string(&data).map_err(|error| error.to_string())?;
     connection
         .execute(
             "INSERT INTO app_state (id, data_json) VALUES (1, ?1)
              ON CONFLICT(id) DO UPDATE SET data_json = excluded.data_json",
-            params![json],
+            params![json]
         )
         .map(|_| ())
         .map_err(|error| error.to_string())
@@ -153,6 +160,13 @@ struct IgdbHit {
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
+struct IgdbVideo {
+    video_id: String,
+    name: Option<String>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct IgdbGame {
     id: i64,
     name: String,
@@ -168,6 +182,8 @@ struct IgdbGame {
     time_full: Option<i64>,
     cover: Option<String>,
     background: Option<String>,
+    videos: Vec<IgdbVideo>,
+    screenshots: Vec<String>,
 }
 
 fn img(id: &str, size: &str) -> String {
@@ -185,7 +201,12 @@ fn developer_of(v: &Value) -> Option<String> {
 
 fn names(v: &Value) -> Vec<String> {
     v.as_array()
-        .map(|a| a.iter().filter_map(|x| x["name"].as_str().map(String::from)).collect())
+        .map(|a|
+            a
+                .iter()
+                .filter_map(|x| x["name"].as_str().map(String::from))
+                .collect()
+        )
         .unwrap_or_default()
 }
 
@@ -196,15 +217,17 @@ async fn igdb_token(auth: &IgdbAuth, client_id: &str, secret: &str) -> Result<St
             return Ok(token.clone());
         }
     }
-    let res = reqwest::Client::new()
+    let res = reqwest::Client
+        ::new()
         .post("https://id.twitch.tv/oauth2/token")
-        .query(&[
-            ("client_id", client_id),
-            ("client_secret", secret),
-            ("grant_type", "client_credentials"),
-        ])
-        .send()
-        .await
+        .query(
+            &[
+                ("client_id", client_id),
+                ("client_secret", secret),
+                ("grant_type", "client_credentials"),
+            ]
+        )
+        .send().await
         .map_err(|e| e.to_string())?;
     if !res.status().is_success() {
         return Err("IGDB login failed. Check your Client ID and Secret in Settings.".into());
@@ -217,16 +240,20 @@ async fn igdb_token(auth: &IgdbAuth, client_id: &str, secret: &str) -> Result<St
 }
 
 async fn igdb_post(
-    auth: &IgdbAuth, endpoint: &str, body: String, client_id: &str, secret: &str,
+    auth: &IgdbAuth,
+    endpoint: &str,
+    body: String,
+    client_id: &str,
+    secret: &str
 ) -> Result<Value, String> {
     let token = igdb_token(auth, client_id, secret).await?;
-    let res = reqwest::Client::new()
+    let res = reqwest::Client
+        ::new()
         .post(format!("https://api.igdb.com/v4/{endpoint}"))
         .header("Client-ID", client_id)
         .bearer_auth(token)
         .body(body)
-        .send()
-        .await
+        .send().await
         .map_err(|e| e.to_string())?;
     if res.status().as_u16() == 401 {
         *auth.0.lock().await = None;
@@ -240,35 +267,43 @@ async fn igdb_post(
 
 #[tauri::command]
 async fn igdb_search(
-    auth: tauri::State<'_, IgdbAuth>, query: String, client_id: String, client_secret: String,
+    auth: tauri::State<'_, IgdbAuth>,
+    query: String,
+    client_id: String,
+    client_secret: String
 ) -> Result<Vec<IgdbHit>, String> {
     let q = query.replace('"', "").replace('\\', "");
     let body = format!(
         "search \"{q}\"; fields name,first_release_date,cover.image_id,involved_companies.developer,involved_companies.company.name; where version_parent = null; limit 8;"
     );
     let rows = igdb_post(&auth, "games", body, &client_id, &client_secret).await?;
-    Ok(rows
-        .as_array()
-        .map(|a| {
-            a.iter()
-                .map(|g| IgdbHit {
-                    id: g["id"].as_i64().unwrap_or(0),
-                    name: g["name"].as_str().unwrap_or("").to_string(),
-                    release_ts: g["first_release_date"].as_i64(),
-                    developer: developer_of(g),
-                    cover: g["cover"]["image_id"].as_str().map(|i| img(i, "cover_small")),
-                })
-                .collect()
-        })
-        .unwrap_or_default())
+    Ok(
+        rows
+            .as_array()
+            .map(|a| {
+                a.iter()
+                    .map(|g| IgdbHit {
+                        id: g["id"].as_i64().unwrap_or(0),
+                        name: g["name"].as_str().unwrap_or("").to_string(),
+                        release_ts: g["first_release_date"].as_i64(),
+                        developer: developer_of(g),
+                        cover: g["cover"]["image_id"].as_str().map(|i| img(i, "cover_small")),
+                    })
+                    .collect()
+            })
+            .unwrap_or_default()
+    )
 }
 
 #[tauri::command]
 async fn igdb_details(
-    auth: tauri::State<'_, IgdbAuth>, id: i64, client_id: String, client_secret: String,
+    auth: tauri::State<'_, IgdbAuth>,
+    id: i64,
+    client_id: String,
+    client_secret: String
 ) -> Result<IgdbGame, String> {
     let body = format!(
-        "fields name,summary,first_release_date,genres.name,platforms.name,total_rating,total_rating_count,cover.image_id,artworks.image_id,screenshots.image_id,involved_companies.developer,involved_companies.company.name; where id = {id};"
+        "fields name,summary,first_release_date,genres.name,platforms.name,total_rating,total_rating_count,cover.image_id,artworks.image_id,screenshots.image_id,videos.video_id,videos.name,involved_companies.developer,involved_companies.company.name; where id = {id};"
     );
     let rows = igdb_post(&auth, "games", body, &client_id, &client_secret).await?;
     let g = rows.get(0).ok_or("Game not found on IGDB.")?;
@@ -277,14 +312,27 @@ async fn igdb_details(
         "game_time_to_beats",
         format!("fields hastily,normally,completely; where game_id = {id};"),
         &client_id,
-        &client_secret,
-    )
-    .await
-    .unwrap_or(Value::Null);
+        &client_secret
+    ).await.unwrap_or(Value::Null);
     let t = ttb.get(0).cloned().unwrap_or(Value::Null);
-    let bg = g["artworks"][0]["image_id"]
-        .as_str()
-        .or(g["screenshots"][0]["image_id"].as_str());
+    let bg = g["artworks"][0]["image_id"].as_str().or(g["screenshots"][0]["image_id"].as_str());
+        let videos: Vec<IgdbVideo> = g["videos"]
+        .as_array()
+        .map(|a| {
+            a.iter()
+                .filter_map(|v| {
+                    Some(IgdbVideo {
+                        video_id: v["video_id"].as_str()?.to_string(),
+                        name: v["name"].as_str().map(String::from),
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    let screenshots: Vec<String> = g["screenshots"]
+        .as_array()
+        .map(|a| a.iter().filter_map(|s| s["image_id"].as_str().map(|i| img(i, "screenshot_big"))).collect())
+        .unwrap_or_default();
     Ok(IgdbGame {
         id,
         name: g["name"].as_str().unwrap_or("").to_string(),
@@ -300,12 +348,15 @@ async fn igdb_details(
         time_full: t["completely"].as_i64(),
         cover: g["cover"]["image_id"].as_str().map(|i| img(i, "cover_big")),
         background: bg.map(|i| img(i, "1080p")),
+        videos, 
+        screenshots,
     })
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    tauri::Builder
+        ::default()
         .setup(|app| {
             let path = app.path().app_data_dir()?.join("lost-in-sync.sqlite");
             std::fs::create_dir_all(path.parent().expect("database path has a parent"))?;
@@ -314,15 +365,17 @@ pub fn run() {
             app.manage(Database(Mutex::new(connection)));
             app.manage(IgdbAuth(tauri::async_runtime::Mutex::new(None)));
             if cfg!(debug_assertions) {
-                app.handle().plugin(
-                    tauri_plugin_log::Builder::default()
-                        .level(log::LevelFilter::Info)
-                        .build(),
-                )?;
+                app
+                    .handle()
+                    .plugin(
+                        tauri_plugin_opener::init(),
+                    )?;
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![load_app_data, save_app_data, igdb_search, igdb_details])
+        .invoke_handler(
+            tauri::generate_handler![load_app_data, save_app_data, igdb_search, igdb_details]
+        )
         .run(tauri::generate_context!())
         .expect("error while building tauri application");
 }

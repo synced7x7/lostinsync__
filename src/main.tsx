@@ -45,6 +45,7 @@ import { AppLayout } from "./components/layout";
 import { Dashboard } from "./features/dashboard";
 import { ActivityView } from "./features/activity";
 import { AddGame } from "./features/library-components";
+import { MediaSection } from "./features/media";
 
 
 const repo = createAppRepository();
@@ -574,6 +575,8 @@ function Details({
           <div style={{ marginTop: 12 }}><MasteryProgress value={game.mastery} readOnly /></div>
         </section>
       </div>
+
+      <MediaSection game={game} save={saveGame} />
 
       <section className="glass note-card" onClick={() => setEditing(true)} title="Edit note">
         <Lock size={15} />
