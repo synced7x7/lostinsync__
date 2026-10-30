@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { ChevronRight, Gamepad2, Heart, Plus, X } from "lucide-react";
 import { formatCount, formatHours, formatPlaytime, STATUSES, validateGame, type Game, type Status } from "../domain/game";
-import { DateField, StarRating, type SaveGame } from "../components/shared";
+import { DateField, MasteryProgress, StarRating, type SaveGame } from "../components/shared";
 import { hasTauri, igdbDetails, igdbSearch, type IgdbCreds, type IgdbGame, type IgdbHit } from "../data/igdb";
 import { createPortal } from "react-dom";
 
@@ -14,23 +14,25 @@ export function GameCard({ game, layout, open, save }: { game: Game; layout: "gr
   </article>;
 }
 
-export function AddGame({ onClose, onAdd, igdb }: { onClose: () => void; onAdd: (game: Game) => void; igdb: IgdbCreds }) {
-  const [title, setTitle] = useState("");
-  const [platform, setPlatform] = useState("PC");
-  const [genre, setGenre] = useState("");
-  const [status, setStatus] = useState<Status>("Backlog");
-  const [rating, setRating] = useState(0);
-  const [startedAt, setStartedAt] = useState("");
-  const [finishedAt, setFinishedAt] = useState("");
-  const [hours, setHours] = useState("0");
-  const [minutes, setMinutes] = useState("0");
-  const [cover, setCover] = useState<string>();
-  const [backgroundCover, setBackgroundCover] = useState<string>();
+export function AddGame({ onClose, onAdd, igdb, initial }: { onClose: () => void; onAdd: (game: Game) => void; igdb: IgdbCreds; initial?: Game }) {
+  const [title, setTitle] = useState(initial?.title ?? "");
+  const [platform, setPlatform] = useState(initial?.platform ?? "PC");
+  const [genre, setGenre] = useState(initial?.genre ?? "");
+  const [status, setStatus] = useState<Status>(initial?.status ?? "Backlog");
+  const [rating, setRating] = useState(initial?.rating ?? 0);
+  const [mastery, setMastery] = useState(initial?.mastery ?? 0);
+  const [notes, setNotes] = useState(initial?.notes ?? "");
+  const [startedAt, setStartedAt] = useState(initial?.startedAt ?? "");
+  const [finishedAt, setFinishedAt] = useState(initial?.finishedAt ?? "");
+  const [hours, setHours] = useState(String(Math.floor((initial?.totalSeconds ?? 0) / 3600)));
+  const [minutes, setMinutes] = useState(String(Math.floor(((initial?.totalSeconds ?? 0) % 3600) / 60)));
+  const [cover, setCover] = useState<string | undefined>(initial?.cover);
+  const [backgroundCover, setBackgroundCover] = useState<string | undefined>(initial?.backgroundCover);
+  const [developer, setDeveloper] = useState(initial?.developer ?? "");
+  const [releaseDate, setReleaseDate] = useState(initial?.releaseDate ?? "");
+  const [description, setDescription] = useState(initial?.description ?? "");
   const [error, setError] = useState("");
 
-  const [developer, setDeveloper] = useState("");
-  const [releaseDate, setReleaseDate] = useState("");
-  const [description, setDescription] = useState("");
   const [hits, setHits] = useState<IgdbHit[]>([]);
   const [open, setOpen] = useState(false);
   const [searching, setSearching] = useState(false);
@@ -92,40 +94,42 @@ export function AddGame({ onClose, onAdd, igdb }: { onClose: () => void; onAdd: 
     if (startedAt && finishedAt && finishedAt < startedAt) { setError("Completion date cannot be before the starting date."); return; }
     const totalSeconds = (Math.max(0, Number(hours) || 0) * 3600) + (Math.min(59, Math.max(0, Number(minutes) || 0)) * 60);
     onAdd({
-      id: crypto.randomUUID(),
+      ...initial,
+      id: initial?.id ?? crypto.randomUUID(),
       title: title.trim(),
       platform: platform.trim(),
       genre: genre.trim(),
-      tags: [],
+      tags: initial?.tags ?? [],
       status,
-      notes: "",
+      notes: notes.trim(),
       rating: rating || undefined,
-      favorite: false,
+      mastery: mastery || undefined,
+      favorite: initial?.favorite ?? false,
       cover,
       backgroundCover,
       totalSeconds,
-      createdAt: now(),
+      createdAt: initial?.createdAt ?? now(),
       startedAt: startedAt || undefined,
       finishedAt: finishedAt || undefined,
       developer: developer.trim() || undefined,
       releaseDate: releaseDate || undefined,
       description: description.trim() || undefined,
-      genres: picked?.genres,
-      platforms: picked?.platforms,
-      igdbId: picked?.id,
-      igdbRating: picked?.rating,
-      igdbRatingCount: picked?.ratingCount,
-      timeAvgSeconds: picked?.timeAvg,
-      timeMainSeconds: picked?.timeMain,
-      timeFullSeconds: picked?.timeFull,
+      genres: picked?.genres ?? initial?.genres,
+      platforms: picked?.platforms ?? initial?.platforms,
+      igdbId: picked?.id ?? initial?.igdbId,
+      igdbRating: picked?.rating ?? initial?.igdbRating,
+      igdbRatingCount: picked?.ratingCount ?? initial?.igdbRatingCount,
+      timeAvgSeconds: picked?.timeAvg ?? initial?.timeAvgSeconds,
+      timeMainSeconds: picked?.timeMain ?? initial?.timeMainSeconds,
+      timeFullSeconds: picked?.timeFull ?? initial?.timeFullSeconds,
     });
   };
 
-   return createPortal(
+  return createPortal(
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal modal-wide glass" onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
-          <div><p className="eyebrow">NEW ENTRY</p><h2>Add a game</h2></div>
+          <div><p className="eyebrow">{initial ? "EDIT ENTRY" : "NEW ENTRY"}</p><h2>{initial ? "Edit game" : "Add a game"}</h2></div>
           <button className="icon-btn" onClick={onClose}><X size={18} /></button>
         </div>
 
@@ -177,6 +181,7 @@ export function AddGame({ onClose, onAdd, igdb }: { onClose: () => void; onAdd: 
               <label>Platform<input value={platform} onChange={(e) => setPlatform(e.target.value)} placeholder="PC, Switch…" /></label>
               <label>Genre<input value={genre} onChange={(e) => setGenre(e.target.value)} placeholder="RPG, strategy…" /></label>
             </div>
+            <label>Personal note<textarea style={{ height: 56, minHeight: 56 }} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Your thoughts on this game…" /></label>
             {picked && <p className="muted add-igdb">IGDB {picked.rating ?? "—"}/100 · {formatCount(picked.ratingCount)} ratings · Avg {formatHours(picked.timeAvg)} · Main {formatHours(picked.timeMain)} · 100% {formatHours(picked.timeFull)}</p>}
           </div>
 
@@ -194,12 +199,13 @@ export function AddGame({ onClose, onAdd, igdb }: { onClose: () => void; onAdd: 
               </select>
             </label>
             <StarRating value={rating || undefined} onChange={(r) => setRating(r ?? 0)} size={16} />
+            <MasteryProgress value={mastery} onChange={setMastery} />
           </div>
         </div>
 
         <div className="add-footer">
           <p className="error">{error}</p>
-          <button className="button primary full" onClick={submit}><Plus size={17} /> Add to collection</button>
+          <button className="button primary full" onClick={submit}><Plus size={17} /> {initial ? "Save changes" : "Add to collection"}</button>
         </div>
       </div>
     </div>,

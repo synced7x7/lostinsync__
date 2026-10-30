@@ -20,6 +20,7 @@ import {
   Star,
   Trash2,
   Trophy,
+  Lock,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { createAppRepository } from "./data/repository";
@@ -39,7 +40,7 @@ import {
   type View,
 } from "./domain/game";
 import "./style.css";
-import { DateField, Empty, GameMini, Header, MasteryProgress, formatDate, StarRating, Stat } from "./components/shared";
+import { DateField, Empty, formatDate, GameMini, Header, MasteryProgress, StarRating, Stat } from "./components/shared";
 import { AppLayout } from "./components/layout";
 import { Dashboard } from "./features/dashboard";
 import { ActivityView } from "./features/activity";
@@ -132,7 +133,7 @@ function App() {
         <LibraryView data={data} update={update} addGame={addGame} saveGame={saveGame} deleteGame={deleteGame} openGame={(id) => { setSelectedId(id); setView("details"); }} />
       )}{" "}
       {view === "details" && selected && (
-        <Details game={selected} saveGame={saveGame} deleteGame={deleteGame} goBack={() => setView("library")} />
+        <Details game={selected} saveGame={saveGame} deleteGame={deleteGame} goBack={() => setView("library")} igdb={{ clientId: data.settings.igdbClientId ?? "", clientSecret: data.settings.igdbClientSecret ?? "" }} />
       )}{" "}
       {view === "activity" && <ActivityView data={data} />}{" "}
       {view === "profile" && (
@@ -450,17 +451,27 @@ function GridCard({
 
 
 function Details({
-  game, saveGame, deleteGame, goBack,
+  game, saveGame, deleteGame, goBack, igdb,
 }: {
   game: Game;
   saveGame: (game: Game, activity?: { type: "status" | "completed" | "started"; detail: string }) => void;
   deleteGame: (game: Game) => void;
   goBack: () => void;
+  igdb: { clientId: string; clientSecret: string };
 }) {
-  const [notes, setNotes] = useState(game.notes);
-  const [hours, setHours] = useState(String(Math.floor(game.totalSeconds / 3600)));
-  const [minutes, setMinutes] = useState(String(Math.floor((game.totalSeconds % 3600) / 60)));
-  const playtime = () => saveGame({ ...game, totalSeconds: Math.max(0, Number(hours) || 0) * 3600 + Math.min(59, Math.max(0, Number(minutes) || 0)) * 60 });
+  const [editing, setEditing] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const played = game.totalSeconds;
+  const days = game.startedAt && game.finishedAt
+    ? Math.round((Date.parse(game.finishedAt) - Date.parse(game.startedAt)) / 86400000) + 1
+    : undefined;
+  const ringColor = (game.igdbRating ?? 0) >= 75 ? "var(--success)" : (game.igdbRating ?? 0) >= 50 ? "#f4c679" : "var(--rose)";
+  const tiles = [
+    { label: "Average to complete", sec: game.timeAvgSeconds },
+    { label: "Main story", sec: game.timeMainSeconds },
+    { label: "100% completion", sec: game.timeFullSeconds },
+  ];
+  const hasAbout = game.description || game.igdbRating != null || game.developer || tiles.some((t) => t.sec);
   return (
     <>
       <button className="back-button" onClick={goBack}>← Back to library</button>
@@ -473,82 +484,98 @@ function Details({
           <h1>{game.title}</h1>
           <p>{game.platform} · {game.genre || "Uncategorized"}</p>
           <div className="detail-actions">
+            <button className="button primary" onClick={() => setEditing(true)}><PenLine size={16} /> Edit game</button>
             <button className="button soft" onClick={() => saveGame({ ...game, favorite: !game.favorite })}><Heart size={16} fill={game.favorite ? "currentColor" : "none"} /> {game.favorite ? "Favorited" : "Favorite"}</button>
-            <button className="button stop" onClick={() => deleteGame(game)}><Trash2 size={16} /> Delete game</button>
+            <button className="button stop" onClick={() => deleteGame(game)}><Trash2 size={16} /> Delete</button>
           </div>
         </div>
         <div className="detail-stat">
           <span>Verified time</span>
           <strong>{formatPlaytime(game.totalSeconds)}</strong>
-          <div className="detail-stat-rating">
-            {game.rating ? (
-              <span className="detail-stat-stars" title={`${game.rating}/10 rating`}>
-                <Star size={13} className="star-icon-gold" />
-                <strong>{game.rating}</strong>
-                <small>/10 rating</small>
-              </span>
-            ) : (
-              <small className="detail-stat-unrated">Not rated yet</small>
-            )}
-          </div>
-          {game.mastery !== undefined && game.mastery > 0 && (
-            <div className="detail-stat-mastery">
-              <span className="mastery-mini-badge">
-                <Trophy size={11} />
-                <strong>{game.mastery}%</strong>
-                <small>Mastery</small>
-              </span>
-            </div>
-          )}
+          <small>{game.rating ? `${game.rating}/10 rating` : "Not rated yet"}</small>
         </div>
       </div>
-      {(game.description || game.igdbRating || game.developer) && (
-        <section className="glass detail-panel" style={{ marginTop: 16 }}>
-          <p className="eyebrow">{game.developer ? `BY ${game.developer.toUpperCase()}` : "ABOUT"}{game.releaseDate ? ` · ${formatDate(game.releaseDate)}` : ""}</p>
-          {game.description && <p className="muted">{game.description}</p>}
-          <div className="igdb-stats">
-            {game.igdbRating != null && <div><span>IGDB rating</span><strong>{game.igdbRating}<small>/100</small></strong><small>{formatCount(game.igdbRatingCount)} ratings</small></div>}
-            <div><span>Average to complete</span><strong>{formatHours(game.timeAvgSeconds)}</strong></div>
-            <div><span>Main story</span><strong>{formatHours(game.timeMainSeconds)}</strong></div>
-            <div><span>100% completion</span><strong>{formatHours(game.timeFullSeconds)}</strong></div>
-          </div>
-          {(game.genres?.length || game.platforms?.length) ? <div className="igdb-chips">{[...(game.genres ?? []), ...(game.platforms ?? [])].map((x) => <span className="pill" key={x}>{x}</span>)}</div> : null}
-        </section>
-      )}
+
       <div className="detail-grid">
         <section className="glass detail-panel">
-          <div className="section-title">
-            <div><p className="eyebrow">PERSONAL NOTES</p><h2>Your thoughts</h2></div>
-            <button className="text-button" onClick={() => saveGame({ ...game, notes })}><Check size={14} /> Save</button>
+          <div className="about-head">
+            <div>
+              <p className="eyebrow">{game.developer ? `BY ${game.developer.toUpperCase()}` : "ABOUT"}{game.releaseDate ? ` · ${formatDate(game.releaseDate)}` : ""}</p>
+              <h2>About this game</h2>
+            </div>
+            {game.igdbRating != null && (
+              <div className="rating-ring" style={{ "--p": game.igdbRating, "--ring": ringColor } as React.CSSProperties}>
+                <strong>{game.igdbRating}</strong>
+              </div>
+            )}
           </div>
-          <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Share your thoughts..." />
+          {game.description
+            ? <>
+              <p className={`about-desc${expanded ? " open" : ""}`}>{game.description}</p>
+              {game.description.length > 260 && <button className="text-button" style={{ marginTop: 6 }} onClick={() => setExpanded(!expanded)}>{expanded ? "Show less" : "Read more"}</button>}
+            </>
+            : <p className="muted">No description yet. Tap Edit game to add one.</p>}
+          {game.igdbRating != null && <p className="ttb-foot" style={{ marginTop: 10 }}>IGDB score · {formatCount(game.igdbRatingCount)} ratings</p>}
+          {(game.genres?.length || game.platforms?.length) ? <div className="igdb-chips" style={{ marginTop: 14 }}>{[...(game.genres ?? []), ...(game.platforms ?? [])].map((x) => <span className="pill" key={x}>{x}</span>)}</div> : null}
+          {hasAbout && (
+            <div className="ttb-list">
+              <p className="eyebrow" style={{ margin: 0 }}>TIME TO BEAT · YOUR PLAYTIME VS AVERAGE PLAYER</p>
+              {tiles.map((t) => {
+                const pct = t.sec ? Math.min(100, Math.round((played / t.sec) * 100)) : 0;
+                return (
+                  <div key={t.label}>
+                    <div className="ttb-row-top"><span>{t.label}</span><strong>{t.sec ? formatHours(t.sec) : "No data"}</strong></div>
+                    {t.sec ? (
+                      <>
+                        <div className="ttb-bar"><i className={pct >= 100 ? "done" : ""} style={{ width: `${pct}%` }} /></div>
+                        <div className="ttb-foot">{pct >= 100 ? "You've reached this time" : `You've played ${formatPlaytime(played)} · ${pct}% of the way`}</div>
+                      </>
+                    ) : <div className="ttb-bar" />}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </section>
+
         <section className="glass detail-panel">
-          <p className="eyebrow">PROGRESS</p>
-          <h2>Personal assessment</h2>
-          <DateField label="Starting date" value={game.startedAt} max={game.finishedAt} onChange={(v) => saveGame({ ...game, startedAt: v })} />
-          <DateField label="Completion date" value={game.finishedAt} min={game.startedAt} onChange={(v) => saveGame({ ...game, finishedAt: v })} />
-
-          <StarRating
-            value={game.rating}
-            onChange={(rating) => saveGame({ ...game, rating })}
-          />
-
-          <MasteryProgress
-            value={game.mastery}
-            onChange={(mastery) => saveGame({ ...game, mastery })}
-          />
-
-          <label>Status
-            <select value={game.status} onChange={(e) => saveGame({ ...game, status: e.target.value as Status }, { type: "status", detail: e.target.value })}>
-              {STATUSES.map((item) => <option key={item}>{item}</option>)}
-            </select>
-          </label>
+          <div className="about-head">
+            <div><p className="eyebrow">MY JOURNEY</p><h2>Your progress</h2></div>
+            <button className="text-button" onClick={() => setEditing(true)}><PenLine size={14} /> Edit</button>
+          </div>
+          <div className="journey-grid">
+            <div><span>Status</span><strong>{game.status}</strong></div>
+            <div><span>Playtime</span><strong>{formatPlaytime(played)}</strong></div>
+            <div><span>Started</span><strong>{game.startedAt ? formatDate(game.startedAt) : "—"}</strong></div>
+            <div><span>Completed</span><strong>{game.finishedAt ? formatDate(game.finishedAt) : "—"}</strong></div>
+            {days != null && <div style={{ gridColumn: "span 2" }}><span>Time to finish</span><strong>{days} {days === 1 ? "day" : "days"}</strong></div>}
+          </div>
+          <StarRating value={game.rating} readOnly size={16} />
+          <div style={{ marginTop: 12 }}><MasteryProgress value={game.mastery} readOnly /></div>
         </section>
       </div>
+
+      <section className="glass note-card" onClick={() => setEditing(true)} title="Edit note">
+        <Lock size={15} />
+        <div>
+          <span className="eyebrow" style={{ margin: 0 }}>PERSONAL NOTE</span>
+          <p>{game.notes || "No note yet. Tap to add one."}</p>
+        </div>
+        <PenLine size={14} />
+      </section>
+
+      {editing && (
+        <AddGame
+          initial={game}
+          igdb={igdb}
+          onClose={() => setEditing(false)}
+          onAdd={(g) => { saveGame(g, g.status !== game.status ? { type: "status", detail: g.status } : undefined); setEditing(false); }}
+        />
+      )}
     </>
   );
 }
+
 function ProfileView({
   data, update, openGame,
 }: {
