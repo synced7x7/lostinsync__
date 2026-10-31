@@ -24,7 +24,7 @@ export function AddGame({ onClose, onAdd, igdb, initial }: { onClose: () => void
   const options = useMemo(() => [...new Set([...ALL_PLATFORMS, ...released, ...played])], [released, played]);
   const emu = emulatedOn(played, released);
   const [genre, setGenre] = useState(initial?.genre ?? "");
-  const [status, setStatus] = useState<Status>(initial?.status ?? "Backlog");
+  const [status, setStatus] = useState<Status>(initial?.status ?? "Completed");
   const [rating, setRating] = useState(initial?.rating ?? 0);
   const [mastery, setMastery] = useState(initial?.mastery ?? 0);
   const [notes, setNotes] = useState(initial?.notes ?? "");
@@ -132,7 +132,9 @@ export function AddGame({ onClose, onAdd, igdb, initial }: { onClose: () => void
       timeMainSeconds: picked?.timeMain ?? initial?.timeMainSeconds,
       timeFullSeconds: picked?.timeFull ?? initial?.timeFullSeconds,
       screenshots: picked?.screenshots ?? initial?.screenshots,
-            videos: (picked ? picked.videos.map((v) => ({ id: v.videoId, name: v.name })) : initial?.videos)?.slice(0, 3),
+      videos: (picked ? picked.videos.map((v) => ({ id: v.videoId, name: v.name })) : initial?.videos)?.slice(0, 3),
+      gameType: picked?.gameType ?? initial?.gameType,
+      gameStatus: picked?.gameStatus ?? initial?.gameStatus,
     });
   };
 

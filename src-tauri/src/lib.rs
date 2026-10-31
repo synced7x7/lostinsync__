@@ -2,10 +2,11 @@
 
 use rusqlite::{ Connection, OptionalExtension, params };
 use serde::{ Deserialize, Serialize };
-use serde_json::Value;
 use std::sync::Mutex;
 use std::time::{ Duration, Instant };
 use tauri::Manager;
+use serde_json::{ json, Value };
+use std::collections::HashSet;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -184,6 +185,8 @@ struct IgdbGame {
     background: Option<String>,
     videos: Vec<IgdbVideo>,
     screenshots: Vec<String>,
+    game_type: Option<String>,
+    game_status: Option<String>,
 }
 
 fn img(id: &str, size: &str) -> String {
@@ -303,7 +306,7 @@ async fn igdb_details(
     client_secret: String
 ) -> Result<IgdbGame, String> {
     let body = format!(
-        "fields name,summary,first_release_date,genres.name,platforms.name,total_rating,total_rating_count,cover.image_id,artworks.image_id,screenshots.image_id,videos.video_id,videos.name,involved_companies.developer,involved_companies.company.name; where id = {id};"
+        "fields name,summary,first_release_date,game_type.type,game_status.status,genres.name,platforms.name,total_rating,total_rating_count,cover.image_id,artworks.image_id,screenshots.image_id,videos.video_id,videos.name,involved_companies.developer,involved_companies.company.name; where id = {id};"
     );
     let rows = igdb_post(&auth, "games", body, &client_id, &client_secret).await?;
     let g = rows.get(0).ok_or("Game not found on IGDB.")?;
@@ -316,7 +319,7 @@ async fn igdb_details(
     ).await.unwrap_or(Value::Null);
     let t = ttb.get(0).cloned().unwrap_or(Value::Null);
     let bg = g["artworks"][0]["image_id"].as_str().or(g["screenshots"][0]["image_id"].as_str());
-        let videos: Vec<IgdbVideo> = g["videos"]
+    let videos: Vec<IgdbVideo> = g["videos"]
         .as_array()
         .map(|a| {
             a.iter()
@@ -331,7 +334,12 @@ async fn igdb_details(
         .unwrap_or_default();
     let screenshots: Vec<String> = g["screenshots"]
         .as_array()
-        .map(|a| a.iter().filter_map(|s| s["image_id"].as_str().map(|i| img(i, "screenshot_big"))).collect())
+        .map(|a|
+            a
+                .iter()
+                .filter_map(|s| s["image_id"].as_str().map(|i| img(i, "screenshot_big")))
+                .collect()
+        )
         .unwrap_or_default();
     Ok(IgdbGame {
         id,
@@ -348,9 +356,149 @@ async fn igdb_details(
         time_full: t["completely"].as_i64(),
         cover: g["cover"]["image_id"].as_str().map(|i| img(i, "cover_big")),
         background: bg.map(|i| img(i, "1080p")),
-        videos, 
+        videos,
         screenshots,
+        game_type: g["game_type"]["type"].as_str().map(String::from),
+        game_status: g["game_status"]["status"].as_str().map(String::from),
     })
+}
+
+fn idlist(v: &[i64]) -> String {
+    v.iter()
+        .map(|i| i.to_string())
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
+#[tauri::command]
+async fn igdb_series(
+    auth: tauri::State<'_, IgdbAuth>,
+    id: i64,
+    client_id: String,
+    client_secret: String
+) -> Result<Value, String> {
+    let g = igdb_post(
+        &auth,
+        "games",
+        format!("fields collections; where id = {id};"),
+        &client_id,
+        &client_secret
+    ).await?;
+    let start: Vec<i64> = g[0]["collections"]
+        .as_array()
+        .map(|a|
+            a
+                .iter()
+                .filter_map(|x| x.as_i64())
+                .collect()
+        )
+        .unwrap_or_default();
+    if start.is_empty() {
+        return Ok(json!({ "collections": [], "relations": [], "games": [] }));
+    }
+
+    let mut relations: Vec<(i64, i64)> = vec![]; // (parent, child)
+    let mut known: HashSet<i64> = start.iter().cloned().collect();
+
+    // 1) climb up to the top-level series
+    let mut frontier = start.clone();
+    for _ in 0..4 {
+        if frontier.is_empty() {
+            break;
+        }
+        let q = format!(
+            "fields parent_collection,child_collection; where child_collection = ({}); limit 100;",
+            idlist(&frontier)
+        );
+        let rows = igdb_post(&auth, "collection_relations", q, &client_id, &client_secret).await?;
+        frontier = vec![];
+        for r in rows.as_array().cloned().unwrap_or_default() {
+            if
+                let (Some(p), Some(c)) = (
+                    r["parent_collection"].as_i64(),
+                    r["child_collection"].as_i64(),
+                )
+            {
+                if !relations.contains(&(p, c)) {
+                    relations.push((p, c));
+                }
+                if known.insert(p) {
+                    frontier.push(p);
+                }
+            }
+        }
+    }
+
+    // 2) walk back down through every sub-series
+    let mut frontier: Vec<i64> = known.iter().cloned().collect();
+    for _ in 0..4 {
+        if frontier.is_empty() {
+            break;
+        }
+        let q = format!(
+            "fields parent_collection,child_collection; where parent_collection = ({}); limit 100;",
+            idlist(&frontier)
+        );
+        let rows = igdb_post(&auth, "collection_relations", q, &client_id, &client_secret).await?;
+        frontier = vec![];
+        for r in rows.as_array().cloned().unwrap_or_default() {
+            if
+                let (Some(p), Some(c)) = (
+                    r["parent_collection"].as_i64(),
+                    r["child_collection"].as_i64(),
+                )
+            {
+                if !relations.contains(&(p, c)) {
+                    relations.push((p, c));
+                }
+                if known.insert(c) {
+                    frontier.push(c);
+                }
+            }
+        }
+    }
+
+    // 3) collection names + their game ids
+    let all: Vec<i64> = known.iter().cloned().collect();
+    let cols = igdb_post(
+        &auth,
+        "collections",
+        format!("fields name,games; where id = ({}); limit 100;", idlist(&all)),
+        &client_id,
+        &client_secret
+    ).await?;
+
+    // 4) game details
+    let mut gids: Vec<i64> = vec![];
+    for c in cols.as_array().cloned().unwrap_or_default() {
+        for x in c["games"].as_array().cloned().unwrap_or_default() {
+            if let Some(i) = x.as_i64() {
+                if !gids.contains(&i) {
+                    gids.push(i);
+                }
+            }
+        }
+    }
+    let mut games: Vec<Value> = vec![];
+    for chunk in gids.chunks(500) {
+        let q = format!(
+            "fields name,first_release_date,cover.image_id; where id = ({}); limit 500;",
+            idlist(chunk)
+        );
+        let rows = igdb_post(&auth, "games", q, &client_id, &client_secret).await?;
+        for r in rows.as_array().cloned().unwrap_or_default() {
+            games.push(
+                json!({
+                "id": r["id"],
+                "name": r["name"],
+                "releaseTs": r["first_release_date"],
+                "cover": r["cover"]["image_id"].as_str().map(|i| img(i, "cover_small")),
+            })
+            );
+        }
+    }
+
+    Ok(json!({ "collections": cols, "relations": relations, "games": games }))
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -365,16 +513,18 @@ pub fn run() {
             app.manage(Database(Mutex::new(connection)));
             app.manage(IgdbAuth(tauri::async_runtime::Mutex::new(None)));
             if cfg!(debug_assertions) {
-                app
-                    .handle()
-                    .plugin(
-                        tauri_plugin_opener::init(),
-                    )?;
+                app.handle().plugin(tauri_plugin_opener::init())?;
             }
             Ok(())
         })
         .invoke_handler(
-            tauri::generate_handler![load_app_data, save_app_data, igdb_search, igdb_details]
+            tauri::generate_handler![
+                load_app_data,
+                save_app_data,
+                igdb_search,
+                igdb_details,
+                igdb_series
+            ]
         )
         .run(tauri::generate_context!())
         .expect("error while building tauri application");

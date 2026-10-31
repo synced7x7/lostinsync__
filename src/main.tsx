@@ -18,8 +18,10 @@ import {
   Search,
   Sparkles,
   Timer,
-  Trash2,
+  Building2,
+  CalendarDays,
   Trophy,
+  Trash2,
   Notebook,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -46,6 +48,7 @@ import { Dashboard } from "./features/dashboard";
 import { ActivityView } from "./features/activity";
 import { AddGame } from "./features/library-components";
 import { MediaSection } from "./features/media";
+import { SeriesButton } from "./features/series";
 
 
 const repo = createAppRepository();
@@ -480,18 +483,37 @@ function Details({
     <>
       <button className="back-button" onClick={goBack}>← Back to library</button>
       <div className="detail-hero glass" style={game.backgroundCover ? { backgroundImage: `linear-gradient(90deg, rgba(10,9,22,.95) 0%, rgba(12,13,27,.82) 48%, rgba(10,13,23,.68) 100%), url(${game.backgroundCover})` } : undefined}>
+        {game.igdbId && <SeriesButton igdbId={game.igdbId} creds={igdb} />}
+        <div className="hero-tab">
+          <button title="Edit game" onClick={() => setEditing(true)}><PenLine size={16} /><span>Edit</span></button>
+          <button title={game.favorite ? "Unfavorite" : "Favorite"} className={game.favorite ? "fav on" : "fav"} onClick={() => saveGame({ ...game, favorite: !game.favorite })}>
+            <Heart size={16} fill={game.favorite ? "currentColor" : "none"} /><span>Favorite</span>
+          </button>
+          <button title="Delete game" className="del" onClick={() => deleteGame(game)}><Trash2 size={16} /><span>Delete</span></button>
+        </div>
         <div className="detail-art" style={game.cover ? { backgroundImage: `linear-gradient(145deg, rgba(68,51,113,.35), rgba(38,113,123,.35)), url(${game.cover})` } : undefined}>
           {!game.cover && <Gamepad2 size={60} />}
         </div>
         <div className="detail-copy">
-          <span className="status">{game.status}</span>
+          <div className="hero-tags">
+            {game.gameType && <span className="status">{game.gameType}</span>}
+            {game.gameType && game.gameStatus && <i>·</i>}
+            {game.gameStatus && <span className={`status igdb-status ${game.gameStatus.toLowerCase().replace(/\s+/g, "-")}`}>{game.gameStatus}</span>}
+            {!game.gameType && !game.gameStatus && <span className="status">{game.status}</span>}
+          </div>
           <h1>{game.title}</h1>
           <p>{game.platform} · {game.genre || "Uncategorized"}</p>
-          <div className="detail-actions">
-            <button className="button primary" onClick={() => setEditing(true)}><PenLine size={16} /> Edit game</button>
-            <button className="button soft" onClick={() => saveGame({ ...game, favorite: !game.favorite })}><Heart size={16} fill={game.favorite ? "currentColor" : "none"} /> {game.favorite ? "Favorited" : "Favorite"}</button>
-            <button className="button stop" onClick={() => deleteGame(game)}><Trash2 size={16} /> Delete</button>
-          </div>
+          {(game.developer || game.releaseDate) && (
+            <div className="hero-meta">
+              {(game.developer || game.releaseDate) && (
+                <p className="hero-credit">
+                  {game.developer && <>by <strong>{game.developer}</strong></>}
+                  {game.developer && game.releaseDate && <i>·</i>}
+                  {game.releaseDate && <>{formatDate(game.releaseDate)}</>}
+                </p>
+              )}
+            </div>
+          )}
         </div>
         <div className="detail-stat">
           <span>Verified time</span>
@@ -504,7 +526,6 @@ function Details({
         <section className="glass detail-panel">
           <div className="about-head">
             <div>
-              <p className="eyebrow">{game.developer ? `BY ${game.developer.toUpperCase()}` : "ABOUT"}{game.releaseDate ? ` · ${formatDate(game.releaseDate)}` : ""}</p>
               <h2>About this game</h2>
             </div>
             {game.igdbRating != null && (
@@ -575,7 +596,6 @@ function Details({
           <div style={{ marginTop: 12 }}><MasteryProgress value={game.mastery} readOnly /></div>
         </section>
       </div>
-
       <MediaSection game={game} save={saveGame} />
 
       <section className="glass note-card" onClick={() => setEditing(true)} title="Edit note">

@@ -5,6 +5,7 @@ export type IgdbGame = {
   genres: string[]; platforms: string[]; rating?: number; ratingCount?: number;
   timeAvg?: number; timeMain?: number; timeFull?: number; cover?: string; background?: string;   
   videos: { videoId: string; name?: string }[]; screenshots: string[];
+  gameType?: string; gameStatus?: string;
 };
 
 export const hasTauri = "__TAURI_INTERNALS__" in globalThis;
@@ -18,3 +19,13 @@ export async function igdbDetails(id: number, c: IgdbCreds) {
   return invoke<IgdbGame>("igdb_details", { id, clientId: c.clientId, clientSecret: c.clientSecret });
 }
 
+
+export type SeriesData = {
+  collections: { id: number; name: string; games?: number[] }[];
+  relations: [number, number][]; // [parent, child]
+  games: { id: number; name: string; releaseTs?: number; cover?: string }[];
+};
+export async function igdbSeries(id: number, c: IgdbCreds) {
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<SeriesData>("igdb_series", { id, clientId: c.clientId, clientSecret: c.clientSecret });
+}
