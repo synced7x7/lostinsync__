@@ -178,6 +178,7 @@ export function AddGame({ onClose, onAdd, igdb, initial }: { onClose: () => void
                 onChange={(e) => { setTitle(e.target.value); setPicked(undefined); setOpen(true); }}
                 placeholder={canSearch ? "Search IGDB or type a title…" : "What are you playing?"}
               />
+              {!searching && <span className="igdb-hint">Write "/(space)&lt;title&gt;" for strict search (exact & case match)</span>}
               {searching && <span className="igdb-hint">Searching IGDB…</span>}
               {!canSearch && <span className="igdb-hint">{hasTauri ? "Add IGDB keys in Settings to auto-fill." : "IGDB lookup works in the desktop app only."}</span>}
               {open && hits.length > 0 && (

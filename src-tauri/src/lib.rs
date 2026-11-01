@@ -299,16 +299,27 @@ async fn igdb_search(
     client_id: String,
     client_secret: String
 ) -> Result<Vec<IgdbHit>, String> {
-    let q = query.replace('"', "").replace('\\', "");
-    let body = format!(
-        "search \"{q}\"; fields name,first_release_date,cover.image_id,involved_companies.developer,involved_companies.company.name; where version_parent = null; limit 8;"
-    );
+    let strict_query = query.strip_prefix("/ ").map(str::trim).filter(|q| !q.is_empty());
+    let q = strict_query
+        .unwrap_or(query.trim())
+        .replace('\\', "\\\\")
+        .replace('"', "\\\"");
+    let body = if strict_query.is_some() {
+        format!(
+            "fields name,first_release_date,cover.image_id,involved_companies.developer,involved_companies.company.name; where version_parent = null & name = \"{q}\"; limit 50;"
+        )
+    } else {
+        format!(
+            "search \"{q}\"; fields name,first_release_date,cover.image_id,involved_companies.developer,involved_companies.company.name; where version_parent = null; limit 8;"
+        )
+    };
     let rows = igdb_post(&auth, "games", body, &client_id, &client_secret).await?;
     Ok(
         rows
             .as_array()
             .map(|a| {
                 a.iter()
+                    .filter(|g| strict_query.map(|strict| g["name"].as_str() == Some(strict)).unwrap_or(true))
                     .map(|g| IgdbHit {
                         id: g["id"].as_i64().unwrap_or(0),
                         name: g["name"].as_str().unwrap_or("").to_string(),
