@@ -26,6 +26,8 @@ import {
   Notebook,
   ArrowDown,
   ArrowUp,
+  Building2,
+  CalendarDays,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { createAppRepository } from "./data/repository";
@@ -405,7 +407,7 @@ function PS4ShelfView({
     onFocusedGameChange(game.id);
     if (isDoubleClick) openGame(game.id);
   };
-  
+
   useEffect(() => {
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
@@ -662,9 +664,23 @@ function Details({
             <div className="hero-meta">
               {(game.developer || game.releaseDate) && (
                 <p className="hero-credit">
-                  {game.developer && <>by <strong>{game.developer}</strong></>}
-                  {game.developer && game.releaseDate && <i>·</i>}
-                  {game.releaseDate && <>{formatDate(game.releaseDate)}</>}
+                  {(game.developer || game.releaseDate) && (
+                    <div className="hero-credit">
+                      {game.developer && (
+                        <div className="credit-item">
+                          <Building2 size={14} />
+                          <div><small>Studio</small><strong>{game.developer}</strong></div>
+                        </div>
+                      )}
+                      {game.developer && game.releaseDate && <span className="credit-sep" />}
+                      {game.releaseDate && (
+                        <div className="credit-item">
+                          <CalendarDays size={14} />
+                          <div><small>Released</small><strong>{formatDate(game.releaseDate)}</strong></div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </p>
               )}
             </div>
