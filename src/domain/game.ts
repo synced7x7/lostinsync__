@@ -1,3 +1,5 @@
+import type { IgdbDebugImage } from "../data/igdb";
+
 export const STATUSES = ["Backlog", "Wishlist", "Playing", "Completed", "Retired", "Shelved", "Abandoned", "On hold"] as const;
 export type Status = typeof STATUSES[number];
 export type View = "dashboard" | "library" | "details" | "activity" | "profile" | "journal" | "settings";
@@ -10,7 +12,9 @@ export type Game = {
   igdbRating?: number; igdbRatingCount?: number;
   timeAvgSeconds?: number; timeMainSeconds?: number; timeFullSeconds?: number;
   playedPlatforms?: string[]; emulatedOn?: string[];
-  screenshots?: string[]; videos?: { id: string; name?: string }[];   gameType?: string; gameStatus?: string;
+  screenshots?: string[]; videos?: { id: string; name?: string }[];
+  igdbImages?: IgdbDebugImage[]; igdbVideos?: { id: string; name?: string }[];
+  gameType?: string; gameStatus?: string;
 };
 export type ActivityEvent = { id: string; type: "added" | "status" | "completed" | "started" | "deleted"; title: string; detail: string; occurredAt: string };
 export type JournalEntry = { id: string; title: string; body: string; mood: string; createdAt: string; gameId?: string };
@@ -23,6 +27,8 @@ export type AppSettings = {
   theme: "aurora";
   defaultView: View | "grid" | "list";
   libraryLayout: LibraryLayout;
+  libraryFullscreen: boolean;
+  lastOpenedGameId?: string;
   gridSize: GridSize;
   librarySort: LibrarySort;
   libraryFilter: Status | "All";
@@ -49,6 +55,7 @@ export const defaultData: AppData = {
     theme: "aurora",
     defaultView: "library",
     libraryLayout: "ps4",
+    libraryFullscreen: false,
     gridSize: "md",
     librarySort: "recent",
     libraryFilter: "All",

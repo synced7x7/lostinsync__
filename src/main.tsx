@@ -124,6 +124,11 @@ function App() {
     setView("library");
   };
   const selected = data.games.find((game) => game.id === selectedId);
+  const openGame = (id: string) => {
+    setSelectedId(id);
+    update({ ...data, settings: { ...data.settings, lastOpenedGameId: id } });
+    setView("details");
+  };
   if (loading)
     return (
       <div className="boot">
@@ -132,19 +137,24 @@ function App() {
       </div>
     );
   return (
-    <AppLayout data={data} view={view} onNavigate={setView} error={error}>
+    <AppLayout
+      data={data}
+      view={view}
+      onNavigate={setView}
+      error={error}
+    >
       {view === "dashboard" && (
-        <Dashboard data={data} openLibrary={() => setView("library")} openGame={(id) => { setSelectedId(id); setView("details"); }} />
+        <Dashboard data={data} openLibrary={() => setView("library")} openGame={openGame} />
       )}{" "}
       {view === "library" && (
-        <LibraryView data={data} update={update} addGame={addGame} saveGame={saveGame} deleteGame={deleteGame} openGame={(id) => { setSelectedId(id); setView("details"); }} />
+        <LibraryView data={data} update={update} addGame={addGame} saveGame={saveGame} deleteGame={deleteGame} openGame={openGame} />
       )}{" "}
       {view === "details" && selected && (
         <Details game={selected} saveGame={saveGame} deleteGame={deleteGame} goBack={() => setView("library")} igdb={{ clientId: data.settings.igdbClientId ?? "", clientSecret: data.settings.igdbClientSecret ?? "" }} />
       )}{" "}
       {view === "activity" && <ActivityView data={data} />}{" "}
       {view === "profile" && (
-        <ProfileView data={data} update={update} openGame={(id) => { setSelectedId(id); setView("details"); }} />
+        <ProfileView data={data} update={update} openGame={openGame} />
       )}{" "}
       {view === "journal" && <JournalView data={data} update={update} />}{" "}
       {view === "settings" && <SettingsView data={data} update={update} />}{" "}
@@ -163,9 +173,9 @@ function LibraryView({
   openGame: (id: string) => void;
 }) {
   const [query, setQuery] = useState("");
-  const [featuredId, setFeaturedId] = useState<string>();
+  const [featuredId, setFeaturedId] = useState<string | undefined>(data.settings.lastOpenedGameId);
   const [showAdd, setShowAdd] = useState(false);
-  const [fullscreen, setFullscreen] = useState(false);
+  const [fullscreen, setFullscreen] = useState(data.settings.libraryFullscreen ?? false);
   const [showFullscreenFilters, setShowFullscreenFilters] = useState(false);
 
   const layout = data.settings.libraryLayout ?? "ps4";
@@ -216,10 +226,10 @@ function LibraryView({
           <button className={layout === "ps4" ? "icon-btn active" : "icon-btn"} onClick={() => updateSettings({ libraryLayout: "ps4" })} title="PS4 shelf view">
             <Monitor size={17} />
           </button>
-          <button className={fullscreen ? "icon-btn active" : "icon-btn"} onClick={() => { updateSettings({ libraryLayout: "ps4" }); setFullscreen(true); setShowFullscreenFilters(false); }} title="Fullscreen shelf view">
+          <button className={fullscreen ? "icon-btn active" : "icon-btn"} onClick={() => { updateSettings({ libraryLayout: "ps4", libraryFullscreen: true }); setFullscreen(true); setShowFullscreenFilters(false); }} title="Fullscreen shelf view">
             <Maximize2 size={17} />
           </button>
-          <button className={layout === "catalog" ? "icon-btn active" : "icon-btn"} onClick={() => updateSettings({ libraryLayout: "catalog" })} title="Catalog grid view">
+          <button className={layout === "catalog" ? "icon-btn active" : "icon-btn"} onClick={() => { updateSettings({ libraryLayout: "catalog", libraryFullscreen: false }); setFullscreen(false); }} title="Catalog grid view">
             <LayoutGrid size={17} />
           </button>
         </div>
@@ -233,7 +243,7 @@ function LibraryView({
                 <button className="icon-btn glass" onClick={() => setShowFullscreenFilters((open) => !open)} title="Show library filters">
                   <SlidersHorizontal size={17} />
                 </button>
-                <button className="icon-btn glass" onClick={() => setFullscreen(false)} title="Exit fullscreen shelf view">
+                <button className="icon-btn glass" onClick={() => { updateSettings({ libraryFullscreen: false }); setFullscreen(false); }} title="Exit fullscreen shelf view">
                   <Minimize2 size={17} />
                 </button>
                 {showFullscreenFilters && (
@@ -260,9 +270,9 @@ function LibraryView({
                 )}
               </div>
             )}
-            <PS4ShelfView fullscreen={fullscreen} games={games} featured={featured} setFeaturedId={setFeaturedId} openGame={openGame} saveGame={saveGame} />
+            <PS4ShelfView initialGameId={data.settings.lastOpenedGameId} fullscreen={fullscreen} games={games} featured={featured} setFeaturedId={setFeaturedId} openGame={openGame} saveGame={saveGame} />
           </div>
-          : <GridLibraryView games={games} openGame={openGame} saveGame={saveGame} gridSize={data.settings.gridSize ?? "md"} setGridSize={(size) => updateSettings({ gridSize: size })} />
+          : <GridLibraryView games={games} initialGameId={data.settings.lastOpenedGameId} openGame={openGame} saveGame={saveGame} gridSize={data.settings.gridSize ?? "md"} setGridSize={(size) => updateSettings({ gridSize: size })} />
       }
       {showAdd && <AddGame igdb={{ clientId: data.settings.igdbClientId ?? "", clientSecret: data.settings.igdbClientSecret ?? "" }} onClose={() => setShowAdd(false)} onAdd={(game) => { addGame(game); setShowAdd(false); }} />}
     </>
@@ -285,7 +295,7 @@ const PS4_CARD_LIFTS: Record<number, number> = {
 const PS4_NEIGHBOR_HOVER_BOOST = 0.08;
 
 function PS4ShelfView({
-  games, featured, setFeaturedId, openGame, saveGame, fullscreen,
+  games, featured, setFeaturedId, openGame, saveGame, fullscreen, initialGameId,
 }: {
   games: Game[];
   featured: Game | undefined;
@@ -293,8 +303,9 @@ function PS4ShelfView({
   openGame: (id: string) => void;
   saveGame: (g: Game, a?: { type: "status" | "completed" | "started"; detail: string }) => void;
   fullscreen?: boolean;
+  initialGameId?: string;
 }) {
-  const [focusedIdx, setFocusedIdx] = useState(0);
+  const [focusedIdx, setFocusedIdx] = useState(() => Math.max(0, games.findIndex((game) => game.id === initialGameId)));
   const shelfRef = useRef<HTMLDivElement>(null);
 
   const focusedGame = games[focusedIdx] ?? games[0];
@@ -367,10 +378,6 @@ function PS4ShelfView({
               <h2 className="ps4-title">{featured.title}</h2>
               <p className="ps4-meta">{featured.platform}<span> · </span>{featured.genre || "Uncategorized"}</p>
               <div className="ps4-actions">
-                <button className="button primary" onClick={() => openGame(featured.id)}><Gamepad2 size={15} /> Open</button>
-                <button className="icon-btn featured-heart" onClick={() => saveGame({ ...featured, favorite: !featured.favorite })}>
-                  <Heart size={16} fill={featured.favorite ? "currentColor" : "none"} />
-                </button>
                 {featured.rating && <span className="ps4-rating">{featured.rating}<small>/10</small></span>}
               </div>
             </motion.div>
@@ -423,15 +430,17 @@ function PS4ShelfView({
 }
 
 function GridLibraryView({
-  games, openGame, saveGame, gridSize, setGridSize,
+  games, initialGameId, openGame, saveGame, gridSize, setGridSize,
 }: {
   games: Game[];
+  initialGameId?: string;
   openGame: (id: string) => void;
   saveGame: (g: Game, a?: { type: "status" | "completed" | "started"; detail: string }) => void;
   gridSize: GridSize;
   setGridSize: (size: GridSize) => void;
 }) {
-  const [visibleCount, setVisibleCount] = useState(40);
+  const initialIndex = Math.max(0, games.findIndex((game) => game.id === initialGameId));
+  const [visibleCount, setVisibleCount] = useState(Math.max(40, initialIndex + 1));
   const sentinelRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const el = sentinelRef.current;
@@ -443,6 +452,10 @@ function GridLibraryView({
     return () => obs.disconnect();
   }, [games.length]);
   const visible = games.slice(0, visibleCount);
+  useEffect(() => {
+    if (!initialGameId || !games.some((game) => game.id === initialGameId)) return;
+    requestAnimationFrame(() => document.querySelector(`[data-game-id="${initialGameId}"]`)?.scrollIntoView({ block: "center" }));
+  }, [initialGameId, games]);
   const sizeClass: Record<GridSize, string> = { sm: "grid-lib--sm", md: "grid-lib--md", lg: "grid-lib--lg" };
   return (
     <div className="grid-lib-wrapper">
@@ -480,7 +493,7 @@ function GridCard({
 }) {
   const [hovered, setHovered] = useState(false);
   return (
-    <motion.div className="grid-card"
+    <motion.div data-game-id={game.id} className="grid-card"
       onHoverStart={() => setHovered(true)} onHoverEnd={() => setHovered(false)}
       animate={hovered ? { scale: 1.07, zIndex: 20 } : { scale: 1, zIndex: 1 }}
       transition={{ type: "spring", stiffness: 380, damping: 28 }}
@@ -642,7 +655,7 @@ function Details({
           <div style={{ marginTop: 12 }}><MasteryProgress value={game.mastery} readOnly /></div>
         </section>
       </div>
-      <MediaSection game={game} save={saveGame} />
+      <MediaSection game={game} save={saveGame} igdbMedia={{ images: game.igdbImages ?? [], videos: game.igdbVideos ?? [] }} />
 
       <section className="glass note-card" onClick={() => setEditing(true)} title="Edit note">
         <Notebook size={15} />

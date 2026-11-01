@@ -15,6 +15,10 @@ export type IgdbDebugImage = {
   width?: number;
   height?: number;
 };
+export type IgdbMedia = {
+  images: IgdbDebugImage[];
+  videos: { id: string; name?: string }[];
+};
 
 export const hasTauri = "__TAURI_INTERNALS__" in globalThis;
 

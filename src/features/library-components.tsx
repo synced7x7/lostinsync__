@@ -43,8 +43,8 @@ export function AddGame({ onClose, onAdd, igdb, initial }: { onClose: () => void
   const [open, setOpen] = useState(false);
   const [searching, setSearching] = useState(false);
   const [picked, setPicked] = useState<IgdbGame>();
-  const [debugImages, setDebugImages] = useState<IgdbDebugImage[]>([]);
-  const [loadingDebugImages, setLoadingDebugImages] = useState(false);
+  const [pickedImages, setPickedImages] = useState<IgdbDebugImage[]>(initial?.igdbImages ?? []);
+  const [pickedVideos, setPickedVideos] = useState<{ id: string; name?: string }[]>(initial?.igdbVideos ?? []);
   const canSearch = hasTauri && !!igdb.clientId && !!igdb.clientSecret;
 
   useEffect(() => {
@@ -62,12 +62,9 @@ export function AddGame({ onClose, onAdd, igdb, initial }: { onClose: () => void
   const pick = async (hit: IgdbHit) => {
     setOpen(false); setHits([]); setTitle(hit.name); setSearching(true); setError("");
     try {
-      const g = await igdbDetails(hit.id, igdb);
-      setLoadingDebugImages(true);
-      igdbImages(hit.id, igdb)
-        .then(setDebugImages)
-        .catch((e) => setError(`Image inspector: ${String(e)}`))
-        .finally(() => setLoadingDebugImages(false));
+      const [g, images] = await Promise.all([igdbDetails(hit.id, igdb), igdbImages(hit.id, igdb)]);
+      setPickedImages(images);
+      setPickedVideos(g.videos.slice(0, 3).map((video) => ({ id: video.videoId, name: video.name })));
       setPicked(g);
       setTitle(g.name);
       setDeveloper(g.developer ?? "");
@@ -138,8 +135,10 @@ export function AddGame({ onClose, onAdd, igdb, initial }: { onClose: () => void
       timeAvgSeconds: picked?.timeAvg ?? initial?.timeAvgSeconds,
       timeMainSeconds: picked?.timeMain ?? initial?.timeMainSeconds,
       timeFullSeconds: picked?.timeFull ?? initial?.timeFullSeconds,
-      screenshots: picked?.screenshots ?? initial?.screenshots,
-      videos: (picked ? picked.videos.map((v) => ({ id: v.videoId, name: v.name })) : initial?.videos)?.slice(0, 3),
+      screenshots: initial?.screenshots,
+      videos: initial?.videos,
+      igdbImages: pickedImages,
+      igdbVideos: pickedVideos,
       gameType: picked?.gameType ?? initial?.gameType,
       gameStatus: picked?.gameStatus ?? initial?.gameStatus,
     });
@@ -224,29 +223,6 @@ export function AddGame({ onClose, onAdd, igdb, initial }: { onClose: () => void
             <MasteryProgress value={mastery} onChange={setMastery} />
           </div>
         </div>
-
-        {picked && (
-          <section className="glass" style={{ marginTop: 16, padding: 16 }}>
-            <div className="about-head">
-              <div><p className="eyebrow">TEMPORARY DEBUG</p><h3>All IGDB images</h3></div>
-              <button className="text-button" onClick={() => setDebugImages([])}>Clear</button>
-            </div>
-            {loadingDebugImages && <p className="muted">Loading covers, artworks, screenshots, and image types…</p>}
-            {!loadingDebugImages && !debugImages.length && <p className="muted">No image records returned.</p>}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12 }}>
-              {debugImages.map((image, index) => (
-                <div key={`${image.category}-${image.imageId}-${index}`} style={{ minWidth: 0 }}>
-                  <div style={{ aspectRatio: image.category === "cover" ? "3 / 4" : "16 / 9", background: `url(${image.url}) center / cover`, borderRadius: 8 }} />
-                  <small style={{ display: "block", marginTop: 6, overflowWrap: "anywhere" }}>
-                    <strong>{image.category}</strong>{image.imageType ? ` · ${image.imageType}` : ""}<br />
-                    {image.imageId}<br />{image.width ?? "?"} × {image.height ?? "?"}<br />
-                    <a href={image.url} target="_blank" rel="noreferrer">Open image URL</a>
-                  </small>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
 
         <div className="add-footer">
           <p className="error">{error}</p>

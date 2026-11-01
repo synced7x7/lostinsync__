@@ -17,9 +17,9 @@ The temporary inspector was requested with the following test:
 >
 > Image inspector: IGDB error 400 Bad Request
 
-It is implemented by the `igdb_images` command and can be removed later from
-`src/features/library-components.tsx`, `src/data/igdb.ts`, and
-`src-tauri/src/lib.rs`.
+It is implemented by the `igdb_images` command. The inspector was removed from
+the library/add-game component; the command is now used by the game details
+gallery to load transient IGDB screenshots.
 
 ## Endpoints
 

@@ -148,6 +148,17 @@ function Sidebar({
           {isOpen && <small>v0.1.0 · Everything stays yours</small>}
         </div>
       </aside>
+      {!isOpen && (
+        <button
+          type="button"
+          className="fullscreen-sidebar-toggle glass"
+          onClick={() => setIsOpen(true)}
+          title="Open sidebar"
+          aria-label="Open sidebar"
+        >
+          <ChevronRight size={18} />
+        </button>
+      )}
     </>
   );
 }

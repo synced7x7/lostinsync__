@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, ImagePlus, Link2, Play, Trash2, X } from "lucide-react";
 import type { Game } from "../domain/game";
+import type { IgdbDebugImage } from "../data/igdb";
 
 export const ytId = (raw: string) => {
   const s = raw.trim();
@@ -40,10 +41,15 @@ const toDataUrl = (file: File) =>
     r.readAsDataURL(file);
   });
 
-export function MediaSection({ game, save }: { game: Game; save: (g: Game) => void }) {
-  const shots = game.screenshots ?? [];
-  const vids = game.videos ?? [];
+export function MediaSection({ game, save, igdbMedia, igdbLoading, igdbError }: { game: Game; save: (g: Game) => void; igdbMedia?: { images: IgdbDebugImage[]; videos: { id: string; name?: string }[] }; igdbLoading?: boolean; igdbError?: string }) {
+  const savedShots = game.screenshots ?? [];
+  const savedVids = game.videos ?? [];
+  const igdbScreenshots = (igdbMedia?.images ?? []).filter((image) => image.category === "screenshot");
+  const igdbArtworks = (igdbMedia?.images ?? []).filter((image) => image.category === "artwork");
+  const shots = [...igdbScreenshots.map((image) => image.url), ...savedShots];
+  const vids = [...(igdbMedia?.videos ?? []), ...savedVids].slice(0, MAX_VIDEOS);
   const [lb, setLb] = useState<number | null>(null);
+  const [lbImage, setLbImage] = useState<string>();
   const [adding, setAdding] = useState(false);
   const [link, setLink] = useState("");
   const [err, setErr] = useState("");
@@ -64,7 +70,7 @@ export function MediaSection({ game, save }: { game: Game; save: (g: Game) => vo
     const id = ytId(link);
     if (!id) { setErr("That doesn't look like a YouTube link."); return; }
     if (vids.length >= MAX_VIDEOS) { setErr(`You can keep up to ${MAX_VIDEOS} trailers. Remove one first.`); return; }
-    if (!vids.some((v) => v.id === id)) save({ ...game, videos: [...vids, { id }] });
+    if (!vids.some((v) => v.id === id))     save({ ...game, videos: [...savedVids, { id }] });
     setLink(""); setErr(""); setAdding(false);
   };
 
@@ -72,11 +78,20 @@ export function MediaSection({ game, save }: { game: Game; save: (g: Game) => vo
     if (!files?.length) return;
     try {
       const urls = await Promise.all([...files].map(toDataUrl));
-      save({ ...game, screenshots: [...shots, ...urls] });
+      save({ ...game, screenshots: [...savedShots, ...urls] });
       setErr("");
     } catch { setErr("One of the images could not be read."); }
   };
+  const saveImage = (url: string) => {
+    if (!savedShots.includes(url)) save({ ...game, screenshots: [...savedShots, url] });
+  };
   const [main, ...rest] = vids;
+  const artworkGroups = igdbArtworks.reduce<Record<string, IgdbDebugImage[]>>((groups, image) => {
+    const label = image.imageType || "Artwork";
+    (groups[label] ??= []).push(image);
+    return groups;
+  }, {});
+  const igdbShotCount = igdbScreenshots.length;
 
   return (
     <section className="glass detail-panel media-panel">
@@ -96,6 +111,8 @@ export function MediaSection({ game, save }: { game: Game; save: (g: Game) => vo
         </div>
       )}
       {err && <p className="error">{err}</p>}
+      {igdbLoading && <p className="muted">Loading IGDB media…</p>}
+      {igdbError && <p className="error">{igdbError}</p>}
 
       {main && (
         <div className="media-block">
@@ -104,7 +121,7 @@ export function MediaSection({ game, save }: { game: Game; save: (g: Game) => vo
             <div className="trailer" onClick={() => openUrl(watchUrl(main.id))} style={{ backgroundImage: `url(${thumb(main.id)})` }}>
               <span className="trailer-play"><Play size={26} fill="currentColor" /></span>
               <span className="trailer-name">{main.name ?? "Watch on YouTube"}</span>
-              <button className="media-del" title="Remove" onClick={(e) => { e.stopPropagation(); save({ ...game, videos: vids.filter((v) => v.id !== main.id) }); }}><Trash2 size={13} /></button>
+              {savedVids.some((v) => v.id === main.id) && <button className="media-del" title="Remove" onClick={(e) => { e.stopPropagation(); save({ ...game, videos: savedVids.filter((v) => v.id !== main.id) }); }}><Trash2 size={13} /></button>}
             </div>
             {rest.length > 0 && (
               <div className="trailer-side">
@@ -112,7 +129,7 @@ export function MediaSection({ game, save }: { game: Game; save: (g: Game) => vo
                   <div className="trailer small" key={v.id} onClick={() => openUrl(watchUrl(v.id))} style={{ backgroundImage: `url(${thumb(v.id)})` }}>
                     <span className="trailer-play"><Play size={16} fill="currentColor" /></span>
                     <span className="trailer-name">{v.name ?? "Video"}</span>
-                    <button className="media-del" title="Remove" onClick={(e) => { e.stopPropagation(); save({ ...game, videos: vids.filter((x) => x.id !== v.id) }); }}><Trash2 size={12} /></button>
+                    {savedVids.some((x) => x.id === v.id) && <button className="media-del" title="Remove" onClick={(e) => { e.stopPropagation(); save({ ...game, videos: savedVids.filter((x) => x.id !== v.id) }); }}><Trash2 size={12} /></button>}
                   </div>
                 ))}
               </div>
@@ -127,14 +144,25 @@ export function MediaSection({ game, save }: { game: Game; save: (g: Game) => vo
           <div className="shot-grid">
             {shots.map((s, i) => (
               <div className="shot" key={s.slice(-40) + i} onClick={() => setLb(i)} style={{ backgroundImage: `url(${s})` }}>
-                <button className="media-del" title="Remove" onClick={(e) => { e.stopPropagation(); save({ ...game, screenshots: shots.filter((_, j) => j !== i) }); }}><Trash2 size={13} /></button>
+                {i >= igdbShotCount && <button className="media-del" title="Remove" onClick={(e) => { e.stopPropagation(); save({ ...game, screenshots: savedShots.filter((_, j) => j !== i - igdbShotCount) }); }}><Trash2 size={13} /></button>}
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {!vids.length && !shots.length && <p className="muted" style={{ marginTop: 14 }}>No trailer or screenshots yet. Add your own, or edit the game and pick it from IGDB.</p>}
+      {Object.entries(artworkGroups).map(([label, images]) => (
+        <div className="media-block" key={label}>
+          <span className="plat-label">{label} · {images.length}</span>
+          <div className="shot-grid">
+            {images.map((image, index) => (
+              <div className="shot" key={`${image.imageId}-${index}`} onClick={() => setLbImage(image.url)} style={{ backgroundImage: `url(${image.url})` }} />
+            ))}
+          </div>
+        </div>
+      ))}
+
+      {!vids.length && !shots.length && !igdbArtworks.length && <p className="muted" style={{ marginTop: 14 }}>No trailer or images yet. Add your own media or connect IGDB.</p>}
 
       {lb !== null && createPortal(
         <div className="lightbox" onClick={() => setLb(null)}>
@@ -143,6 +171,13 @@ export function MediaSection({ game, save }: { game: Game; save: (g: Game) => vo
           <img src={full(shots[lb])} onClick={(e) => e.stopPropagation()} />
           {shots.length > 1 && <button className="icon-btn lb-nav right" onClick={(e) => { e.stopPropagation(); setLb((lb + 1) % shots.length); }}><ChevronRight size={20} /></button>}
           <span className="lb-count">{lb + 1} / {shots.length}</span>
+        </div>,
+        document.body
+      )}
+      {lbImage && createPortal(
+        <div className="lightbox" onClick={() => setLbImage(undefined)}>
+          <button className="icon-btn lb-close" onClick={() => setLbImage(undefined)}><X size={18} /></button>
+          <img src={full(lbImage)} onClick={(e) => e.stopPropagation()} />
         </div>,
         document.body
       )}
