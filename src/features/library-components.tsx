@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { ChevronRight, Gamepad2, Heart, Plus, X } from "lucide-react";
 import { formatCount, formatHours, formatPlaytime, STATUSES, validateGame, type Game, type Status } from "../domain/game";
-import { hasTauri, igdbDetails, igdbSearch, type IgdbCreds, type IgdbGame, type IgdbHit } from "../data/igdb";
+import { hasTauri, igdbDetails, igdbImages, igdbSearch, type IgdbCreds, type IgdbDebugImage, type IgdbGame, type IgdbHit } from "../data/igdb";
 import { createPortal } from "react-dom";
 import { DateField, MasteryProgress, PlatformPicker, StarRating, type SaveGame } from "../components/shared";
 import { ALL_PLATFORMS, emulatedOn, PC } from "../data/platform";
@@ -43,6 +43,8 @@ export function AddGame({ onClose, onAdd, igdb, initial }: { onClose: () => void
   const [open, setOpen] = useState(false);
   const [searching, setSearching] = useState(false);
   const [picked, setPicked] = useState<IgdbGame>();
+  const [debugImages, setDebugImages] = useState<IgdbDebugImage[]>([]);
+  const [loadingDebugImages, setLoadingDebugImages] = useState(false);
   const canSearch = hasTauri && !!igdb.clientId && !!igdb.clientSecret;
 
   useEffect(() => {
@@ -61,6 +63,11 @@ export function AddGame({ onClose, onAdd, igdb, initial }: { onClose: () => void
     setOpen(false); setHits([]); setTitle(hit.name); setSearching(true); setError("");
     try {
       const g = await igdbDetails(hit.id, igdb);
+      setLoadingDebugImages(true);
+      igdbImages(hit.id, igdb)
+        .then(setDebugImages)
+        .catch((e) => setError(`Image inspector: ${String(e)}`))
+        .finally(() => setLoadingDebugImages(false));
       setPicked(g);
       setTitle(g.name);
       setDeveloper(g.developer ?? "");
@@ -217,6 +224,29 @@ export function AddGame({ onClose, onAdd, igdb, initial }: { onClose: () => void
             <MasteryProgress value={mastery} onChange={setMastery} />
           </div>
         </div>
+
+        {picked && (
+          <section className="glass" style={{ marginTop: 16, padding: 16 }}>
+            <div className="about-head">
+              <div><p className="eyebrow">TEMPORARY DEBUG</p><h3>All IGDB images</h3></div>
+              <button className="text-button" onClick={() => setDebugImages([])}>Clear</button>
+            </div>
+            {loadingDebugImages && <p className="muted">Loading covers, artworks, screenshots, and image types…</p>}
+            {!loadingDebugImages && !debugImages.length && <p className="muted">No image records returned.</p>}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12 }}>
+              {debugImages.map((image, index) => (
+                <div key={`${image.category}-${image.imageId}-${index}`} style={{ minWidth: 0 }}>
+                  <div style={{ aspectRatio: image.category === "cover" ? "3 / 4" : "16 / 9", background: `url(${image.url}) center / cover`, borderRadius: 8 }} />
+                  <small style={{ display: "block", marginTop: 6, overflowWrap: "anywhere" }}>
+                    <strong>{image.category}</strong>{image.imageType ? ` · ${image.imageType}` : ""}<br />
+                    {image.imageId}<br />{image.width ?? "?"} × {image.height ?? "?"}<br />
+                    <a href={image.url} target="_blank" rel="noreferrer">Open image URL</a>
+                  </small>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         <div className="add-footer">
           <p className="error">{error}</p>

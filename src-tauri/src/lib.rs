@@ -213,6 +213,42 @@ fn names(v: &Value) -> Vec<String> {
         .unwrap_or_default()
 }
 
+fn first_image_id(v: &Value) -> Option<&str> {
+    v.as_array()?.iter().find_map(|artwork| artwork["image_id"].as_str())
+}
+
+fn image_type_name(image_type: &Value, image_types: &Value) -> Option<String> {
+    if let Some(name) = image_type["name"].as_str() {
+        return Some(name.to_string());
+    }
+    let type_id = image_type.as_i64()?;
+    image_types
+        .as_array()?
+        .iter()
+        .find(|item| item["id"].as_i64() == Some(type_id))
+        .and_then(|item| item["name"].as_str())
+        .map(String::from)
+}
+
+fn preferred_artwork_id<'a>(artworks: &'a Value, image_types: &Value) -> Option<&'a str> {
+    let priorities = [
+        "key art without logo",
+        "key art with logo",
+        "historical artwork",
+        "concept art",
+        "artwork",
+    ];
+    for priority in priorities {
+        if let Some(image_id) = artworks.as_array()?.iter().find_map(|artwork| {
+            let name = image_type_name(&artwork["image_type"], image_types)?;
+            (name.to_ascii_lowercase() == priority).then(|| artwork["image_id"].as_str()).flatten()
+        }) {
+            return Some(image_id);
+        }
+    }
+    None
+}
+
 async fn igdb_token(auth: &IgdbAuth, client_id: &str, secret: &str) -> Result<String, String> {
     let mut guard = auth.0.lock().await;
     if let Some((token, expires)) = guard.as_ref() {
@@ -306,7 +342,7 @@ async fn igdb_details(
     client_secret: String
 ) -> Result<IgdbGame, String> {
     let body = format!(
-        "fields name,summary,first_release_date,game_type.type,game_status.status,genres.name,platforms.name,total_rating,total_rating_count,cover.image_id,artworks.image_id,screenshots.image_id,videos.video_id,videos.name,involved_companies.developer,involved_companies.company.name; where id = {id};"
+        "fields name,summary,first_release_date,game_type.type,game_status.status,genres.name,platforms.name,total_rating,total_rating_count,cover.image_id,screenshots.image_id,videos.video_id,videos.name,involved_companies.developer,involved_companies.company.name; where id = {id};"
     );
     let rows = igdb_post(&auth, "games", body, &client_id, &client_secret).await?;
     let g = rows.get(0).ok_or("Game not found on IGDB.")?;
@@ -318,7 +354,23 @@ async fn igdb_details(
         &client_secret
     ).await.unwrap_or(Value::Null);
     let t = ttb.get(0).cloned().unwrap_or(Value::Null);
-    let bg = g["artworks"][0]["image_id"].as_str().or(g["screenshots"][0]["image_id"].as_str());
+    let image_types = igdb_post(
+        &auth,
+        "image_types",
+        "fields id,name; limit 100;".to_string(),
+        &client_id,
+        &client_secret
+    ).await?;
+    let artworks = igdb_post(
+        &auth,
+        "artworks",
+        format!("fields image_id,image_type; where game = {id}; limit 100;"),
+        &client_id,
+        &client_secret
+    ).await?;
+    let background_id = preferred_artwork_id(&artworks, &image_types)
+        .or_else(|| first_image_id(&artworks))
+        .or_else(|| g["screenshots"][0]["image_id"].as_str());
     let videos: Vec<IgdbVideo> = g["videos"]
         .as_array()
         .map(|a| {
@@ -355,12 +407,69 @@ async fn igdb_details(
         time_main: t["hastily"].as_i64(),
         time_full: t["completely"].as_i64(),
         cover: g["cover"]["image_id"].as_str().map(|i| img(i, "cover_big")),
-        background: bg.map(|i| img(i, "1080p")),
+        background: background_id.map(|i| img(i, "720p")),
         videos,
         screenshots,
         game_type: g["game_type"]["type"].as_str().map(String::from),
         game_status: g["game_status"]["status"].as_str().map(String::from),
     })
+}
+
+#[tauri::command]
+async fn igdb_images(
+    auth: tauri::State<'_, IgdbAuth>,
+    id: i64,
+    client_id: String,
+    client_secret: String
+) -> Result<Value, String> {
+    let image_types = igdb_post(
+        &auth,
+        "image_types",
+        "fields id,name; limit 100;".to_string(),
+        &client_id,
+        &client_secret
+    ).await?;
+    let type_name = |image_type: &Value| -> Option<String> {
+        if let Some(name) = image_type["name"].as_str() {
+            return Some(name.to_string());
+        }
+        let type_id = image_type.as_i64()?;
+        image_types
+            .as_array()?
+            .iter()
+            .find(|item| item["id"].as_i64() == Some(type_id))
+            .and_then(|item| item["name"].as_str())
+            .map(String::from)
+    };
+    let mut images = Vec::new();
+    for (endpoint, category, fields) in [
+        ("covers", "cover", "image_id,image_type,width,height"),
+        ("artworks", "artwork", "image_id,image_type,width,height"),
+        ("screenshots", "screenshot", "image_id,width,height"),
+    ] {
+        let rows = igdb_post(
+            &auth,
+            endpoint,
+            format!("fields {fields}; where game = {id}; limit 100;"),
+            &client_id,
+            &client_secret
+        ).await?;
+        for image in rows.as_array().cloned().unwrap_or_default() {
+            let image_id = match image["image_id"].as_str() {
+                Some(value) => value,
+                None => continue,
+            };
+            images.push(json!({
+                "category": category,
+                "imageId": image_id,
+                "imageType": type_name(&image["image_type"]),
+                "url": img(image_id, if category == "cover" { "cover_big" } else { "720p" }),
+                "width": image["width"],
+                "height": image["height"],
+            }));
+        }
+    }
+    Ok(Value::Array(images))
 }
 
 fn idlist(v: &[i64]) -> String {
@@ -523,6 +632,7 @@ pub fn run() {
                 save_app_data,
                 igdb_search,
                 igdb_details,
+                igdb_images,
                 igdb_series
             ]
         )

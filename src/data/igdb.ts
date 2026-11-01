@@ -7,6 +7,14 @@ export type IgdbGame = {
   videos: { videoId: string; name?: string }[]; screenshots: string[];
   gameType?: string; gameStatus?: string;
 };
+export type IgdbDebugImage = {
+  category: "cover" | "artwork" | "screenshot";
+  imageId: string;
+  imageType?: string;
+  url: string;
+  width?: number;
+  height?: number;
+};
 
 export const hasTauri = "__TAURI_INTERNALS__" in globalThis;
 
@@ -17,6 +25,10 @@ export async function igdbSearch(query: string, c: IgdbCreds) {
 export async function igdbDetails(id: number, c: IgdbCreds) {
   const { invoke } = await import("@tauri-apps/api/core");
   return invoke<IgdbGame>("igdb_details", { id, clientId: c.clientId, clientSecret: c.clientSecret });
+}
+export async function igdbImages(id: number, c: IgdbCreds) {
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<IgdbDebugImage[]>("igdb_images", { id, clientId: c.clientId, clientSecret: c.clientSecret });
 }
 
 

@@ -1957,6 +1957,57 @@ nav {
     justify-content: flex-end
 }
 
+.ps4-fullscreen-shell {
+    position: fixed;
+    inset: 0;
+    z-index: 40
+}
+
+.ps4-library--fullscreen {
+    min-height: 100vh;
+    height: 100vh;
+    border-radius: 0;
+    justify-content: flex-start
+}
+
+.ps4-library--fullscreen .ps4-featured-info {
+    margin-top: clamp(110px, 22vh, 220px);
+    padding-left: clamp(32px, 7vw, 108px);
+    max-width: 560px
+}
+
+.ps4-library--fullscreen .ps4-shelves {
+    width: 100%;
+    padding-bottom: clamp(24px, 7vh, 72px)
+}
+
+.ps4-fullscreen-actions {
+    position: fixed;
+    top: 24px;
+    right: 28px;
+    z-index: 50;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px
+}
+
+.ps4-fullscreen-filter-panel {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px;
+    margin-right: 4px;
+    order: -1
+}
+
+.ps4-fullscreen-filter-panel .search-field {
+    width: 220px
+}
+
+.ps4-fullscreen-filter-panel select {
+    max-width: 150px
+}
+
 /* Full-bleed background art (NO BLUR, crisp and vibrant) */
 .ps4-bg {
     position: absolute;
@@ -1966,6 +2017,11 @@ nav {
     background-color: #161222;
     z-index: 0;
     filter: brightness(.78) saturate(1.15)
+}
+
+.ps4-library--fullscreen .ps4-bg {
+    background-position: center;
+    filter: brightness(.72) saturate(1.12)
 }
 
 /* Multi-layer gradient overlay — heavy on left/bottom so text is always legible */
@@ -2053,7 +2109,7 @@ nav {
 .ps4-shelf-row {
     display: flex;
     align-items: flex-end;
-    gap: 12px;
+    gap: 14px;
     overflow-x: auto;
     padding: 44px 36px 30px 36px;
     scrollbar-width: none;

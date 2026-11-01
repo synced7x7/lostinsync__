@@ -12,10 +12,13 @@ import {
   Grid2X2,
   Heart,
   LayoutGrid,
+  Maximize2,
+  Minimize2,
   Monitor,
   PenLine,
   Plus,
   Search,
+  SlidersHorizontal,
   Sparkles,
   Timer,
   Building2,
@@ -162,6 +165,8 @@ function LibraryView({
   const [query, setQuery] = useState("");
   const [featuredId, setFeaturedId] = useState<string>();
   const [showAdd, setShowAdd] = useState(false);
+  const [fullscreen, setFullscreen] = useState(false);
+  const [showFullscreenFilters, setShowFullscreenFilters] = useState(false);
 
   const layout = data.settings.libraryLayout ?? "ps4";
   const filter = data.settings.libraryFilter ?? "All";
@@ -185,11 +190,11 @@ function LibraryView({
   const featured = games.find((g) => g.id === featuredId) ?? games[0];
   return (
     <>
-      <div className="library-heading">
+      {!fullscreen && <div className="library-heading">
         <div><p className="eyebrow">YOUR COLLECTION · {data.games.length} GAMES</p><h1>Library</h1></div>
         <button className="button primary" onClick={() => setShowAdd(true)}><Plus size={17} /> Add game</button>
-      </div>
-      <div className="toolbar library-toolbar glass">
+      </div>}
+      {!fullscreen && <div className="toolbar library-toolbar glass">
         <div className="search-field">
           <Search size={17} />
           <input placeholder="Search your collection..." value={query} onChange={(e) => setQuery(e.target.value)} />
@@ -211,15 +216,52 @@ function LibraryView({
           <button className={layout === "ps4" ? "icon-btn active" : "icon-btn"} onClick={() => updateSettings({ libraryLayout: "ps4" })} title="PS4 shelf view">
             <Monitor size={17} />
           </button>
+          <button className={fullscreen ? "icon-btn active" : "icon-btn"} onClick={() => { updateSettings({ libraryLayout: "ps4" }); setFullscreen(true); setShowFullscreenFilters(false); }} title="Fullscreen shelf view">
+            <Maximize2 size={17} />
+          </button>
           <button className={layout === "catalog" ? "icon-btn active" : "icon-btn"} onClick={() => updateSettings({ libraryLayout: "catalog" })} title="Catalog grid view">
             <LayoutGrid size={17} />
           </button>
         </div>
-      </div>
+      </div>}
       {games.length === 0
         ? <Empty icon={<Filter />} title="Nothing here yet" text="Try another search or add your first game." action={() => setShowAdd(true)} />
         : layout === "ps4"
-          ? <PS4ShelfView games={games} featured={featured} setFeaturedId={setFeaturedId} openGame={openGame} saveGame={saveGame} />
+          ? <div className={fullscreen ? "ps4-fullscreen-shell" : undefined}>
+            {fullscreen && (
+              <div className="ps4-fullscreen-actions">
+                <button className="icon-btn glass" onClick={() => setShowFullscreenFilters((open) => !open)} title="Show library filters">
+                  <SlidersHorizontal size={17} />
+                </button>
+                <button className="icon-btn glass" onClick={() => setFullscreen(false)} title="Exit fullscreen shelf view">
+                  <Minimize2 size={17} />
+                </button>
+                {showFullscreenFilters && (
+                  <div className="ps4-fullscreen-filter-panel glass">
+                    <div className="search-field">
+                      <Search size={17} />
+                      <input placeholder="Search your collection..." value={query} onChange={(e) => setQuery(e.target.value)} />
+                    </div>
+                    <select value={filter} onChange={(e) => updateSettings({ libraryFilter: e.target.value as Status | "All" })}>
+                      <option value="All">All statuses</option>
+                      {STATUSES.map((s) => <option key={s}>{s}</option>)}
+                    </select>
+                    <select value={genre} onChange={(e) => updateSettings({ libraryGenre: e.target.value })}>
+                      <option value="All">All genres</option>
+                      {genres.map((g) => <option key={g}>{g}</option>)}
+                    </select>
+                    <select value={sort} onChange={(e) => updateSettings({ librarySort: e.target.value as LibrarySort })}>
+                      <option value="recent">Recently added</option>
+                      <option value="title">Title</option>
+                      <option value="playtime">Playtime</option>
+                    </select>
+                    <button className="button primary" onClick={() => setShowAdd(true)}><Plus size={16} /> Add game</button>
+                  </div>
+                )}
+              </div>
+            )}
+            <PS4ShelfView fullscreen={fullscreen} games={games} featured={featured} setFeaturedId={setFeaturedId} openGame={openGame} saveGame={saveGame} />
+          </div>
           : <GridLibraryView games={games} openGame={openGame} saveGame={saveGame} gridSize={data.settings.gridSize ?? "md"} setGridSize={(size) => updateSettings({ gridSize: size })} />
       }
       {showAdd && <AddGame igdb={{ clientId: data.settings.igdbClientId ?? "", clientSecret: data.settings.igdbClientSecret ?? "" }} onClose={() => setShowAdd(false)} onAdd={(game) => { addGame(game); setShowAdd(false); }} />}
@@ -227,14 +269,30 @@ function LibraryView({
   );
 }
 
+// Adjust these values to change the size falloff around the focused PS4 card.
+const PS4_CARD_SCALES: Record<number, number> = {
+  0: 1.35,
+  1: 1.2,
+  2: 1.1,
+};
+
+const PS4_CARD_LIFTS: Record<number, number> = {
+  0: 12,
+  1: 6,
+  2: 3,
+};
+
+const PS4_NEIGHBOR_HOVER_BOOST = 0.08;
+
 function PS4ShelfView({
-  games, featured, setFeaturedId, openGame, saveGame,
+  games, featured, setFeaturedId, openGame, saveGame, fullscreen,
 }: {
   games: Game[];
   featured: Game | undefined;
   setFeaturedId: (id: string) => void;
   openGame: (id: string) => void;
   saveGame: (g: Game, a?: { type: "status" | "completed" | "started"; detail: string }) => void;
+  fullscreen?: boolean;
 }) {
   const [focusedIdx, setFocusedIdx] = useState(0);
   const shelfRef = useRef<HTMLDivElement>(null);
@@ -280,7 +338,7 @@ function PS4ShelfView({
 
   return (
     <>
-      <div className="ps4-library">
+      <div className={`ps4-library${fullscreen ? " ps4-library--fullscreen" : ""}`}>
         <AnimatePresence mode="wait">
           {featured && (
             <motion.div
@@ -322,6 +380,7 @@ function PS4ShelfView({
           <div className="ps4-shelf-row" ref={shelfRef}>
             {games.map((game, idx) => {
               const isFocused = focusedIdx === idx;
+              const distance = Math.abs(focusedIdx - idx);
               return (
                 <motion.button
                   key={game.id}
@@ -329,21 +388,22 @@ function PS4ShelfView({
                   className={`ps4-card${isFocused ? " ps4-card--focused" : ""}`}
                   onClick={() => setFocusedIdx(idx)}
                   onDoubleClick={() => openGame(game.id)}
-                  animate={isFocused ? {
-                    scale: 1.25,
-                    zIndex: 20,
-                    y: -12,
-                    marginLeft: idx === 0 ? 8 : 18,
-                    marginRight: 18,
-                  } : {
-                    scale: 1,
-                    zIndex: 1,
-                    y: 0,
-                    marginLeft: 0,
-                    marginRight: 0,
+                  animate={{
+                    scale: PS4_CARD_SCALES[distance] ?? 1,
+                    zIndex: distance === 0 ? 20 : distance === 1 ? 10 : distance === 2 ? 5 : 1,
+                    y: -(PS4_CARD_LIFTS[distance] ?? 0),
+                    marginLeft: isFocused ? (idx === 0 ? 8 : 18) : 0,
+                    marginRight: isFocused ? 18 : 0,
                   }}
                   transition={{ type: "spring", stiffness: 360, damping: 28 }}
-                  whileHover={!isFocused ? { scale: 1.08, y: -4 } : {}}
+                  whileHover={!isFocused
+                    ? {
+                      scale: distance <= 2
+                        ? (PS4_CARD_SCALES[distance] ?? 1) + PS4_NEIGHBOR_HOVER_BOOST
+                        : 1.08,
+                      y: distance <= 2 ? -(PS4_CARD_LIFTS[distance] ?? 0) - 4 : -4,
+                    }
+                    : {}}
                 >
                   <div className="ps4-card-art" style={game.cover ? { backgroundImage: `url(${game.cover})` } : undefined}>
                     {!game.cover && <Gamepad2 size={24} />}
