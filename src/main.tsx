@@ -591,7 +591,12 @@ function GridCard({
       onClick={onOpen}
     >
       <div className="grid-card-art" style={game.cover ? { backgroundImage: `url(${game.cover})` } : undefined}>
-        {!game.cover && <Gamepad2 size={gridSize === "lg" ? 36 : gridSize === "md" ? 26 : 18} />}
+        {!game.cover && (
+          <div className="grid-card-fallback">
+            <Gamepad2 size={gridSize === "lg" ? 66 : gridSize === "md" ? 46 : 28} />
+            <span>{game.title}</span>
+          </div>
+        )}
         <AnimatePresence>
           {hovered && (
             <motion.div className="grid-card-hover-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }} />
