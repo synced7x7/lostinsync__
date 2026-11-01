@@ -179,6 +179,25 @@ function compareGames(a: Game, b: Game, sort: LibrarySort, direction: SortDirect
   return multiplier * values[sort];
 }
 
+const formatSpan = (from: string, to: string) => {
+  const a = new Date(from), b = new Date(to);
+  let y = b.getFullYear() - a.getFullYear();
+  let m = b.getMonth() - a.getMonth();
+  let d = b.getDate() - a.getDate() + 1; // inclusive, same as before
+  if (d > new Date(b.getFullYear(), b.getMonth() + 1, 0).getDate()) { d = 1; m += 1; }
+  if (d <= 0) {
+    m -= 1;
+    d += new Date(b.getFullYear(), b.getMonth(), 0).getDate();
+  }
+  if (m < 0) { y -= 1; m += 12; }
+  const parts = [
+    y > 0 && `${y} ${y === 1 ? "year" : "years"}`,
+    m > 0 && `${m} ${m === 1 ? "month" : "months"}`,
+    d > 0 && `${d} ${d === 1 ? "day" : "days"}`,
+  ].filter(Boolean);
+  return parts.join(", ") || "1 day";
+};
+
 function LibraryView({
   data, update, addGame, saveGame, openGame,
 }: {
@@ -360,7 +379,7 @@ function PS4ShelfView({
     } else if (e.key === "ArrowLeft") {
       e.preventDefault();
       setFocusedIdx((p) => Math.max(p - 1, 0));
-    } 
+    }
   }, [games.length]);
 
   useEffect(() => {
@@ -562,10 +581,18 @@ function Details({
 }) {
   const [editing, setEditing] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const descRef = useRef<HTMLParagraphElement>(null);
+  const [canExpand, setCanExpand] = useState(false);
+  useEffect(() => {
+    const el = descRef.current;
+    if (!el || expanded) return;
+    const check = () => setCanExpand(el.scrollHeight > el.clientHeight + 1);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, [game.description, expanded]);
   const played = game.totalSeconds;
-  const days = game.startedAt && game.finishedAt
-    ? Math.round((Date.parse(game.finishedAt) - Date.parse(game.startedAt)) / 86400000) + 1
-    : undefined;
+  const span = game.startedAt && game.finishedAt ? formatSpan(game.startedAt, game.finishedAt) : undefined;
   const ringColor = (game.igdbRating ?? 0) >= 75 ? "var(--success)" : (game.igdbRating ?? 0) >= 50 ? "#f4c679" : "var(--rose)";
   const tiles = [
     { label: "Average to complete", sec: game.timeAvgSeconds, icon: Timer, cls: "avg" },
@@ -621,27 +648,34 @@ function Details({
       <div className="detail-grid">
         <section className="glass detail-panel">
           <div className="about-head">
-            <div>
-              <h2>About this game</h2>
+            <div className="about-main">
+              <p className="eyebrow">ABOUT</p>
+
+              {game.description
+                ? <>
+                  <p ref={descRef} className={`about-desc${expanded ? " open" : ""}`}>{game.description}</p>
+                  {canExpand && (
+                    <button className="text-button" style={{ marginTop: 6 }} onClick={() => setExpanded(!expanded)}>
+                      {expanded ? "Read less" : "Read more"}
+                    </button>
+                  )}
+                </>
+                : <p className="muted" style={{ marginTop: 10 }}>No description yet. Tap Edit game to add one.</p>}
             </div>
             {game.igdbRating != null && (
               <div className="score-box">
-                <div className="rating-ring" style={{ "--p": game.igdbRating, "--ring": ringColor } as React.CSSProperties}>
-                  <strong>{(game.igdbRating / 10).toFixed(1)}</strong>
-                </div>
-                <span className="score-title">IGDB SCORE</span>
-                <small>{game.igdbRatingCount ? `Based on ${formatCount(game.igdbRatingCount)} ratings` : "Community score"}</small>
+                {game.igdbRating != null && (
+                  <div className="score-box">
+                    <div className="rating-ring" style={{ "--p": game.igdbRating, "--ring": ringColor } as React.CSSProperties}>
+                      <strong>{(game.igdbRating / 10).toFixed(1)}</strong>
+                    </div>
+                    <span className="score-title">IGDB SCORE</span>
+                    <small>{game.igdbRatingCount ? `Based on ${formatCount(game.igdbRatingCount)} ratings` : "Community score"}</small>
+                  </div>
+                )}
               </div>
             )}
           </div>
-
-          {game.description
-            ? <>
-              <p className={`about-desc${expanded ? " open" : ""}`}>{game.description}</p>
-              {game.description.length > 260 && <button className="text-button" style={{ marginTop: 6 }} onClick={() => setExpanded(!expanded)}>{expanded ? "Show less" : "Read more"}</button>}
-            </>
-            : <p className="muted">No description yet. Tap Edit game to add one.</p>}
-
           <div className="plat-block">
             {genreList.length > 0 && (
               <div><span className="plat-label">Genres</span><div className="igdb-chips">{genreList.map((x) => <span className="pill" key={x}>{x}</span>)}</div></div>
@@ -665,8 +699,10 @@ function Details({
                   const v = t.sec ? formatHours(t.sec).replace("h", "") : "—";
                   return (
                     <div className={`ttb-tile ${t.cls}`} key={t.label}>
-                      <span className="ttb-icon"><Icon size={16} /></span>
-                      <strong>{v}{t.sec ? <small>hrs</small> : null}</strong>
+                      <div className="ttb-top">
+                        <span className="ttb-icon"><Icon size={16} /></span>
+                        <strong>{v}{t.sec ? <small>hrs</small> : null}</strong>
+                      </div>
                       <span className="ttb-label">{t.label}</span>
                     </div>
                   );
@@ -686,7 +722,7 @@ function Details({
             <div><span>Playtime</span><strong>{formatPlaytime(played)}</strong></div>
             <div><span>Started</span><strong>{game.startedAt ? formatDate(game.startedAt) : "—"}</strong></div>
             <div><span>Completed</span><strong>{game.finishedAt ? formatDate(game.finishedAt) : "—"}</strong></div>
-            {days != null && <div style={{ gridColumn: "span 2" }}><span>Time to finish</span><strong>{days} {days === 1 ? "day" : "days"}</strong></div>}
+            {span && <div style={{ gridColumn: "span 2" }}><span>Time to finish</span><strong>{span}</strong></div>}
           </div>
           <StarRating value={game.rating} readOnly size={16} />
           <div style={{ marginTop: 12 }}><MasteryProgress value={game.mastery} readOnly /></div>

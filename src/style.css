@@ -3062,10 +3062,23 @@ nav {
 
 .about-desc {
     display: -webkit-box;
-    -webkit-line-clamp: 4;
-    line-clamp: 4;
+    -webkit-line-clamp: 6;
+    line-clamp: 6;
     -webkit-box-orient: vertical;
-    overflow: hidden
+    overflow: hidden;
+    margin-top: 10px
+}
+
+.about-main {
+    flex: 1;
+    min-width: 0
+}
+
+.about-desc {
+    font-size: 13px;
+    font-style: italic;
+    color: var(--muted);
+    margin-top: 10px
 }
 
 .about-desc.open {
@@ -3110,13 +3123,13 @@ nav {
 
 .score-title {
     font-family: 'DM Mono', monospace;
-    font-size: 9px;
+    font-size: 10px;
     letter-spacing: 1.2px;
     color: var(--accent)
 }
 
 .score-box small {
-    font-size: 9px;
+    font-size: 10px;
     color: var(--dim)
 }
 
@@ -3191,12 +3204,21 @@ nav {
     background: color-mix(in srgb, var(--c) 16%, transparent)
 }
 
-.ttb-tile strong {
+.ttb-top {
+    display: flex;
+    align-items: center;
+    gap: 12px
+}
+
+.ttb-top strong {
+    margin: 0;
+    font-size: 28px;
+    line-height: 1
+}
+
+.ttb-tile .ttb-label {
     display: block;
-    font-size: 30px;
-    letter-spacing: -1px;
-    margin: 14px 0 2px;
-    color: var(--c)
+    margin-top: 12px
 }
 
 .ttb-tile strong small {
