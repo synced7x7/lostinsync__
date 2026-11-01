@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { ArrowRight, CalendarDays, Clock3, Minus, Plus, Route, Trophy } from "lucide-react";
 import type { Game } from "../domain/game";
@@ -8,22 +8,97 @@ import "./journey.css";
 const BG_IMAGE = "/images/journey-bg.jpg"; // TODO: replace with your background image path
 
 const DAY = 86_400_000;
-const GAP = 190;   // vertical distance between branches
-const X0 = 230;    // where the timeline starts
-const MINW = 380;  // minimum branch length so cards never collide
+const GAP = 190;  // vertical distance between branches
+const X0 = 230;   // where the timeline starts
+const MINW = 380; // minimum branch length so cards never collide
+
+// status colours (used for the status label and detail chip)
 const K = { main: "#8f86ff", side: "#f0c674", active: "#5be3a4", abandoned: "#ff6b86" };
 type Kind = keyof typeof K;
 type Range = "all" | "year" | "month";
 
+// branch colours (one per game, so overlapping branches always differ)
+const PALETTE = ["#6ea8ff", "#5be3a4", "#ff9a4d", "#c58bff", "#f0c674", "#ff7aa8", "#4fd8e8"];
+
+const STATUS_LABEL: Record<Kind, string> = {
+  main: "Completed",
+  side: "Side journey",
+  active: "In progress",
+  abandoned: "Abandoned",
+};
+
 const fmt = (t: number) =>
   new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(t);
-const kindOf = (g: Game): Kind =>
-  g.status === "Abandoned" ? "abandoned"
-  : g.finishedAt ? (g.status === "Completed" ? "main" : "side")
-  : ["Retired", "Shelved", "On hold"].includes(g.status) ? "side" : "active";
-const level = (lane: number) => (lane === 0 ? 0 : lane % 2 ? -(lane + 1) / 2 : lane / 2);
-const STATUS_LABEL: Record<Kind, string> = { main: "Completed", side: "Side journey", active: "In progress", abandoned: "Abandoned" };
 
+const kindOf = (g: Game): Kind =>
+  g.status === "Abandoned"
+    ? "abandoned"
+    : g.finishedAt
+      ? g.status === "Completed" ? "main" : "side"
+      : ["Retired", "Shelved", "On hold"].includes(g.status) ? "side" : "active";
+
+// lane index -> level: 0, -1, +1, -2, +2 ...
+const level = (lane: number) => (lane === 0 ? 0 : lane % 2 ? -(lane + 1) / 2 : lane / 2);
+
+/* ───────────── path + braid geometry ───────────── */
+type P = { x: number; y: number };
+
+const bez = (a: P, b: P, c: P, d: P, n = 14): P[] =>
+  Array.from({ length: n + 1 }, (_, i) => {
+    const t = i / n, u = 1 - t;
+    return {
+      x: u * u * u * a.x + 3 * u * u * t * b.x + 3 * u * t * t * c.x + t * t * t * d.x,
+      y: u * u * u * a.y + 3 * u * u * t * b.y + 3 * u * t * t * c.y + t * t * t * d.y,
+    };
+  });
+
+const line = (a: P, b: P): P[] => {
+  const n = Math.max(1, Math.round(Math.hypot(b.x - a.x, b.y - a.y) / 8));
+  return Array.from({ length: n + 1 }, (_, i) => ({
+    x: a.x + ((b.x - a.x) * i) / n,
+    y: a.y + ((b.y - a.y) * i) / n,
+  }));
+};
+
+/** points along a branch: fork off the trunk, run on its lane, optionally merge back */
+const route = (x1: number, x2: number, T: number, y: number, merge: boolean): P[] => {
+  if (y === T) return line({ x: x1, y: T }, { x: x2, y: T });
+  const c = 70;
+  const out = [
+    ...bez({ x: x1, y: T }, { x: x1 + c, y: T }, { x: x1 + c, y }, { x: x1 + 2 * c, y }),
+    ...line({ x: x1 + 2 * c, y }, { x: x2 - 2 * c, y }).slice(1),
+  ];
+  return merge
+    ? [...out, ...bez({ x: x2 - 2 * c, y }, { x: x2 - c, y }, { x: x2 - c, y: T }, { x: x2, y: T }).slice(1)]
+    : [...out, ...line({ x: x2 - 2 * c, y }, { x: x2, y }).slice(1)];
+};
+
+/** one braided strand: offsets the route along its normal with a sine wave, pinched to 0 at both ends */
+const strand = (pts: P[], phase: number, amp: number) => {
+  const len: number[] = [0];
+  pts.forEach((p, i) => i && len.push(len[i - 1] + Math.hypot(p.x - pts[i - 1].x, p.y - pts[i - 1].y)));
+  const total = len[len.length - 1] || 1;
+  return pts
+    .map((p, i) => {
+      const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)];
+      const dx = b.x - a.x, dy = b.y - a.y, m = Math.hypot(dx, dy) || 1;
+      const edge = Math.min(1, len[i] / 70, (total - len[i]) / 70);
+      const env = edge * edge * (3 - 2 * edge);
+      const o = amp * env * Math.sin(len[i] / 22 + phase);
+      return `${i ? "L" : "M"} ${(p.x - (dy / m) * o).toFixed(1)} ${(p.y + (dx / m) * o).toFixed(1)}`;
+    })
+    .join(" ");
+};
+
+const STRANDS = [
+  { phase: 0, mix: "white 0%" },
+  { phase: (2 * Math.PI) / 3, mix: "white 45%" },
+  { phase: (4 * Math.PI) / 3, mix: "black 35%" },
+];
+
+const cssVar = (c: string) => ({ ["--c" as string]: c }) as CSSProperties;
+
+/* ───────────── component ───────────── */
 export function JourneyView({ games, openGame }: { games: Game[]; openGame: (id: string) => void }) {
   const [range, setRange] = useState<Range>("all");
   const [zoom, setZoom] = useState(1);
@@ -34,7 +109,8 @@ export function JourneyView({ games, openGame }: { games: Game[]; openGame: (id:
   const items = useMemo(() => {
     const now = new Date();
     const hit = (t?: number) =>
-      t !== undefined && new Date(t).getFullYear() === now.getFullYear() &&
+      t !== undefined &&
+      new Date(t).getFullYear() === now.getFullYear() &&
       (range === "year" || new Date(t).getMonth() === now.getMonth());
     return games.flatMap((game) => {
       const start = Date.parse(game.startedAt ?? "");
@@ -48,35 +124,47 @@ export function JourneyView({ games, openGame }: { games: Game[]; openGame: (id:
   const L = useMemo(() => {
     if (!items.length) return null;
     const sorted = [...items].sort((a, b) => a.start - b.start);
-    const min = sorted[0].start, now = Date.now(), ppd = 4 * zoom;
+    const min = sorted[0].start;
+    const now = Date.now();
+    const ppd = 4 * zoom;
     const laneEnds: number[] = [];
-    const raw = sorted.map(({ game, start, end }) => {
+
+    const raw = sorted.map(({ game, start, end }, idx) => {
       const x1 = X0 + ((start - min) / DAY) * ppd;
       const x2 = Math.max(X0 + (((end ?? now) - min) / DAY) * ppd, x1 + MINW);
       let lane = laneEnds.findIndex((e) => e + 70 <= x1);
       if (lane < 0) lane = laneEnds.length;
       laneEnds[lane] = x2;
       const kind = kindOf(game);
-      return { game, start, end, x1, x2, lv: level(lane), kind, merge: !!end && kind !== "abandoned" };
+      return {
+        game, start, end, x1, x2,
+        lv: level(lane),
+        kind,
+        color: PALETTE[idx % PALETTE.length],
+        merge: !!end && kind !== "abandoned",
+      };
     });
+
     const ups = Math.max(0, ...raw.map((r) => -r.lv));
     const downs = Math.max(0, ...raw.map((r) => r.lv));
     const T = 220 + ups * GAP;
     const endX = Math.max(...raw.map((r) => r.x2)) + 150;
     const last = Math.max(...raw.map((r) => r.end ?? now));
+
     const years: { y: number; x: number }[] = [];
     for (let y = new Date(min).getUTCFullYear() + 1; Date.UTC(y, 0, 1) <= last; y++)
       years.push({ y, x: X0 + ((Date.UTC(y, 0, 1) - min) / DAY) * ppd });
+
     return {
       raw: raw.map((r) => ({ ...r, y: T + r.lv * GAP })),
       T, endX, last, years, min,
       width: endX + 260,
-      height: T + downs * GAP + 220,
+      height: Math.max(T + downs * GAP + 220, 600),
       open: raw.filter((r) => !r.end).length,
     };
   }, [items, zoom]);
 
-  // vertical wheel -> horizontal scroll (only when nothing to scroll vertically)
+  // vertical wheel -> horizontal scroll (when there is nothing to scroll vertically)
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
@@ -91,13 +179,6 @@ export function JourneyView({ games, openGame }: { games: Game[]; openGame: (id:
 
   const active = hoverId ?? pickId;
   const picked = L?.raw.find((r) => r.game.id === pickId);
-
-  const pathOf = (r: NonNullable<typeof L>["raw"][number], T: number) => {
-    if (r.lv === 0) return `M ${r.x1} ${T} L ${r.x2} ${T}`;
-    const c = 70;
-    const head = `M ${r.x1} ${T} C ${r.x1 + c} ${T}, ${r.x1 + c} ${r.y}, ${r.x1 + 2 * c} ${r.y} L ${r.x2 - 2 * c} ${r.y}`;
-    return head + (r.merge ? ` C ${r.x2 - c} ${r.y}, ${r.x2 - c} ${T}, ${r.x2} ${T}` : ` L ${r.x2} ${r.y}`);
-  };
 
   return createPortal(
     <div className="jn-screen" style={{ backgroundImage: `url(${BG_IMAGE})` }}>
@@ -130,27 +211,45 @@ export function JourneyView({ games, openGame }: { games: Game[]; openGame: (id:
         </div>
       ) : (
         <div className="jn-scroll" ref={scrollRef}>
-          <div className="jn-canvas" style={{ width: L.width, height: Math.max(L.height, 600) }} onClick={() => setPickId(undefined)}>
-            <svg className="jn-svg" width={L.width} height={Math.max(L.height, 600)}>
+          <div className="jn-canvas" style={{ width: L.width, height: L.height }} onClick={() => setPickId(undefined)}>
+            <svg className="jn-svg" width={L.width} height={L.height}>
               {L.years.map(({ y, x }) => (
                 <g key={y}>
                   <line className="jn-year" x1={x} y1={110} x2={x} y2={L.height - 90} />
                   <text className="jn-year-label" x={x} y={L.height - 66} textAnchor="middle">{y}</text>
                 </g>
               ))}
+
               <path className="jn-trunk-glow" d={`M 80 ${L.T} L ${L.endX} ${L.T}`} />
               <path className="jn-trunk" d={`M 80 ${L.T} L ${L.endX} ${L.T}`} />
 
               {L.raw.map((r) => {
-                const d = pathOf(r, L.T);
-                const c = K[r.kind];
+                const c = r.color;
+                const ex = r.x2;
+                const ey = r.merge ? L.T : r.y;
+                const pts = route(r.x1, r.x2, L.T, r.y, r.merge);
+                const braid = r.lv === 0 ? 5 : 6;
                 return (
                   <g key={r.game.id} className={active && active !== r.game.id ? "dim" : ""}>
-                    <path className="jn-glow" stroke={c} d={d} />
-                    <path className={`jn-line ${r.kind}`} stroke={c} d={d} />
+                    <path className="jn-glow" stroke={c} d={pts.map((p, i) => `${i ? "L" : "M"} ${p.x} ${p.y}`).join(" ")} />
+                    {STRANDS.map((s, i) => (
+                      <path
+                        key={i}
+                        className={`jn-strand${r.kind === "abandoned" ? " abandoned" : ""}`}
+                        style={{ stroke: `color-mix(in srgb, ${c}, ${s.mix})` }}
+                        d={strand(pts, s.phase, braid)}
+                      />
+                    ))}
                     <circle cx={r.x1} cy={L.T} r={5} fill={c} className="jn-dot" style={{ color: c }} />
-                    <circle cx={r.x2} cy={r.merge ? L.T : r.y} r={r.merge ? 7 : 6} fill={r.merge ? "#fff" : c}
-                      className={`jn-dot${r.kind === "active" ? " pulse" : ""}`} style={{ color: c }} />
+                    <circle
+                      cx={ex} cy={ey} r={r.merge ? 7 : 6}
+                      fill={r.merge ? "#fff" : c}
+                      className={`jn-dot${r.kind === "active" ? " pulse" : ""}`}
+                      style={{ color: c }}
+                    />
+                    <text className="jn-pt" x={r.x1} y={L.T - 18} textAnchor="middle">{fmt(r.start)}</text>
+                    <text className="jn-pt" x={ex} y={ey - 18} textAnchor="middle">{r.end ? fmt(r.end) : "Now"}</text>
+                    {r.merge && <text className="jn-pt sub" x={ex} y={ey + 24} textAnchor="middle">MERGE</text>}
                   </g>
                 );
               })}
@@ -165,13 +264,12 @@ export function JourneyView({ games, openGame }: { games: Game[]; openGame: (id:
             </svg>
 
             {L.raw.map((r) => {
-              const c = K[r.kind];
               const dim = active && active !== r.game.id;
               return (
                 <button
                   key={r.game.id}
                   className={`jn-node${dim ? " dim" : ""}${pickId === r.game.id ? " on" : ""}`}
-                  style={{ left: (r.x1 + r.x2) / 2, top: r.y, ["--c" as string]: c }}
+                  style={{ left: (r.x1 + r.x2) / 2, top: r.y, ...cssVar(r.color) }}
                   onMouseEnter={() => setHoverId(r.game.id)}
                   onMouseLeave={() => setHoverId(undefined)}
                   onClick={(e) => { e.stopPropagation(); setPickId(r.game.id); }}
@@ -183,9 +281,6 @@ export function JourneyView({ games, openGame }: { games: Game[]; openGame: (id:
                     <small><i />{formatPlaytime(r.game.totalSeconds)} · {STATUS_LABEL[r.kind]}</small>
                   </span>
                   <span className="jn-cover" style={r.game.cover ? { backgroundImage: `url(${r.game.cover})` } : undefined} />
-                  <span className="jn-label bot">
-                    <em>{fmt(r.start)}</em><b>→</b><em>{r.end ? fmt(r.end) : "now"}</em>
-                  </span>
                 </button>
               );
             })}
@@ -194,7 +289,7 @@ export function JourneyView({ games, openGame }: { games: Game[]; openGame: (id:
       )}
 
       {picked && (
-        <aside className="jn-detail" style={{ ["--c" as string]: K[picked.kind] }}>
+        <aside className="jn-detail" style={cssVar(K[picked.kind])}>
           <div className="jn-detail-head">
             <span className="jn-detail-cover" style={picked.game.cover ? { backgroundImage: `url(${picked.game.cover})` } : undefined} />
             <div>
@@ -213,10 +308,9 @@ export function JourneyView({ games, openGame }: { games: Game[]; openGame: (id:
       )}
 
       <div className="jn-legend">
-        <span><i style={{ background: K.main }} />Main Journey</span>
-        <span><i style={{ background: K.side }} />Side Journey</span>
-        <span><i style={{ background: K.active }} />In Progress</span>
-        <span><i style={{ background: K.abandoned }} />Abandoned</span>
+        <span><i style={{ background: "#fff" }} />Merge point</span>
+        <span><i style={{ background: K.active }} />In progress (open end)</span>
+        <span><i style={{ background: K.abandoned }} />Abandoned (dashed)</span>
       </div>
     </div>,
     document.body
