@@ -28,7 +28,6 @@ export type AppSettings = {
   defaultView: View | "grid" | "list";
   libraryLayout: LibraryLayout;
   libraryFullscreen: boolean;
-  lastOpenedGameId?: string;
   gridSize: GridSize;
   librarySort: LibrarySort;
   librarySortDirection: SortDirection;

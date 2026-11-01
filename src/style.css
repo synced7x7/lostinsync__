@@ -50,7 +50,7 @@
 
 
 body {
-    margin: 0;
+    margin-top: -10px;
     min-width: 320px;
     background: radial-gradient(circle at 75% -10%, #28224f 0, transparent 35%), radial-gradient(circle at 0 100%, #102b3c 0, transparent 30%), var(--bg)
 }
@@ -448,7 +448,7 @@ nav {
     font-family: 'DM Mono', monospace;
     color: var(--accent);
     letter-spacing: 1.3px;
-    font-size: 10px;
+    font-size: 11px;
     margin: 0 0 8px;
     font-weight: 500
 }
@@ -1320,7 +1320,7 @@ nav {
     border-radius: 20px;
     color: var(--accent);
     background: rgba(164, 149, 255, .12);
-    font-size: 9px
+    font-size: 11px
 }
 
 .pill.success {
@@ -2997,7 +2997,7 @@ nav {
 
 .about-main {
     flex: 1;
-    min-width: 0
+    min-width: 0; 
 }
 
 .about-desc {
@@ -3066,13 +3066,15 @@ nav {
 }
 
 .plat-label {
+    font-family: 'DM Mono', monospace;
+    color: var(--accent);
     display: block;
-    font-size: 10px;
-    color: var(--muted);
+    font-size: 13px;
     margin-bottom: 7px
 }
 
 .pill.plain {
+    
     color: var(--muted);
     background: rgba(255, 255, 255, .06)
 }

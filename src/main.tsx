@@ -64,9 +64,16 @@ function App() {
   const view = (location.pathname.slice(1) || "dashboard") as View;
   const setView = (next: View) =>
     navigate(next === "dashboard" ? "/" : `/${next}`);
-  const [selectedId, setSelectedId] = useState<string>();
+  const routeGameId = new URLSearchParams(location.search).get("game") ?? undefined;
+  const [selectedId, setSelectedId] = useState<string | undefined>(routeGameId);
+  const [libraryFocusId, setLibraryFocusId] = useState<string>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  useEffect(() => {
+    if (view === "details" && routeGameId && routeGameId !== selectedId) {
+      setSelectedId(routeGameId);
+    }
+  }, [routeGameId, selectedId, view]);
   useEffect(() => {
     if (view === "details") {
       window.scrollTo({ top: 0, left: 0, behavior: "auto" });
@@ -116,7 +123,7 @@ function App() {
   const selected = data.games.find((game) => game.id === selectedId);
   const openGame = (id: string) => {
     setSelectedId(id);
-    setView("details");
+    navigate(`/details?game=${encodeURIComponent(id)}`);
   };
   if (loading)
     return (
@@ -136,7 +143,7 @@ function App() {
         <Dashboard data={data} openLibrary={() => setView("library")} openGame={openGame} />
       )}{" "}
       {view === "library" && (
-        <LibraryView data={data} update={update} addGame={addGame} saveGame={saveGame} deleteGame={deleteGame} openGame={openGame} />
+        <LibraryView data={data} update={update} addGame={addGame} saveGame={saveGame} deleteGame={deleteGame} openGame={openGame} focusedGameId={libraryFocusId} onFocusedGameChange={setLibraryFocusId} />
       )}{" "}
       {view === "details" && selected && (
         <Details game={selected} saveGame={saveGame} deleteGame={deleteGame} goBack={() => setView("library")} igdb={{ clientId: data.settings.igdbClientId ?? "", clientSecret: data.settings.igdbClientSecret ?? "" }} />
@@ -183,11 +190,11 @@ const formatSpan = (from: string, to: string) => {
     m > 0 && `${m} ${m === 1 ? "month" : "months"}`,
     d > 0 && `${d} ${d === 1 ? "day" : "days"}`,
   ].filter(Boolean);
-  return parts.join(", ") || "1 day";
+  return parts.join("  ") || "1 day";
 };
 
 function LibraryView({
-  data, update, addGame, saveGame, openGame,
+  data, update, addGame, saveGame, openGame, focusedGameId, onFocusedGameChange,
 }: {
   data: AppData;
   update: (data: AppData) => void;
@@ -195,9 +202,10 @@ function LibraryView({
   saveGame: (game: Game) => void;
   deleteGame: (game: Game) => void;
   openGame: (id: string) => void;
+  focusedGameId?: string;
+  onFocusedGameChange: (id: string) => void;
 }) {
   const [query, setQuery] = useState("");
-  const [featuredId, setFeaturedId] = useState<string | undefined>(data.settings.lastOpenedGameId);
   const [showAdd, setShowAdd] = useState(false);
   const [fullscreen, setFullscreen] = useState(data.settings.libraryFullscreen ?? false);
   const [showFullscreenFilters, setShowFullscreenFilters] = useState(false);
@@ -244,15 +252,8 @@ function LibraryView({
       </button>
     </>
   );
-  const featured = games.find((g) => g.id === featuredId) ?? games[0];
-  const rememberFocusedGame = (id: string) => {
-    setFeaturedId(id);
-    if (data.settings.lastOpenedGameId !== id) {
-      updateSettings({ lastOpenedGameId: id });
-    }
-  };
+  const featured = games.find((g) => g.id === focusedGameId) ?? games[0];
   const openLibraryGame = (id: string) => {
-    rememberFocusedGame(id);
     openGame(id);
   };
   return (
@@ -317,9 +318,9 @@ function LibraryView({
                 )}
               </div>
             )}
-            <PS4ShelfView initialGameId={data.settings.lastOpenedGameId} fullscreen={fullscreen} games={games} featured={featured} setFeaturedId={rememberFocusedGame} openGame={openLibraryGame} saveGame={saveGame} />
+            <PS4ShelfView fullscreen={fullscreen} games={games} featured={featured} focusedGameId={focusedGameId} onFocusedGameChange={onFocusedGameChange} openGame={openLibraryGame} saveGame={saveGame} />
           </div>
-          : <GridLibraryView games={games} initialGameId={data.settings.lastOpenedGameId} openGame={openLibraryGame} saveGame={saveGame} gridSize={data.settings.gridSize ?? "md"} setGridSize={(size) => updateSettings({ gridSize: size })} />
+          : <GridLibraryView games={games} openGame={openLibraryGame} saveGame={saveGame} gridSize={data.settings.gridSize ?? "md"} setGridSize={(size) => updateSettings({ gridSize: size })} />
       }
       {showAdd && <AddGame igdb={{ clientId: data.settings.igdbClientId ?? "", clientSecret: data.settings.igdbClientSecret ?? "" }} onClose={() => setShowAdd(false)} onAdd={(game) => { addGame(game); setShowAdd(false); }} />}
     </>
@@ -342,23 +343,48 @@ const PS4_CARD_LIFTS: Record<number, number> = {
 const PS4_NEIGHBOR_HOVER_BOOST = 0.08;
 
 function PS4ShelfView({
-  games, featured, setFeaturedId, openGame, saveGame, fullscreen, initialGameId,
+  games, featured, focusedGameId, onFocusedGameChange, openGame, saveGame, fullscreen,
 }: {
   games: Game[];
   featured: Game | undefined;
-  setFeaturedId: (id: string) => void;
+  focusedGameId?: string;
+  onFocusedGameChange: (id: string) => void;
   openGame: (id: string) => void;
   saveGame: (g: Game) => void;
   fullscreen?: boolean;
-  initialGameId?: string;
 }) {
-  const [focusedIdx, setFocusedIdx] = useState(() => Math.max(0, games.findIndex((game) => game.id === initialGameId)));
+  const [focusedIdx, setFocusedIdx] = useState(() => {
+    const index = games.findIndex((game) => game.id === focusedGameId);
+    return index >= 0 ? index : 0;
+  });
   const shelfRef = useRef<HTMLDivElement>(null);
+  const scrollTargetRef = useRef(0);
+  const scrollRafRef = useRef(0);
+  const lastClickRef = useRef<{ index: number; time: number }>({ index: -1, time: 0 });
+  const startScrollAnimation = useCallback(() => {
+    if (scrollRafRef.current) return;
+    const tick = () => {
+      const shelf = shelfRef.current;
+      if (!shelf) {
+        scrollRafRef.current = 0;
+        return;
+      }
+      const diff = scrollTargetRef.current - shelf.scrollLeft;
+      if (Math.abs(diff) < 0.5) {
+        shelf.scrollLeft = scrollTargetRef.current;
+        scrollRafRef.current = 0;
+        return;
+      }
+      shelf.scrollLeft += diff * 0.22;
+      scrollRafRef.current = requestAnimationFrame(tick);
+    };
+    scrollRafRef.current = requestAnimationFrame(tick);
+  }, []);
 
   const focusedGame = games[focusedIdx] ?? games[0];
   useEffect(() => {
-    if (focusedGame) setFeaturedId(focusedGame.id);
-  }, [focusedGame, setFeaturedId]);
+    if (focusedGame) onFocusedGameChange(focusedGame.id);
+  }, [focusedGame?.id, onFocusedGameChange]);
 
   const handleKey = useCallback((e: KeyboardEvent) => {
     if (e.key === "ArrowRight") {
@@ -369,6 +395,16 @@ function PS4ShelfView({
       setFocusedIdx((p) => Math.max(p - 1, 0));
     }
   }, [games.length]);
+
+  const handleCardClick = (game: Game, idx: number) => {
+    const now = performance.now();
+    const previous = lastClickRef.current;
+    const isDoubleClick = previous.index === idx && now - previous.time < 400;
+    lastClickRef.current = { index: idx, time: now };
+    setFocusedIdx(idx);
+    onFocusedGameChange(game.id);
+    if (isDoubleClick) openGame(game.id);
+  };
   
   useEffect(() => {
     window.addEventListener("keydown", handleKey);
@@ -376,21 +412,38 @@ function PS4ShelfView({
   }, [handleKey]);
 
   useEffect(() => {
-    const el = shelfRef.current?.children[focusedIdx] as HTMLElement | undefined;
-    el?.scrollIntoView({ block: "nearest", inline: "center", behavior: "auto" });
-  }, [focusedIdx]);
+    const shelf = shelfRef.current;
+    if (!shelf) return;
+    shelf.style.scrollBehavior = "auto";
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const delta = (Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY) * 3;
+      const max = shelf.scrollWidth - shelf.clientWidth;
+      scrollTargetRef.current = Math.max(0, Math.min(max, scrollTargetRef.current + delta));
+      startScrollAnimation();
+    };
+    const onScroll = () => {
+      if (!scrollRafRef.current) scrollTargetRef.current = shelf.scrollLeft;
+    };
+    shelf.addEventListener("wheel", onWheel, { passive: false });
+    shelf.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      shelf.removeEventListener("wheel", onWheel);
+      shelf.removeEventListener("scroll", onScroll);
+      cancelAnimationFrame(scrollRafRef.current);
+      scrollRafRef.current = 0;
+    };
+  }, [startScrollAnimation]);
 
   useEffect(() => {
     const shelf = shelfRef.current;
-    if (!shelf) return;
-    const onWheel = (e: WheelEvent) => {
-      e.preventDefault();
-      const delta = (Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY) * 5;
-      shelf.scrollLeft += delta;
-    };
-    shelf.addEventListener("wheel", onWheel, { passive: false });
-    return () => shelf.removeEventListener("wheel", onWheel);
-  }, []);
+    const card = shelf?.children[focusedIdx] as HTMLElement | undefined;
+    if (!shelf || !card) return;
+    const max = shelf.scrollWidth - shelf.clientWidth;
+    const target = card.offsetLeft + card.offsetWidth / 2 - shelf.clientWidth / 2;
+    scrollTargetRef.current = Math.max(0, Math.min(max, target));
+    startScrollAnimation();
+  }, [focusedIdx, startScrollAnimation]);
 
   return (
     <>
@@ -438,14 +491,11 @@ function PS4ShelfView({
                   key={game.id}
                   layout
                   className={`ps4-card${isFocused ? " ps4-card--focused" : ""}`}
-                  onClick={() => setFocusedIdx(idx)}
-                  onDoubleClick={() => openGame(game.id)}
+                  onClick={() => handleCardClick(game, idx)}
                   animate={{
                     scale: PS4_CARD_SCALES[distance] ?? 1,
                     zIndex: distance === 0 ? 20 : distance === 1 ? 10 : distance === 2 ? 5 : 1,
                     y: -(PS4_CARD_LIFTS[distance] ?? 0),
-                    marginLeft: isFocused ? (idx === 0 ? 8 : 18) : 0,
-                    marginRight: isFocused ? 18 : 0,
                   }}
                   transition={{ type: "spring", stiffness: 360, damping: 28 }}
                   whileHover={!isFocused
@@ -475,17 +525,15 @@ function PS4ShelfView({
 }
 
 function GridLibraryView({
-  games, initialGameId, openGame, saveGame, gridSize, setGridSize,
+  games, openGame, saveGame, gridSize, setGridSize,
 }: {
   games: Game[];
-  initialGameId?: string;
   openGame: (id: string) => void;
   saveGame: (g: Game) => void;
   gridSize: GridSize;
   setGridSize: (size: GridSize) => void;
 }) {
-  const initialIndex = Math.max(0, games.findIndex((game) => game.id === initialGameId));
-  const [visibleCount, setVisibleCount] = useState(Math.max(40, initialIndex + 1));
+  const [visibleCount, setVisibleCount] = useState(40);
   const sentinelRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const el = sentinelRef.current;
@@ -497,10 +545,6 @@ function GridLibraryView({
     return () => obs.disconnect();
   }, [games.length]);
   const visible = games.slice(0, visibleCount);
-  useEffect(() => {
-    if (!initialGameId || !games.some((game) => game.id === initialGameId)) return;
-    requestAnimationFrame(() => document.querySelector(`[data-game-id="${initialGameId}"]`)?.scrollIntoView({ block: "center" }));
-  }, [initialGameId, games]);
   const sizeClass: Record<GridSize, string> = { sm: "grid-lib--sm", md: "grid-lib--md", lg: "grid-lib--lg" };
   return (
     <div className="grid-lib-wrapper">
