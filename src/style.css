@@ -191,7 +191,11 @@ textarea {
 }
 
 .sidebar-backdrop {
-    display: none
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, .28);
+    z-index: 90
 }
 
 .sidebar.closed {
@@ -2008,6 +2012,40 @@ nav {
     padding-bottom: clamp(24px, 7vh, 72px)
 }
 
+.ps4-library--fullscreen .ps4-featured-info {
+    font-family: "info font", Manrope, sans-serif
+}
+
+.ps4-library--fullscreen .ps4-title {
+    font-family: "Chiffon", "title font", sans-serif;
+    font-size: clamp(38px, 5.5vw, 80px);
+    letter-spacing: -.035em
+}
+
+.ps4-library--fullscreen .ps4-meta {
+    font-size: 15px;
+    letter-spacing: .03em
+}
+
+.ps4-library--fullscreen .ps4-rating {
+    font-size: 22px
+}
+
+.ps4-library--fullscreen .ps4-rating small {
+    font-size: 11px
+}
+
+.ps4-library--fullscreen .ps4-card-label {
+    font-family: "info font", Manrope, sans-serif;
+    font-size: 14px;
+    max-width: 150px
+}
+
+.ps4-library--fullscreen .ps4-nav-hint {
+    font-family: "info font", Manrope, sans-serif;
+    font-size: 13px
+}
+
 .ps4-fullscreen-actions {
     position: fixed;
     top: 24px;
@@ -2033,6 +2071,13 @@ nav {
 
 .ps4-fullscreen-filter-panel select {
     max-width: 150px
+}
+
+.ps4-fullscreen-filter-panel input,
+.ps4-fullscreen-filter-panel select,
+.ps4-fullscreen-filter-panel .button {
+    font-family: "info font", Manrope, sans-serif;
+    font-size: 13px
 }
 
 /* Full-bleed background art (NO BLUR, crisp and vibrant) */
