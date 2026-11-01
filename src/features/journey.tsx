@@ -1,149 +1,224 @@
-import { useMemo, useState } from "react";
-import { CalendarDays, Minus, Plus, Route, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { ArrowRight, CalendarDays, Clock3, Minus, Plus, Route, Trophy } from "lucide-react";
 import type { Game } from "../domain/game";
 import { formatPlaytime } from "../domain/game";
-import { formatDate, Header } from "../components/shared";
 import "./journey.css";
 
-type JourneyGame = {
-  game: Game;
-  start: number;
-  end: number;
-  lane: number;
-  color: string;
-  xStart: number;
-  xEnd: number;
-  xNode: number;
-};
+const BG_IMAGE = "/images/journey-bg.jpg"; // TODO: replace with your background image path
 
-const COLORS = ["#9b8cff", "#6ea8ff", "#59d9da", "#f0c674", "#7ed89b", "#f58ab2", "#f49b65"];
 const DAY = 86_400_000;
-const MIN_RANGE = 30 * DAY;
+const GAP = 190;   // vertical distance between branches
+const X0 = 230;    // where the timeline starts
+const MINW = 380;  // minimum branch length so cards never collide
+const K = { main: "#8f86ff", side: "#f0c674", active: "#5be3a4", abandoned: "#ff6b86" };
+type Kind = keyof typeof K;
+type Range = "all" | "year" | "month";
 
-function dayLabel(value: number, detailed = false) {
-  return new Intl.DateTimeFormat(undefined, detailed ? { month: "short", day: "numeric" } : { year: "numeric" }).format(value);
-}
-
-function parseDate(value?: string) {
-  if (!value) return undefined;
-  const parsed = Date.parse(value);
-  return Number.isNaN(parsed) ? undefined : parsed;
-}
+const fmt = (t: number) =>
+  new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(t);
+const kindOf = (g: Game): Kind =>
+  g.status === "Abandoned" ? "abandoned"
+  : g.finishedAt ? (g.status === "Completed" ? "main" : "side")
+  : ["Retired", "Shelved", "On hold"].includes(g.status) ? "side" : "active";
+const level = (lane: number) => (lane === 0 ? 0 : lane % 2 ? -(lane + 1) / 2 : lane / 2);
+const STATUS_LABEL: Record<Kind, string> = { main: "Completed", side: "Side journey", active: "In progress", abandoned: "Abandoned" };
 
 export function JourneyView({ games, openGame }: { games: Game[]; openGame: (id: string) => void }) {
+  const [range, setRange] = useState<Range>("all");
   const [zoom, setZoom] = useState(1);
-  const [year, setYear] = useState("all");
-  const [rangeStart, setRangeStart] = useState("");
-  const [rangeEnd, setRangeEnd] = useState("");
-  const [hoveredId, setHoveredId] = useState<string>();
-  const [selectedId, setSelectedId] = useState<string>();
+  const [hoverId, setHoverId] = useState<string>();
+  const [pickId, setPickId] = useState<string>();
+  const scrollRef = useRef<HTMLDivElement>(null);
 
-  const datedGames = useMemo(() => games
-    .map((game) => ({ game, start: parseDate(game.startedAt), end: parseDate(game.finishedAt) }))
-    .filter((entry): entry is { game: Game; start: number; end: number | undefined } => entry.start !== undefined), [games]);
-
-  const years = useMemo(() => Array.from(new Set(datedGames.map(({ start }) => new Date(start).getFullYear()))).sort((a, b) => b - a), [datedGames]);
-  const filtered = useMemo(() => datedGames.filter(({ start, end }) => {
-    const selectedYear = year === "all" || new Date(start).getFullYear() === Number(year) || (end !== undefined && new Date(end).getFullYear() === Number(year));
-    const after = !rangeStart || start >= Date.parse(rangeStart);
-    const before = !rangeEnd || start <= Date.parse(rangeEnd) + DAY - 1;
-    return selectedYear && after && before;
-  }), [datedGames, rangeEnd, rangeStart, year]);
-
-  const layout = useMemo(() => {
-    if (!filtered.length) return { games: [] as JourneyGame[], min: 0, max: 0, width: 0, lanes: 0 };
-    const sorted = [...filtered].sort((a, b) => a.start - b.start || a.game.title.localeCompare(b.game.title));
-    const min = Math.min(...sorted.map(({ start }) => start));
-    const max = Math.max(Date.now(), ...sorted.map(({ end, start }) => end ?? start));
-    const range = Math.max(MIN_RANGE, max - min);
-    const width = Math.max(1300, Math.round((range / DAY) * 2.8 * zoom));
-    const laneEnds: number[] = [];
-    const entries = sorted.map(({ game, start, end }, index) => {
-      const actualEnd = end ?? max;
-      let lane = laneEnds.findIndex((laneEnd) => laneEnd <= start);
-      if (lane < 0) lane = laneEnds.length;
-      laneEnds[lane] = actualEnd;
-      const xStart = 100 + ((start - min) / range) * (width - 160);
-      const xEnd = 100 + ((actualEnd - min) / range) * (width - 160);
-      return {
-        game,
-        start,
-        end: actualEnd,
-        lane,
-        color: COLORS[index % COLORS.length],
-        xStart,
-        xEnd,
-        xNode: xStart + Math.max(0, xEnd - xStart) / 2,
-      };
+  const items = useMemo(() => {
+    const now = new Date();
+    const hit = (t?: number) =>
+      t !== undefined && new Date(t).getFullYear() === now.getFullYear() &&
+      (range === "year" || new Date(t).getMonth() === now.getMonth());
+    return games.flatMap((game) => {
+      const start = Date.parse(game.startedAt ?? "");
+      if (Number.isNaN(start)) return [];
+      const end = game.finishedAt ? Date.parse(game.finishedAt) : undefined;
+      if (range !== "all" && !hit(start) && !hit(end)) return [];
+      return [{ game, start, end }];
     });
-    return { games: entries, min, max, width, lanes: Math.max(1, laneEnds.length) };
-  }, [filtered, zoom]);
+  }, [games, range]);
 
-  const height = 270 + layout.lanes * 92;
-  const selected = layout.games.find((entry) => entry.game.id === selectedId);
-  const hovered = layout.games.find((entry) => entry.game.id === hoveredId);
-  const focus = hovered ?? selected;
-  const axisSteps = Math.max(4, Math.min(12, Math.round(layout.width / 220)));
-  const step = layout.max > layout.min ? (layout.max - layout.min) / axisSteps : 0;
-  const todayX = layout.max > layout.min && Date.now() >= layout.min && Date.now() <= layout.max
-    ? 100 + ((Date.now() - layout.min) / (layout.max - layout.min)) * (layout.width - 160)
-    : undefined;
+  const L = useMemo(() => {
+    if (!items.length) return null;
+    const sorted = [...items].sort((a, b) => a.start - b.start);
+    const min = sorted[0].start, now = Date.now(), ppd = 4 * zoom;
+    const laneEnds: number[] = [];
+    const raw = sorted.map(({ game, start, end }) => {
+      const x1 = X0 + ((start - min) / DAY) * ppd;
+      const x2 = Math.max(X0 + (((end ?? now) - min) / DAY) * ppd, x1 + MINW);
+      let lane = laneEnds.findIndex((e) => e + 70 <= x1);
+      if (lane < 0) lane = laneEnds.length;
+      laneEnds[lane] = x2;
+      const kind = kindOf(game);
+      return { game, start, end, x1, x2, lv: level(lane), kind, merge: !!end && kind !== "abandoned" };
+    });
+    const ups = Math.max(0, ...raw.map((r) => -r.lv));
+    const downs = Math.max(0, ...raw.map((r) => r.lv));
+    const T = 220 + ups * GAP;
+    const endX = Math.max(...raw.map((r) => r.x2)) + 150;
+    const last = Math.max(...raw.map((r) => r.end ?? now));
+    const years: { y: number; x: number }[] = [];
+    for (let y = new Date(min).getUTCFullYear() + 1; Date.UTC(y, 0, 1) <= last; y++)
+      years.push({ y, x: X0 + ((Date.UTC(y, 0, 1) - min) / DAY) * ppd });
+    return {
+      raw: raw.map((r) => ({ ...r, y: T + r.lv * GAP })),
+      T, endX, last, years, min,
+      width: endX + 260,
+      height: T + downs * GAP + 220,
+      open: raw.filter((r) => !r.end).length,
+    };
+  }, [items, zoom]);
 
-  return (
-    <>
-      <Header eyebrow="CHRONOLOGICAL PLAY HISTORY" title="Game Journey" />
-      <section className="journey-intro glass">
-        <div>
-          <span className="journey-mark"><Route size={19} /></span>
-          <p className="eyebrow">YOUR GAMING CONSTELLATION</p>
-          <h2>Every start, detour, and return.</h2>
-          <p className="muted">Follow the paths your games made through time. Overlapping journeys branch out, then reconnect when they end.</p>
+  // vertical wheel -> horizontal scroll (only when nothing to scroll vertically)
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const on = (e: WheelEvent) => {
+      if (el.scrollHeight > el.clientHeight + 4 || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+      e.preventDefault();
+      el.scrollLeft += e.deltaY * 2;
+    };
+    el.addEventListener("wheel", on, { passive: false });
+    return () => el.removeEventListener("wheel", on);
+  }, [L]);
+
+  const active = hoverId ?? pickId;
+  const picked = L?.raw.find((r) => r.game.id === pickId);
+
+  const pathOf = (r: NonNullable<typeof L>["raw"][number], T: number) => {
+    if (r.lv === 0) return `M ${r.x1} ${T} L ${r.x2} ${T}`;
+    const c = 70;
+    const head = `M ${r.x1} ${T} C ${r.x1 + c} ${T}, ${r.x1 + c} ${r.y}, ${r.x1 + 2 * c} ${r.y} L ${r.x2 - 2 * c} ${r.y}`;
+    return head + (r.merge ? ` C ${r.x2 - c} ${r.y}, ${r.x2 - c} ${T}, ${r.x2} ${T}` : ` L ${r.x2} ${r.y}`);
+  };
+
+  return createPortal(
+    <div className="jn-screen" style={{ backgroundImage: `url(${BG_IMAGE})` }}>
+      <div className="jn-shade" />
+
+      <header className="jn-top">
+        <div className="jn-title">
+          <span className="jn-mark"><Route size={20} /></span>
+          <div><h1>Game Journey</h1><p>Your gaming timeline, visualized</p></div>
         </div>
-        <div className="journey-controls">
-          <label><span>Year</span><select value={year} onChange={(event) => setYear(event.target.value)}><option value="all">All time</option>{years.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
-          <label><span>From</span><input type="date" value={rangeStart} onChange={(event) => setRangeStart(event.target.value)} /></label>
-          <label><span>To</span><input type="date" value={rangeEnd} onChange={(event) => setRangeEnd(event.target.value)} /></label>
-          <div className="journey-zoom"><button onClick={() => setZoom((value) => Math.max(.65, value - .2))} aria-label="Zoom out"><Minus size={15} /></button><strong>{Math.round(zoom * 100)}%</strong><button onClick={() => setZoom((value) => Math.min(2.4, value + .2))} aria-label="Zoom in"><Plus size={15} /></button></div>
+        <div className="jn-tools">
+          <div className="jn-pills">
+            {([["all", "All Time"], ["year", "This Year"], ["month", "This Month"]] as const).map(([k, label]) => (
+              <button key={k} className={range === k ? "on" : ""} onClick={() => setRange(k)}>{label}</button>
+            ))}
+          </div>
+          <div className="jn-zoom">
+            <button onClick={() => setZoom((z) => Math.max(0.5, z - 0.2))} aria-label="Zoom out"><Minus size={14} /></button>
+            <span>{Math.round(zoom * 100)}%</span>
+            <button onClick={() => setZoom((z) => Math.min(2.4, z + 0.2))} aria-label="Zoom in"><Plus size={14} /></button>
+          </div>
         </div>
-      </section>
+      </header>
 
-      {!layout.games.length ? (
-        <section className="journey-empty glass"><CalendarDays size={28} /><h2>Your journey is waiting</h2><p>Add start dates to games to see them flow through your history.</p></section>
+      {!L ? (
+        <div className="jn-empty">
+          <CalendarDays size={30} />
+          <h2>Your journey is waiting</h2>
+          <p>Add a start date to your games and they will flow through your history here.</p>
+        </div>
       ) : (
-        <section className="journey-board glass">
-          <div className="journey-scroll">
-            <div className="journey-canvas" style={{ width: layout.width, minHeight: height }}>
-              <svg className="journey-svg" width={layout.width} height={height} aria-label="Interactive game journey graph">
-                <path className="journey-main-path" d={`M 24 190 C ${layout.width * .25} 190, ${layout.width * .7} 190, ${layout.width - 24} 190`} />
-                {step > 0 && Array.from({ length: axisSteps + 1 }, (_, index) => {
-                  const date = layout.min + step * index;
-                  const x = 100 + ((date - layout.min) / (layout.max - layout.min)) * (layout.width - 160);
-                  return <g key={date}><line className="journey-grid-line" x1={x} y1={80} x2={x} y2={height - 44} /><text className="journey-axis-label" x={x} y={height - 18} textAnchor="middle">{dayLabel(date, zoom > 1.2)}</text></g>;
-                })}
-                {todayX !== undefined && <g><line className="journey-today-line" x1={todayX} y1={58} x2={todayX} y2={height - 44} /><text className="journey-today-label" x={todayX} y={48} textAnchor="middle">TODAY</text></g>}
-                {layout.games.map((entry) => {
-                  const y = 190 + entry.lane * 92;
-                  const isActive = !entry.game.finishedAt;
-                  const highlighted = !focus || focus.game.id === entry.game.id;
-                  const branchPath = entry.lane === 0
-                    ? `M ${entry.xStart} 190 C ${entry.xStart + 45} 190, ${entry.xEnd - 45} 190, ${entry.xEnd} 190`
-                    : `M ${entry.xStart} 190 C ${entry.xStart + 35} 190, ${entry.xStart + 35} ${y}, ${entry.xNode} ${y} S ${entry.xEnd - 35} ${y}, ${entry.xEnd} ${isActive ? y : 190}`;
-                  return <g key={entry.game.id} className={highlighted ? "" : "journey-dim"}><path className={`journey-branch${isActive ? " journey-branch-active" : ""}${entry.game.status === "Abandoned" ? " journey-branch-abandoned" : ""}`} stroke={entry.color} d={branchPath} /><circle className="journey-point" cx={entry.xStart} cy={190} r={5} fill={entry.color} /><circle className="journey-point" cx={entry.xEnd} cy={isActive ? y : 190} r={5} fill={entry.color} /></g>;
-                })}
-              </svg>
-              {layout.games.map((entry) => {
-                const y = 190 + entry.lane * 92;
-                const highlighted = !focus || focus.game.id === entry.game.id;
-                return <button key={entry.game.id} className={`journey-node${highlighted ? "" : " journey-dim"}`} style={{ left: entry.xNode, top: y }} onMouseEnter={() => setHoveredId(entry.game.id)} onMouseLeave={() => setHoveredId(undefined)} onFocus={() => setHoveredId(entry.game.id)} onBlur={() => setHoveredId(undefined)} onClick={() => setSelectedId(entry.game.id)} onDoubleClick={() => openGame(entry.game.id)} title="Click for details, double-click to open">
-                  <span className="journey-cover" style={entry.game.cover ? { backgroundImage: `url(${entry.game.cover})` } : undefined} />
-                  <span className="journey-node-copy"><strong>{entry.game.title}</strong><small>{formatDate(entry.game.startedAt!)} {entry.game.finishedAt ? `→ ${formatDate(entry.game.finishedAt)}` : "→ now"}</small></span>
-                </button>;
+        <div className="jn-scroll" ref={scrollRef}>
+          <div className="jn-canvas" style={{ width: L.width, height: Math.max(L.height, 600) }} onClick={() => setPickId(undefined)}>
+            <svg className="jn-svg" width={L.width} height={Math.max(L.height, 600)}>
+              {L.years.map(({ y, x }) => (
+                <g key={y}>
+                  <line className="jn-year" x1={x} y1={110} x2={x} y2={L.height - 90} />
+                  <text className="jn-year-label" x={x} y={L.height - 66} textAnchor="middle">{y}</text>
+                </g>
+              ))}
+              <path className="jn-trunk-glow" d={`M 80 ${L.T} L ${L.endX} ${L.T}`} />
+              <path className="jn-trunk" d={`M 80 ${L.T} L ${L.endX} ${L.T}`} />
+
+              {L.raw.map((r) => {
+                const d = pathOf(r, L.T);
+                const c = K[r.kind];
+                return (
+                  <g key={r.game.id} className={active && active !== r.game.id ? "dim" : ""}>
+                    <path className="jn-glow" stroke={c} d={d} />
+                    <path className={`jn-line ${r.kind}`} stroke={c} d={d} />
+                    <circle cx={r.x1} cy={L.T} r={5} fill={c} className="jn-dot" style={{ color: c }} />
+                    <circle cx={r.x2} cy={r.merge ? L.T : r.y} r={r.merge ? 7 : 6} fill={r.merge ? "#fff" : c}
+                      className={`jn-dot${r.kind === "active" ? " pulse" : ""}`} style={{ color: c }} />
+                  </g>
+                );
               })}
+
+              <circle cx={80} cy={L.T} r={17} className="jn-start-ring" />
+              <circle cx={80} cy={L.T} r={8} className="jn-start" />
+              <text className="jn-end-label" x={80} y={L.T + 46} textAnchor="middle">START · {fmt(L.min)}</text>
+              <rect className="jn-end" x={L.endX - 7} y={L.T - 7} width={14} height={14} transform={`rotate(45 ${L.endX} ${L.T})`} />
+              <text className="jn-end-label" x={L.endX} y={L.T - 26} textAnchor="middle">
+                {L.open ? "TODAY" : "END"} · {fmt(L.open ? Date.now() : L.last)}
+              </text>
+            </svg>
+
+            {L.raw.map((r) => {
+              const c = K[r.kind];
+              const dim = active && active !== r.game.id;
+              return (
+                <button
+                  key={r.game.id}
+                  className={`jn-node${dim ? " dim" : ""}${pickId === r.game.id ? " on" : ""}`}
+                  style={{ left: (r.x1 + r.x2) / 2, top: r.y, ["--c" as string]: c }}
+                  onMouseEnter={() => setHoverId(r.game.id)}
+                  onMouseLeave={() => setHoverId(undefined)}
+                  onClick={(e) => { e.stopPropagation(); setPickId(r.game.id); }}
+                  onDoubleClick={() => openGame(r.game.id)}
+                  title="Click for details · double-click to open"
+                >
+                  <span className="jn-label top">
+                    <strong>{r.game.title}</strong>
+                    <small><i />{formatPlaytime(r.game.totalSeconds)} · {STATUS_LABEL[r.kind]}</small>
+                  </span>
+                  <span className="jn-cover" style={r.game.cover ? { backgroundImage: `url(${r.game.cover})` } : undefined} />
+                  <span className="jn-label bot">
+                    <em>{fmt(r.start)}</em><b>→</b><em>{r.end ? fmt(r.end) : "now"}</em>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {picked && (
+        <aside className="jn-detail" style={{ ["--c" as string]: K[picked.kind] }}>
+          <div className="jn-detail-head">
+            <span className="jn-detail-cover" style={picked.game.cover ? { backgroundImage: `url(${picked.game.cover})` } : undefined} />
+            <div>
+              <h2>{picked.game.title}</h2>
+              <p>{[picked.game.genre, picked.game.developer].filter(Boolean).join(" • ") || "Uncategorized"}</p>
+              <span className="jn-chip">{STATUS_LABEL[picked.kind]}</span>
             </div>
           </div>
-          {focus && <aside className="journey-detail glass"><button className="journey-close" onClick={() => { setSelectedId(undefined); setHoveredId(undefined); }}><X size={15} /></button><div className="journey-detail-cover" style={focus.game.cover ? { backgroundImage: `url(${focus.game.cover})` } : undefined} /><div><p className="eyebrow">{focus.game.status}</p><h2>{focus.game.title}</h2><p className="muted">{focus.game.genre || "Uncategorized"} · {focus.game.platform}</p><dl><div><dt>Started</dt><dd>{formatDate(focus.game.startedAt!)}</dd></div><div><dt>Ended</dt><dd>{focus.game.finishedAt ? formatDate(focus.game.finishedAt) : "In progress"}</dd></div><div><dt>Playtime</dt><dd>{formatPlaytime(focus.game.totalSeconds)}</dd></div><div><dt>Mastery</dt><dd>{focus.game.mastery != null ? `${focus.game.mastery}%` : "—"}</dd></div></dl></div></aside>}
-        </section>
+          <ul>
+            <li><Clock3 size={15} />{formatPlaytime(picked.game.totalSeconds)}</li>
+            <li><CalendarDays size={15} />{fmt(picked.start)} – {picked.end ? fmt(picked.end) : "now"}</li>
+            {picked.game.mastery != null && <li><Trophy size={15} />{picked.game.mastery}% mastery</li>}
+          </ul>
+          <button className="jn-open" onClick={() => openGame(picked.game.id)}>View Details <ArrowRight size={14} /></button>
+        </aside>
       )}
-    </>
+
+      <div className="jn-legend">
+        <span><i style={{ background: K.main }} />Main Journey</span>
+        <span><i style={{ background: K.side }} />Side Journey</span>
+        <span><i style={{ background: K.active }} />In Progress</span>
+        <span><i style={{ background: K.abandoned }} />Abandoned</span>
+      </div>
+    </div>,
+    document.body
   );
 }
