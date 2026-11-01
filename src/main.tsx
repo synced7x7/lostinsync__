@@ -153,7 +153,6 @@ function App() {
       {view === "profile" && (
         <ProfileView data={data} update={update} openGame={openGame} />
       )}{" "}
-      {view === "journal" && <JournalView data={data} update={update} />}{" "}
       {view === "settings" && <SettingsView data={data} update={update} />}{" "}
     </AppLayout>
   );
@@ -840,34 +839,6 @@ function ProfileView({
     </>
   );
 }
-function JournalView({ data, update }: { data: AppData; update: (data: AppData) => void }) {
-  const [title, setTitle] = useState("");
-  const [body, setBody] = useState("");
-  const add = () => {
-    if (!title.trim() || !body.trim()) return;
-    update({ ...data, journal: [{ id: crypto.randomUUID(), title: title.trim(), body: body.trim(), mood: "reflective", createdAt: now() }, ...data.journal] });
-    setTitle(""); setBody("");
-  };
-  return (
-    <>
-      <Header eyebrow="PRIVATE THOUGHTS" title="Journal" action={<button className="button primary" onClick={add}><PenLine size={16} /> Save entry</button>} />
-      <div className="journal-compose glass">
-        <input placeholder="Entry title" value={title} onChange={(e) => setTitle(e.target.value)} />
-        <textarea placeholder="What is on your mind?" value={body} onChange={(e) => setBody(e.target.value)} />
-      </div>
-      <div className="journal-list">
-        {data.journal.map((entry) => (
-          <article className="journal-entry glass" key={entry.id}>
-            <span className="eyebrow">{new Date(entry.createdAt).toLocaleDateString()}</span>
-            <h2>{entry.title}</h2>
-            <p>{entry.body}</p>
-          </article>
-        ))}
-        {!data.journal.length && <Empty icon={<BookOpen />} title="Your journal is blank" text="Capture a thought after your next game." />}
-      </div>
-    </>
-  );
-}
 function SettingsView({ data, update }: { data: AppData; update: (data: AppData) => void }) {
   const updateSettings = (partial: Partial<AppSettings>) => {
     update({
@@ -923,7 +894,6 @@ function SettingsView({ data, update }: { data: AppData; update: (data: AppData)
               <option value="library">Library</option>
               <option value="dashboard">Overview (Dashboard)</option>
               <option value="profile">Profile</option>
-              <option value="journal">Journal</option>
             </select>
           </div>
           <div className="setting-row">
@@ -951,7 +921,7 @@ function SettingsView({ data, update }: { data: AppData; update: (data: AppData)
           <p className="eyebrow">LOCAL SQLITE STORAGE</p>
           <h2>Your data stays yours</h2>
           <p className="muted">SQLite database: <strong>lost-in-sync.sqlite</strong></p>
-          <p className="muted">All your games, preferences, journal entries, and profile settings are stored locally in the native SQLite backend.</p>
+          <p className="muted">All your games, preferences, and profile settings are stored locally in the native SQLite backend.</p>
           <div className="detail-actions">
             <button className="button soft" onClick={() => {
               const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });

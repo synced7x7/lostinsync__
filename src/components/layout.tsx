@@ -15,7 +15,6 @@ export const navigation: { id: View; label: string; icon: typeof BookOpen }[] = 
   { id: "dashboard", label: "Overview", icon: LayoutDashboard },
   { id: "library", label: "Library", icon: Gamepad2 },
   { id: "profile", label: "Profile", icon: UserRound },
-  { id: "journal", label: "Journal", icon: BookOpen },
   { id: "settings", label: "Settings", icon: Settings },
 ];
 

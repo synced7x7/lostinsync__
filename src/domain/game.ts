@@ -2,7 +2,7 @@ import type { IgdbDebugImage } from "../data/igdb";
 
 export const STATUSES = ["Backlog", "Wishlist", "Playing", "Completed", "Retired", "Shelved", "Abandoned", "On hold"] as const;
 export type Status = typeof STATUSES[number];
-export type View = "dashboard" | "library" | "details" | "profile" | "journal" | "settings";
+export type View = "dashboard" | "library" | "details" | "profile" | "settings";
 export type Game = {
   id: string; title: string; platform: string; genre: string; tags: string[];
   status: Status; notes: string; rating?: number; mastery?: number; favorite: boolean;
@@ -16,7 +16,6 @@ export type Game = {
   igdbImages?: IgdbDebugImage[]; igdbVideos?: { id: string; name?: string }[];
   gameType?: string; gameStatus?: string;
 };
-export type JournalEntry = { id: string; title: string; body: string; mood: string; createdAt: string; gameId?: string };
 export type Profile = { displayName: string; bio: string; accent: string };
 export type GridSize = "sm" | "md" | "lg";
 export type LibraryLayout = "ps4" | "catalog";
@@ -39,7 +38,7 @@ export type AppSettings = {
   igdbClientId?: string;
   igdbClientSecret?: string;
 };
-export type AppData = { games: Game[]; journal: JournalEntry[]; profile: Profile; settings: AppSettings };
+export type AppData = { games: Game[]; profile: Profile; settings: AppSettings };
 export function validateGame(title: string): string | null {
   if (title.trim().length < 2) return "Enter a game title with at least two characters.";
   return null;
@@ -49,7 +48,7 @@ export function formatPlaytime(seconds: number): string {
   return hours ? `${hours}h ${minutes}m` : `${minutes}m`;
 }
 export const defaultData: AppData = {
-  games: [], journal: [],
+  games: [],
   profile: { displayName: "Player One", bio: "Building a life in games.", accent: "#9b8cff" },
   settings: {
     theme: "aurora",

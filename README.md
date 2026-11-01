@@ -1,6 +1,6 @@
 # Lost in Sync
 
-An offline-first Windows game tracker built with React, Vite, TypeScript, Tailwind CSS, and Tauri 2. The current milestone includes the glassmorphism desktop shell, library workflows, dashboard, profile, journal, settings, and persistent native SQLite state.
+An offline-first Windows game tracker built with React, Vite, TypeScript, Tailwind CSS, and Tauri 2. The current milestone includes the glassmorphism desktop shell, library workflows, dashboard, profile, settings, and persistent native SQLite state.
 
 ## Exact workspace paths
 

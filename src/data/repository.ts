@@ -6,7 +6,7 @@ export class LocalAppRepository implements AppRepository {
   async load(): Promise<AppData> {
     try {
       const saved = JSON.parse(localStorage.getItem(KEY) ?? "{}") as Partial<AppData>;
-      const { activities: _activities, lastOpenedGameId: _lastOpenedGameId, ...savedWithoutLegacyState } = saved as Partial<AppData> & { activities?: unknown; lastOpenedGameId?: unknown };
+      const { activities: _activities, journal: _journal, lastOpenedGameId: _lastOpenedGameId, ...savedWithoutLegacyState } = saved as Partial<AppData> & { activities?: unknown; journal?: unknown; lastOpenedGameId?: unknown };
       return { ...defaultData, ...savedWithoutLegacyState, settings: { ...defaultData.settings, ...saved.settings } } as AppData;
     }
     catch { throw new Error("Saved library data could not be read."); }
@@ -30,7 +30,7 @@ export class TauriAppRepository implements AppRepository {
       const { invoke } = await import("@tauri-apps/api/core");
       const loaded = await invoke<AppData | null>("load_app_data");
       if (!loaded) return defaultData;
-      const { activities: _activities, lastOpenedGameId: _lastOpenedGameId, ...loadedWithoutLegacyState } = loaded as AppData & { activities?: unknown; lastOpenedGameId?: unknown };
+      const { activities: _activities, journal: _journal, lastOpenedGameId: _lastOpenedGameId, ...loadedWithoutLegacyState } = loaded as AppData & { activities?: unknown; journal?: unknown; lastOpenedGameId?: unknown };
       return {
         ...defaultData,
         ...loadedWithoutLegacyState,
