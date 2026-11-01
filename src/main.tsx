@@ -46,7 +46,7 @@ import {
   type View,
 } from "./domain/game";
 import "./style.css";
-import {  Empty, formatDate, GameMini, Header, MasteryProgress, StarRating, Stat } from "./components/shared";
+import { Empty, formatDate, GameMini, Header, MasteryProgress, StarRating, Stat } from "./components/shared";
 import { AppLayout } from "./components/layout";
 import { Dashboard } from "./features/dashboard";
 import { ActivityView } from "./features/activity";
