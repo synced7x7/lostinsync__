@@ -1,6 +1,5 @@
 import { useState } from "react";
 import {
-  Activity,
   BookOpen,
   ChevronLeft,
   ChevronRight,
@@ -12,10 +11,9 @@ import {
 } from "lucide-react";
 import type { AppData, View } from "../domain/game";
 
-export const navigation: { id: View; label: string; icon: typeof Activity }[] = [
+export const navigation: { id: View; label: string; icon: typeof BookOpen }[] = [
   { id: "dashboard", label: "Overview", icon: LayoutDashboard },
   { id: "library", label: "Library", icon: Gamepad2 },
-  { id: "activity", label: "Activity", icon: Activity },
   { id: "profile", label: "Profile", icon: UserRound },
   { id: "journal", label: "Journal", icon: BookOpen },
   { id: "settings", label: "Settings", icon: Settings },

@@ -44,17 +44,6 @@ struct Video {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
-struct ActivityEvent {
-    id: String,
-    #[serde(rename = "type")]
-    event_type: String,
-    title: String,
-    detail: String,
-    occurred_at: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
 struct JournalEntry {
     id: String,
     title: String,
@@ -84,7 +73,6 @@ struct Settings {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct AppData {
     games: Vec<Game>,
-    activities: Vec<ActivityEvent>,
     journal: Vec<JournalEntry>,
     profile: Profile,
     settings: Settings,

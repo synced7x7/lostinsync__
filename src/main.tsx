@@ -49,7 +49,6 @@ import "./style.css";
 import { Empty, formatDate, GameMini, Header, MasteryProgress, StarRating, Stat } from "./components/shared";
 import { AppLayout } from "./components/layout";
 import { Dashboard } from "./features/dashboard";
-import { ActivityView } from "./features/activity";
 import { AddGame } from "./features/library-components";
 import { MediaSection } from "./features/media";
 import { SeriesButton } from "./features/series";
@@ -68,6 +67,11 @@ function App() {
   const [selectedId, setSelectedId] = useState<string>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  useEffect(() => {
+    if (view === "details") {
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    }
+  }, [view, selectedId]);
   useEffect(() => {
     repo
       .load()
@@ -89,29 +93,15 @@ function App() {
     update({
       ...data,
       games: [game, ...data.games],
-      activities: [
-        ...(game.finishedAt ? [{ id: crypto.randomUUID(), type: "completed" as const, title: "Game completed", detail: `${game.title} · ${game.finishedAt}`, occurredAt: now() }] : []),
-        ...(game.startedAt ? [{ id: crypto.randomUUID(), type: "started" as const, title: "Game started", detail: `${game.title} · ${game.startedAt}`, occurredAt: now() }] : []),
-        { id: crypto.randomUUID(), type: "added", title: "Added to library", detail: game.title, occurredAt: now() },
-        ...data.activities,
-      ],
     });
 
 
   const saveGame = (
     game: Game,
-    activity?: { type: "status" | "completed" | "started"; detail: string }
   ) => {
-    const previous = data.games.find((item) => item.id === game.id);
-    const events = [
-      ...(game.startedAt !== previous?.startedAt && game.startedAt ? [{ id: crypto.randomUUID(), type: "started" as const, title: "Game started", detail: `${game.title} · ${game.startedAt}`, occurredAt: now() }] : []),
-      ...(game.finishedAt !== previous?.finishedAt && game.finishedAt ? [{ id: crypto.randomUUID(), type: "completed" as const, title: "Game completed", detail: `${game.title} · ${game.finishedAt}`, occurredAt: now() }] : []),
-      ...(activity ? [{ id: crypto.randomUUID(), type: activity.type, title: activity.type === "completed" ? "Game completed" : activity.type === "started" ? "Game started" : "Library updated", detail: `${game.title} · ${activity.detail}`, occurredAt: now() }] : []),
-    ];
     update({
       ...data,
       games: data.games.map((item) => (item.id === game.id ? game : item)),
-      activities: [...events, ...data.activities],
     });
   };
   const deleteGame = (game: Game) => {
@@ -119,7 +109,6 @@ function App() {
     update({
       ...data,
       games: data.games.filter((item) => item.id !== game.id),
-      activities: [{ id: crypto.randomUUID(), type: "deleted", title: "Removed from library", detail: game.title, occurredAt: now() }, ...data.activities],
     });
     setSelectedId(undefined);
     setView("library");
@@ -152,7 +141,6 @@ function App() {
       {view === "details" && selected && (
         <Details game={selected} saveGame={saveGame} deleteGame={deleteGame} goBack={() => setView("library")} igdb={{ clientId: data.settings.igdbClientId ?? "", clientSecret: data.settings.igdbClientSecret ?? "" }} />
       )}{" "}
-      {view === "activity" && <ActivityView data={data} />}{" "}
       {view === "profile" && (
         <ProfileView data={data} update={update} openGame={openGame} />
       )}{" "}
@@ -204,7 +192,7 @@ function LibraryView({
   data: AppData;
   update: (data: AppData) => void;
   addGame: (game: Game) => void;
-  saveGame: (game: Game, activity?: { type: "status" | "completed" | "started"; detail: string }) => void;
+  saveGame: (game: Game) => void;
   deleteGame: (game: Game) => void;
   openGame: (id: string) => void;
 }) {
@@ -360,7 +348,7 @@ function PS4ShelfView({
   featured: Game | undefined;
   setFeaturedId: (id: string) => void;
   openGame: (id: string) => void;
-  saveGame: (g: Game, a?: { type: "status" | "completed" | "started"; detail: string }) => void;
+  saveGame: (g: Game) => void;
   fullscreen?: boolean;
   initialGameId?: string;
 }) {
@@ -381,7 +369,7 @@ function PS4ShelfView({
       setFocusedIdx((p) => Math.max(p - 1, 0));
     }
   }, [games.length]);
-
+  
   useEffect(() => {
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
@@ -492,7 +480,7 @@ function GridLibraryView({
   games: Game[];
   initialGameId?: string;
   openGame: (id: string) => void;
-  saveGame: (g: Game, a?: { type: "status" | "completed" | "started"; detail: string }) => void;
+  saveGame: (g: Game) => void;
   gridSize: GridSize;
   setGridSize: (size: GridSize) => void;
 }) {
@@ -574,7 +562,7 @@ function Details({
   game, saveGame, deleteGame, goBack, igdb,
 }: {
   game: Game;
-  saveGame: (game: Game, activity?: { type: "status" | "completed" | "started"; detail: string }) => void;
+  saveGame: (game: Game) => void;
   deleteGame: (game: Game) => void;
   goBack: () => void;
   igdb: { clientId: string; clientSecret: string };
@@ -744,7 +732,7 @@ function Details({
           initial={game}
           igdb={igdb}
           onClose={() => setEditing(false)}
-          onAdd={(g) => { saveGame(g, g.status !== game.status ? { type: "status", detail: g.status } : undefined); setEditing(false); }}
+          onAdd={(g) => { saveGame(g); setEditing(false); }}
         />
       )}
     </>
@@ -869,7 +857,6 @@ function SettingsView({ data, update }: { data: AppData; update: (data: AppData)
             <select value={data.settings.defaultView ?? "library"} onChange={(e) => updateSettings({ defaultView: e.target.value as View })}>
               <option value="library">Library</option>
               <option value="dashboard">Overview (Dashboard)</option>
-              <option value="activity">Activity log</option>
               <option value="profile">Profile</option>
               <option value="journal">Journal</option>
             </select>

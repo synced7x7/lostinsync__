@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import {
-  Activity,
   Award,
   CalendarDays,
   Check,
@@ -17,11 +16,10 @@ import {
   X,
 } from "lucide-react";
 import { formatPlaytime } from "../domain/game";
-import type { AppData, Game } from "../domain/game";
+import type { Game } from "../domain/game";
 
 export type SaveGame = (
   game: Game,
-  activity?: { type: "status" | "completed" | "started"; detail: string },
 ) => void;
 
 export function Header({
@@ -106,29 +104,6 @@ export function Empty({
         </button>
       )}
     </div>
-  );
-}
-
-export function ActivityList({ items }: { items: AppData["activities"] }) {
-  return items.length ? (
-    <div className="timeline">
-      {items.map((item) => (
-        <div className="timeline-item" key={item.id}>
-          <span className={`timeline-dot ${item.type}`}></span>
-          <div>
-            <strong>{item.title}</strong>
-            <p>{item.detail}</p>
-            <small>{new Date(item.occurredAt).toLocaleString()}</small>
-          </div>
-        </div>
-      ))}
-    </div>
-  ) : (
-    <Empty
-      icon={<Activity />}
-      title="No activity yet"
-      text="Your local timeline will appear here."
-    />
   );
 }
 
@@ -413,7 +388,8 @@ export function DateField({
   const [saved, setSaved] = useState(false);
   const [invalid, setInvalid] = useState("");
   const pickerRef = useRef<HTMLInputElement>(null);
-  useEffect(() => setText(formatDate(value)), [value]);
+  useEffect(() => setText(formatDate(value)), [value])
+  
   useEffect(() => {
     if (!saved) return;
     const t = setTimeout(() => setSaved(false), 2200);

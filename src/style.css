@@ -540,8 +540,7 @@ nav {
     margin: 0 0 12px
 }
 
-.hero h2 span,
-.activity-intro span {
+.hero h2 span {
     color: var(--cyan)
 }
 
@@ -1256,78 +1255,6 @@ nav {
     color: var(--text)
 }
 
-.activity-layout {
-    display: grid;
-    grid-template-columns: .6fr 1.4fr;
-    gap: 45px;
-    border-radius: 18px;
-    padding: 35px
-}
-
-.activity-intro h2 {
-    font-size: 30px;
-    line-height: 1.1;
-    margin: 20px 0 10px
-}
-
-.activity-intro p {
-    color: var(--muted);
-    font-size: 12px;
-    line-height: 1.6
-}
-
-.timeline {
-    display: grid;
-    gap: 0
-}
-
-.timeline-item {
-    display: flex;
-    gap: 14px;
-    position: relative;
-    padding: 0 0 22px 4px
-}
-
-.timeline-item:not(:last-child):after {
-    content: "";
-    position: absolute;
-    left: 8px;
-    top: 18px;
-    bottom: 0;
-    border-left: 1px dashed var(--line)
-}
-
-.timeline-dot {
-    width: 9px;
-    height: 9px;
-    margin-top: 4px;
-    border-radius: 50%;
-    background: var(--accent);
-    box-shadow: 0 0 12px currentColor;
-    z-index: 1
-}
-
-
-.timeline-dot.completed {
-    color: var(--success);
-    background: var(--success)
-}
-
-.timeline-item strong {
-    font-size: 12px
-}
-
-.timeline-item p {
-    margin: 4px 0;
-    color: var(--muted);
-    font-size: 11px
-}
-
-.timeline-item small {
-    color: var(--dim);
-    font-size: 9px
-}
-
 .profile-banner {
     display: flex;
     align-items: center;
@@ -1885,7 +1812,6 @@ nav {
 
     .two-col,
     .detail-grid,
-    .activity-layout,
     .settings-grid {
         grid-template-columns: 1fr
     }
