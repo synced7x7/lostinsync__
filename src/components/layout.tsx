@@ -5,6 +5,7 @@ import {
   ChevronRight,
   Gamepad2,
   LayoutDashboard,
+  Route,
   Settings,
   UserRound,
   X,
@@ -14,6 +15,7 @@ import type { AppData, View } from "../domain/game";
 export const navigation: { id: View; label: string; icon: typeof BookOpen }[] = [
   { id: "dashboard", label: "Overview", icon: LayoutDashboard },
   { id: "library", label: "Library", icon: Gamepad2 },
+  { id: "journey", label: "Game Journey", icon: Route },
   { id: "profile", label: "Profile", icon: UserRound },
   { id: "settings", label: "Settings", icon: Settings },
 ];

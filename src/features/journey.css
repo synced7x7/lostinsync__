@@ -1,0 +1,45 @@
+.journey-intro{display:flex;justify-content:space-between;gap:28px;padding:26px 30px;margin-bottom:18px;background:linear-gradient(120deg,rgba(155,140,255,.13),rgba(83,190,211,.05))}
+.journey-mark{display:grid;place-items:center;width:34px;height:34px;border-radius:10px;color:var(--accent);background:rgba(155,140,255,.14);margin-bottom:13px}
+.journey-intro h2{margin:8px 0;font-size:26px;letter-spacing:-.03em}
+.journey-intro p.muted{max-width:570px;line-height:1.55;margin:0}
+.journey-controls{display:flex;align-items:end;gap:10px;flex-wrap:wrap}
+.journey-controls label{display:grid;gap:6px;color:var(--dim);font-size:10px;text-transform:uppercase;letter-spacing:.08em}
+.journey-controls input,.journey-controls select{min-width:108px}
+.journey-zoom{display:flex;align-items:center;height:35px;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:rgba(255,255,255,.035)}
+.journey-zoom button{height:100%;width:32px;border:0;background:transparent;color:var(--muted);cursor:pointer}
+.journey-zoom button:hover{color:var(--text);background:rgba(255,255,255,.08)}
+.journey-zoom strong{min-width:45px;text-align:center;font-size:10px;color:var(--text)}
+.journey-board{position:relative;overflow:hidden;padding:0;background:linear-gradient(180deg,rgba(14,15,34,.9),rgba(8,10,20,.96))}
+.journey-scroll{overflow:auto;scrollbar-color:var(--accent) transparent}
+.journey-canvas{position:relative;padding-top:1px}
+.journey-svg{position:absolute;inset:0;overflow:visible}
+.journey-main-path{fill:none;stroke:rgba(155,140,255,.32);stroke-width:2}
+.journey-branch{fill:none;stroke-width:3;filter:drop-shadow(0 0 5px currentColor);transition:opacity .2s,stroke-width .2s}
+.journey-branch-active{stroke-dasharray:8 7;animation:journey-flow 2.2s linear infinite}
+.journey-branch-abandoned{stroke-dasharray:4 8;opacity:.55}
+.journey-point{filter:drop-shadow(0 0 5px currentColor);stroke:rgba(255,255,255,.75);stroke-width:1}
+.journey-grid-line{stroke:rgba(255,255,255,.065);stroke-dasharray:2 8}
+.journey-axis-label{fill:var(--dim);font:10px 'DM Mono',monospace}
+.journey-today-line{stroke:#f58ab2;stroke-width:1;stroke-dasharray:3 5;opacity:.8}
+.journey-today-label{fill:#f58ab2;font:9px 'DM Mono',monospace;letter-spacing:.12em}
+.journey-node{position:absolute;z-index:2;display:flex;align-items:center;gap:9px;width:180px;min-height:58px;padding:6px;border:1px solid rgba(255,255,255,.13);border-radius:11px;background:rgba(18,20,39,.91);color:var(--text);text-align:left;transform:translate(-50%,-50%);cursor:pointer;box-shadow:0 12px 25px rgba(0,0,0,.3);transition:transform .2s,box-shadow .2s,border-color .2s,opacity .2s}
+.journey-node:hover,.journey-node:focus-visible{z-index:4;transform:translate(-50%,-50%) scale(1.05);border-color:var(--accent);box-shadow:0 0 0 1px var(--accent),0 15px 32px rgba(0,0,0,.45);outline:none}
+.journey-cover,.journey-detail-cover{flex:0 0 auto;width:38px;height:48px;border-radius:6px;background:linear-gradient(145deg,#3b2b61,#1d5964) center/cover;box-shadow:0 4px 12px rgba(0,0,0,.35)}
+.journey-node-copy{min-width:0;display:grid;gap:5px}
+.journey-node-copy strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px}
+.journey-node-copy small{color:var(--dim);font-size:9px;white-space:nowrap}
+.journey-dim{opacity:.17}
+.journey-detail{position:absolute;right:18px;top:18px;z-index:5;width:285px;padding:14px;display:grid;grid-template-columns:58px 1fr;gap:13px;background:rgba(18,20,39,.95);box-shadow:0 14px 35px rgba(0,0,0,.38)}
+.journey-detail-cover{width:58px;height:76px}
+.journey-detail h2{font-size:16px;margin:4px 0}
+.journey-detail p{margin:0}
+.journey-detail dl{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:4px 0 0}
+.journey-detail dl div{display:grid;gap:3px}
+.journey-detail dt{color:var(--dim);font-size:9px;text-transform:uppercase}
+.journey-detail dd{margin:0;font-size:11px}
+.journey-close{position:absolute;right:8px;top:8px;border:0;background:transparent;color:var(--dim);cursor:pointer}
+.journey-empty{display:grid;place-items:center;text-align:center;padding:80px 20px;color:var(--muted)}
+.journey-empty h2{margin:15px 0 5px;color:var(--text)}
+.journey-empty p{margin:0}
+@keyframes journey-flow{to{stroke-dashoffset:-30}}
+@media(max-width:800px){.journey-intro{display:grid}.journey-controls{align-items:stretch}.journey-detail{position:relative;right:auto;top:auto;width:auto;margin:14px}.journey-board{overflow:visible}}

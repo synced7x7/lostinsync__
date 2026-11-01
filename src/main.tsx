@@ -54,10 +54,10 @@ import { Dashboard } from "./features/dashboard";
 import { AddGame } from "./features/library-components";
 import { MediaSection } from "./features/media";
 import { SeriesButton } from "./features/series";
+import { JourneyView } from "./features/journey";
 
 
 const repo = createAppRepository();
-const now = () => new Date().toISOString();
 
 function App() {
   const [data, setData] = useState<AppData>(defaultData);
@@ -147,6 +147,7 @@ function App() {
       {view === "library" && (
         <LibraryView data={data} update={update} addGame={addGame} saveGame={saveGame} deleteGame={deleteGame} openGame={openGame} focusedGameId={libraryFocusId} onFocusedGameChange={setLibraryFocusId} />
       )}{" "}
+      {view === "journey" && <JourneyView games={data.games} openGame={openGame} />}{" "}
       {view === "details" && selected && (
         <Details game={selected} saveGame={saveGame} deleteGame={deleteGame} goBack={() => setView("library")} igdb={{ clientId: data.settings.igdbClientId ?? "", clientSecret: data.settings.igdbClientSecret ?? "" }} />
       )}{" "}

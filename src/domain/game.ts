@@ -2,7 +2,7 @@ import type { IgdbDebugImage } from "../data/igdb";
 
 export const STATUSES = ["Backlog", "Wishlist", "Playing", "Completed", "Retired", "Shelved", "Abandoned", "On hold"] as const;
 export type Status = typeof STATUSES[number];
-export type View = "dashboard" | "library" | "details" | "profile" | "settings";
+export type View = "dashboard" | "library" | "details" | "journey" | "profile" | "settings";
 export type Game = {
   id: string; title: string; platform: string; genre: string; tags: string[];
   status: Status; notes: string; rating?: number; mastery?: number; favorite: boolean;
