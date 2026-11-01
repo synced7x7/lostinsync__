@@ -21,11 +21,11 @@ import {
   SlidersHorizontal,
   Sparkles,
   Timer,
-  Building2,
-  CalendarDays,
   Trophy,
   Trash2,
   Notebook,
+  ArrowDown,
+  ArrowUp,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { createAppRepository } from "./data/repository";
@@ -35,6 +35,7 @@ import {
   formatHours,
   formatPlaytime,
   STATUSES,
+  type SortDirection,
   type AppData,
   type AppSettings,
   type Game,
@@ -45,7 +46,7 @@ import {
   type View,
 } from "./domain/game";
 import "./style.css";
-import { DateField, Empty, formatDate, GameMini, Header, MasteryProgress, StarRating, Stat } from "./components/shared";
+import {  Empty, formatDate, GameMini, Header, MasteryProgress, StarRating, Stat } from "./components/shared";
 import { AppLayout } from "./components/layout";
 import { Dashboard } from "./features/dashboard";
 import { ActivityView } from "./features/activity";
@@ -126,7 +127,6 @@ function App() {
   const selected = data.games.find((game) => game.id === selectedId);
   const openGame = (id: string) => {
     setSelectedId(id);
-    update({ ...data, settings: { ...data.settings, lastOpenedGameId: id } });
     setView("details");
   };
   if (loading)
@@ -162,6 +162,23 @@ function App() {
   );
 }
 
+function compareGames(a: Game, b: Game, sort: LibrarySort, direction: SortDirection): number {
+  const multiplier = direction === "asc" ? 1 : -1;
+  if (sort === "title") return multiplier * a.title.localeCompare(b.title);
+  const values: Record<Exclude<LibrarySort, "title">, number> = {
+    recent: Date.parse(a.createdAt) - Date.parse(b.createdAt),
+    completion: (Date.parse(a.finishedAt ?? "") || 0) - (Date.parse(b.finishedAt ?? "") || 0),
+    playtime: a.totalSeconds - b.totalSeconds,
+    rating: (a.rating ?? 0) - (b.rating ?? 0),
+    igdbRating: (a.igdbRating ?? 0) - (b.igdbRating ?? 0),
+    releaseDate: (Date.parse(a.releaseDate ?? "") || 0) - (Date.parse(b.releaseDate ?? "") || 0),
+    avgTime: (a.timeAvgSeconds ?? 0) - (b.timeAvgSeconds ?? 0),
+    mainTime: (a.timeMainSeconds ?? 0) - (b.timeMainSeconds ?? 0),
+    fullTime: (a.timeFullSeconds ?? 0) - (b.timeFullSeconds ?? 0),
+  };
+  return multiplier * values[sort];
+}
+
 function LibraryView({
   data, update, addGame, saveGame, openGame,
 }: {
@@ -180,8 +197,9 @@ function LibraryView({
 
   const layout = data.settings.libraryLayout ?? "ps4";
   const filter = data.settings.libraryFilter ?? "All";
-  const genre = data.settings.libraryGenre ?? "All";
   const sort = data.settings.librarySort ?? "recent";
+  const sortDirection = data.settings.librarySortDirection ?? "desc";
+  const favoritesOnly = data.settings.libraryFavoritesOnly ?? false;
 
   const updateSettings = (partial: Partial<AppSettings>) => {
     update({
@@ -190,14 +208,46 @@ function LibraryView({
     });
   };
 
-  const genres = [...new Set(data.games.map((g) => g.genre).filter(Boolean))];
   const games = useMemo(
     () => data.games
-      .filter((g) => (filter === "All" || g.status === filter) && (genre === "All" || g.genre === genre) && g.title.toLowerCase().includes(query.toLowerCase()))
-      .sort((a, b) => sort === "title" ? a.title.localeCompare(b.title) : sort === "playtime" ? b.totalSeconds - a.totalSeconds : b.createdAt.localeCompare(a.createdAt)),
-    [data.games, filter, genre, query, sort]
+      .filter((g) => (filter === "All" || g.status === filter) && (!favoritesOnly || g.favorite) && g.title.toLowerCase().includes(query.toLowerCase()))
+      .sort((a, b) => compareGames(a, b, sort, sortDirection)),
+    [data.games, filter, favoritesOnly, query, sort, sortDirection]
+  );
+  const sortOptions: { value: LibrarySort; label: string }[] = [
+    { value: "recent", label: "When added" },
+    { value: "completion", label: "Last played (Completion Time)" },
+    { value: "playtime", label: "Time played" },
+    { value: "rating", label: "User rating" },
+    { value: "igdbRating", label: "IGDB rating" },
+    { value: "title", label: "Title" },
+    { value: "releaseDate", label: "Release date" },
+    { value: "avgTime", label: "Avg time to complete" },
+    { value: "mainTime", label: "Main story completion time" },
+    { value: "fullTime", label: "100% completion time" },
+  ];
+  const toggleSortDirection = () => updateSettings({ librarySortDirection: sortDirection === "asc" ? "desc" : "asc" });
+  const sortControl = (
+    <>
+      <select value={sort} onChange={(e) => updateSettings({ librarySort: e.target.value as LibrarySort })}>
+        {sortOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+      </select>
+      <button className="icon-btn" onClick={toggleSortDirection} title={sortDirection === "asc" ? "Ascending" : "Descending"} aria-label={`Sort ${sortDirection === "asc" ? "ascending" : "descending"}`}>
+        {sortDirection === "asc" ? <ArrowUp size={16} /> : <ArrowDown size={16} />}
+      </button>
+    </>
   );
   const featured = games.find((g) => g.id === featuredId) ?? games[0];
+  const rememberFocusedGame = (id: string) => {
+    setFeaturedId(id);
+    if (data.settings.lastOpenedGameId !== id) {
+      updateSettings({ lastOpenedGameId: id });
+    }
+  };
+  const openLibraryGame = (id: string) => {
+    rememberFocusedGame(id);
+    openGame(id);
+  };
   return (
     <>
       {!fullscreen && <div className="library-heading">
@@ -214,20 +264,15 @@ function LibraryView({
             <option value="All">All statuses</option>
             {STATUSES.map((s) => <option key={s}>{s}</option>)}
           </select>
-          <select value={genre} onChange={(e) => updateSettings({ libraryGenre: e.target.value })}>
-            <option value="All">All genres</option>
-            {genres.map((g) => <option key={g}>{g}</option>)}
-          </select>
-          <select value={sort} onChange={(e) => updateSettings({ librarySort: e.target.value as LibrarySort })}>
-            <option value="recent">Recently added</option>
-            <option value="title">Title</option>
-            <option value="playtime">Playtime</option>
-          </select>
-          <button className={layout === "ps4" ? "icon-btn active" : "icon-btn"} onClick={() => updateSettings({ libraryLayout: "ps4" })} title="PS4 shelf view">
-            <Monitor size={17} />
+          {sortControl}
+          <button className={favoritesOnly ? "icon-btn active" : "icon-btn"} onClick={() => updateSettings({ libraryFavoritesOnly: !favoritesOnly })} title="Favorite games only" aria-label="Favorite games only">
+            <Heart size={16} fill={favoritesOnly ? "currentColor" : "none"} />
           </button>
           <button className={fullscreen ? "icon-btn active" : "icon-btn"} onClick={() => { updateSettings({ libraryLayout: "ps4", libraryFullscreen: true }); setFullscreen(true); setShowFullscreenFilters(false); }} title="Fullscreen shelf view">
             <Maximize2 size={17} />
+          </button>
+          <button className={layout === "ps4" ? "icon-btn active" : "icon-btn"} onClick={() => updateSettings({ libraryLayout: "ps4" })} title="PS4 shelf view">
+            <Monitor size={17} />
           </button>
           <button className={layout === "catalog" ? "icon-btn active" : "icon-btn"} onClick={() => { updateSettings({ libraryLayout: "catalog", libraryFullscreen: false }); setFullscreen(false); }} title="Catalog grid view">
             <LayoutGrid size={17} />
@@ -256,23 +301,18 @@ function LibraryView({
                       <option value="All">All statuses</option>
                       {STATUSES.map((s) => <option key={s}>{s}</option>)}
                     </select>
-                    <select value={genre} onChange={(e) => updateSettings({ libraryGenre: e.target.value })}>
-                      <option value="All">All genres</option>
-                      {genres.map((g) => <option key={g}>{g}</option>)}
-                    </select>
-                    <select value={sort} onChange={(e) => updateSettings({ librarySort: e.target.value as LibrarySort })}>
-                      <option value="recent">Recently added</option>
-                      <option value="title">Title</option>
-                      <option value="playtime">Playtime</option>
-                    </select>
+                    {sortControl}
+                    <button className={favoritesOnly ? "icon-btn active" : "icon-btn"} onClick={() => updateSettings({ libraryFavoritesOnly: !favoritesOnly })} title="Favorite games only" aria-label="Favorite games only">
+                      <Heart size={16} fill={favoritesOnly ? "currentColor" : "none"} />
+                    </button>
                     <button className="button primary" onClick={() => setShowAdd(true)}><Plus size={16} /> Add game</button>
                   </div>
                 )}
               </div>
             )}
-            <PS4ShelfView initialGameId={data.settings.lastOpenedGameId} fullscreen={fullscreen} games={games} featured={featured} setFeaturedId={setFeaturedId} openGame={openGame} saveGame={saveGame} />
+            <PS4ShelfView initialGameId={data.settings.lastOpenedGameId} fullscreen={fullscreen} games={games} featured={featured} setFeaturedId={rememberFocusedGame} openGame={openLibraryGame} saveGame={saveGame} />
           </div>
-          : <GridLibraryView games={games} initialGameId={data.settings.lastOpenedGameId} openGame={openGame} saveGame={saveGame} gridSize={data.settings.gridSize ?? "md"} setGridSize={(size) => updateSettings({ gridSize: size })} />
+          : <GridLibraryView games={games} initialGameId={data.settings.lastOpenedGameId} openGame={openLibraryGame} saveGame={saveGame} gridSize={data.settings.gridSize ?? "md"} setGridSize={(size) => updateSettings({ gridSize: size })} />
       }
       {showAdd && <AddGame igdb={{ clientId: data.settings.igdbClientId ?? "", clientSecret: data.settings.igdbClientSecret ?? "" }} onClose={() => setShowAdd(false)} onAdd={(game) => { addGame(game); setShowAdd(false); }} />}
     </>
@@ -281,7 +321,7 @@ function LibraryView({
 
 // Adjust these values to change the size falloff around the focused PS4 card.
 const PS4_CARD_SCALES: Record<number, number> = {
-  0: 1.35,
+  0: 1.4,
   1: 1.2,
   2: 1.1,
 };
@@ -537,7 +577,6 @@ function Details({
   const genreList = game.genres?.length ? game.genres : game.genre ? game.genre.split(",").map((s) => s.trim()).filter(Boolean) : [];
   const playedOn = game.playedPlatforms ?? (game.platform ? [game.platform] : []);
   const emulated = game.emulatedOn ?? [];
-  const hasAbout = game.description || game.igdbRating != null || game.developer || tiles.some((t) => t.sec);
   return (
     <>
       <button className="back-button" onClick={goBack}>← Back to library</button>
@@ -779,9 +818,16 @@ function SettingsView({ data, update }: { data: AppData; update: (data: AppData)
           <div className="setting-row">
             <div><strong>Default sorting</strong><span>Default order for collection</span></div>
             <select value={data.settings.librarySort ?? "recent"} onChange={(e) => updateSettings({ librarySort: e.target.value as LibrarySort })}>
-              <option value="recent">Recently added</option>
-              <option value="title">Alphabetical (Title)</option>
-              <option value="playtime">Playtime</option>
+              <option value="recent">When added</option>
+              <option value="completion">Last played (Completion Time)</option>
+              <option value="playtime">Time played</option>
+              <option value="rating">User rating</option>
+              <option value="igdbRating">IGDB rating</option>
+              <option value="title">Title</option>
+              <option value="releaseDate">Release date</option>
+              <option value="avgTime">Avg time to complete</option>
+              <option value="mainTime">Main story completion time</option>
+              <option value="fullTime">100% completion time</option>
             </select>
           </div>
           <div className="setting-row">

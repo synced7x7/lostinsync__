@@ -21,7 +21,8 @@ export type JournalEntry = { id: string; title: string; body: string; mood: stri
 export type Profile = { displayName: string; bio: string; accent: string };
 export type GridSize = "sm" | "md" | "lg";
 export type LibraryLayout = "ps4" | "catalog";
-export type LibrarySort = "recent" | "title" | "playtime";
+export type LibrarySort = "recent" | "completion" | "playtime" | "rating" | "igdbRating" | "title" | "releaseDate" | "avgTime" | "mainTime" | "fullTime";
+export type SortDirection = "asc" | "desc";
 
 export type AppSettings = {
   theme: "aurora";
@@ -31,8 +32,10 @@ export type AppSettings = {
   lastOpenedGameId?: string;
   gridSize: GridSize;
   librarySort: LibrarySort;
+  librarySortDirection: SortDirection;
   libraryFilter: Status | "All";
   libraryGenre: string;
+  libraryFavoritesOnly: boolean;
   timerSound: boolean;
   automaticTracking: boolean;
   igdbClientId?: string;
@@ -58,8 +61,10 @@ export const defaultData: AppData = {
     libraryFullscreen: false,
     gridSize: "md",
     librarySort: "recent",
+    librarySortDirection: "desc",
     libraryFilter: "All",
     libraryGenre: "All",
+    libraryFavoritesOnly: false,
     timerSound: true,
     automaticTracking: true,
   },
