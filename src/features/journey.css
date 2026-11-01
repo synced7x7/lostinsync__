@@ -39,21 +39,21 @@ body:has(.sidebar.closed) .jn-screen { --jn-left: 92px }
 .jn-title { display: flex; align-items: center; gap: 18px }
 
 .jn-mark {
-    width: 46px;
-    height: 46px;
+    width: 40px;
+    height: 40px;
     display: grid;
     place-items: center;
-    border-radius: 13px;
+    border-radius: 12px;
     color: var(--accent);
     background: rgba(155, 140, 255, .14);
     border: 1px solid rgba(155, 140, 255, .35);
-    box-shadow: 0 0 26px rgba(155, 140, 255, .3)
+    box-shadow: 0 0 22px rgba(155, 140, 255, .3)
 }
 
 .jn-title h1 {
     margin: 0;
     font-family: Georgia, "Times New Roman", serif;
-    font-size: 34px;
+    font-size: 24px;
     font-weight: 500;
     letter-spacing: -.02em
 }
@@ -108,20 +108,250 @@ body:has(.sidebar.closed) .jn-screen { --jn-left: 92px }
 .jn-scroll {
     position: absolute;
     inset: 0;
-    padding-left: var(--jn-left);
-    overflow: auto
+    padding: 70px 0 0 var(--jn-left);
+    overflow: auto;
+    cursor: grab;
+    user-select: none;
+    overscroll-behavior: contain
 }
 
-.jn-canvas { position: relative }
+.jn-scroll.drag { cursor: grabbing }
+/* year dropdown */
+.jn-dd { position: relative }
+
+.jn-dd > button {
+    display: flex;
+    align-items: center;
+    gap: 6px
+}
+
+.jn-dd > button:disabled { opacity: .4; cursor: not-allowed }
+
+.jn-dd-bg {
+    position: absolute;
+    inset: 0;
+    z-index: 5
+}
+
+.jn-pills .jn-dd-menu {
+    position: absolute;
+    top: calc(100% + 12px);
+    left: 50%;
+    transform: translateX(-50%);
+    min-width: 120px;
+    max-height: 280px;
+    overflow-y: auto;
+    padding: 6px;
+    display: grid;
+    gap: 2px;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, .14);
+    background: rgba(14, 16, 34, .96);
+    box-shadow: 0 16px 40px rgba(0, 0, 0, .5);
+    backdrop-filter: blur(16px);
+    z-index: 8;
+    scrollbar-width: none
+}
+
+.jn-dd-menu::-webkit-scrollbar { display: none }
+
+.jn-pills .jn-dd-menu button {
+    padding: 8px 14px;
+    border-radius: 9px;
+    text-align: left;
+    font-size: 12px
+}
+
+.jn-pills .jn-dd-menu button:hover { background: rgba(255, 255, 255, .08); color: var(--text) }
+
+.jn-pills .jn-dd-menu button.on {
+    color: #fff;
+    background: rgba(155, 140, 255, .28);
+    box-shadow: none
+}
+
+/* fit-all overview */
+.jn-ov {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    padding: 96px 36px 34px calc(var(--jn-left) + 10px)
+}
+
+.jn-ov-axis,
+.jn-ov-row {
+    display: grid;
+    grid-template-columns: 240px minmax(0, 1fr);
+    gap: 20px;
+    padding: 0 16px 0 10px;
+    border: 1px solid transparent
+}
+
+.jn-ov-axis {
+    flex: 0 0 auto;
+    height: 30px;
+    align-items: end;
+    margin-bottom: 8px
+}
+
+.jn-ov-count {
+    font: 10px 'DM Mono', monospace;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--dim);
+    padding-bottom: 6px
+}
+
+.jn-ov-ticks {
+    position: relative;
+    height: 100%;
+    border-bottom: 1px solid rgba(255, 255, 255, .12)
+}
+
+.jn-ov-ticks span {
+    position: absolute;
+    bottom: 6px;
+    transform: translateX(-50%);
+    font: 10px 'DM Mono', monospace;
+    color: rgba(255, 255, 255, .45)
+}
+
+.jn-ov-body {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    overflow-y: auto;
+    scrollbar-width: none
+}
+
+.jn-ov-body::-webkit-scrollbar { display: none }
+
+.jn-ov-row {
+    flex: 1 1 0;
+    min-height: 40px;
+    max-height: 66px;
+    align-items: center;
+    border-radius: 14px;
+    border-color: rgba(255, 255, 255, .07);
+    background: rgba(12, 14, 30, .5);
+    backdrop-filter: blur(10px);
+    cursor: pointer;
+    transition: opacity .2s, border-color .2s, background .2s
+}
+
+.jn-ov-row:hover,
+.jn-ov-row.on {
+    border-color: color-mix(in srgb, var(--c) 60%, transparent);
+    background: rgba(20, 23, 48, .7)
+}
+
+.jn-ov-name {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+    height: 100%;
+    padding: 5px 0
+}
+
+.jn-ov-cover {
+    flex: 0 0 auto;
+    height: 100%;
+    max-height: 46px;
+    aspect-ratio: 3 / 4;
+    border-radius: 6px;
+    border: 1px solid color-mix(in srgb, var(--c) 70%, transparent);
+    background: linear-gradient(145deg, #3b2b61, #1d5964) center / cover
+}
+
+.jn-ov-name div { min-width: 0 }
+
+.jn-ov-name strong,
+.jn-ov-name small {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap
+}
+
+.jn-ov-name strong { font-size: 13px }
+.jn-ov-name small { margin-top: 3px; font-size: 10px; color: var(--muted) }
+
+.jn-ov-track { position: relative; height: 100% }
+
+.jn-ov-line {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    border-left: 1px dashed rgba(255, 255, 255, .06)
+}
+
+.jn-ov-today {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    border-left: 1px dashed rgba(245, 138, 178, .7)
+}
+
+.jn-ov-bar {
+    position: absolute;
+    top: 50%;
+    height: 12px;
+    transform: translateY(-50%);
+    border-radius: 999px;
+    background: linear-gradient(90deg, color-mix(in srgb, var(--c) 65%, white), var(--c));
+    box-shadow: 0 0 16px color-mix(in srgb, var(--c) 55%, transparent)
+}
+
+.jn-ov-bar.open::after {
+    content: "";
+    position: absolute;
+    right: -4px;
+    top: 50%;
+    width: 8px;
+    height: 8px;
+    margin-top: -4px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 0 10px #fff;
+    animation: jn-ov-pulse 1.6s ease-in-out infinite
+}
+
+.jn-ov-date {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    white-space: nowrap;
+    font-size: 10px;
+    color: var(--muted)
+}
+
+@keyframes jn-ov-pulse { 50% { opacity: .35; transform: scale(1.5) } }
+
+@media (max-width: 750px) {
+    .jn-ov-axis,
+    .jn-ov-row { grid-template-columns: 130px minmax(0, 1fr); gap: 10px }
+    .jn-ov { padding-right: 14px }
+}
+
+
+.jn-canvas {
+    position: relative;
+    transform-origin: 0 0;
+    will-change: transform
+}
+
 .jn-svg { position: absolute; inset: 0; overflow: visible }
 
 .jn-year { stroke: rgba(255, 255, 255, .07); stroke-dasharray: 2 8 }
 .jn-year-label { fill: rgba(255, 255, 255, .35); font: 11px 'DM Mono', monospace }
 
-.jn-trunk { fill: none; stroke: rgba(180, 170, 255, .55); stroke-width: 3; stroke-dasharray: 1 9; stroke-linecap: round }
-.jn-trunk-glow { fill: none; stroke: rgba(155, 140, 255, .3); stroke-width: 10; filter: blur(7px) }
-
-.jn-glow { fill: none; stroke-width: 12; opacity: .3; filter: blur(8px) }
+.jn-trunk-glow { fill: none; stroke: rgba(155, 140, 255, .22); stroke-width: 9 }
+.jn-glow { fill: none; stroke-width: 10; opacity: .16 }
 .jn-line { fill: none; stroke-width: 3; stroke-linecap: round; filter: drop-shadow(0 0 5px currentColor) }
 .jn-line.active { stroke-dasharray: 12 8; animation: jn-flow 2s linear infinite }
 .jn-line.abandoned { stroke-dasharray: 6 9; opacity: .85 }
@@ -319,8 +549,7 @@ body:has(.sidebar.closed) .jn-screen { --jn-left: 92px }
 .jn-strand {
     fill: none;
     stroke-width: 2.2;
-    stroke-linecap: round;
-    filter: drop-shadow(0 0 4px rgba(255, 255, 255, .25))
+    stroke-linecap: round
 }
 
 .jn-strand.abandoned {
@@ -342,6 +571,47 @@ body:has(.sidebar.closed) .jn-screen { --jn-left: 92px }
     letter-spacing: .14em
 }
 
+
+.jn-stage { position: relative }
+
+/* hide vertical bar, themed horizontal bar */
+.jn-scroll::-webkit-scrollbar { width: 0; height: 8px }
+.jn-scroll::-webkit-scrollbar-track { background: transparent; margin-left: var(--jn-left) }
+
+.jn-scroll::-webkit-scrollbar-thumb {
+    border-radius: 8px;
+    background: linear-gradient(90deg, rgba(164, 149, 255, .55), rgba(103, 216, 230, .45))
+}
+
+.jn-scroll::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(90deg, #a495ff, #67d8e6)
+}
+
+.jn-scroll::-webkit-scrollbar-corner { background: transparent }
+
+.jn-fit {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 9px 15px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, .12);
+    background: rgba(12, 14, 30, .6);
+    backdrop-filter: blur(14px);
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 600;
+    transition: .2s
+}
+
+.jn-fit:hover { color: var(--text) }
+
+.jn-fit.on {
+    color: #fff;
+    background: rgba(155, 140, 255, .28);
+    box-shadow: inset 0 0 0 1px rgba(155, 140, 255, .65)
+}
+
 @keyframes jn-flow { to { stroke-dashoffset: -40 } }
 @keyframes jn-pulse { 50% { r: 9; opacity: .75 } }
 
@@ -351,3 +621,4 @@ body:has(.sidebar.closed) .jn-screen { --jn-left: 92px }
     .jn-legend { flex-wrap: wrap; gap: 10px; border-radius: 14px; right: 12px }
     .jn-detail { width: auto; left: 12px; right: 12px; bottom: 96px }
 }
+

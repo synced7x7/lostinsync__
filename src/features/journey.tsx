@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
-import { ArrowRight, CalendarDays, Clock3, Minus, Plus, Route, Trophy } from "lucide-react";
+import { ArrowRight, CalendarDays, ChevronDown, Clock3, Maximize2, Minimize2, Minus, Plus, Route, Trophy } from "lucide-react";
 import type { Game } from "../domain/game";
 import { formatPlaytime } from "../domain/game";
 import "./journey.css";
@@ -8,37 +8,49 @@ import "./journey.css";
 const BG_IMAGE = "/images/journey-bg.jpg"; // TODO: replace with your background image path
 
 const DAY = 86_400_000;
-const GAP = 190;  // vertical distance between branches
-const X0 = 230;   // where the timeline starts
-const MINW = 380; // minimum branch length so cards never collide
+const GAP = 190;      // vertical distance between branches
+const X0 = 230;       // where the timeline starts
+const MINW = 380;     // minimum branch length so cards never collide
+const LABEL_GAP = 88; // min horizontal distance between date labels on the same row
 
-// status colours (used for the status label and detail chip)
-const K = { main: "#8f86ff", side: "#f0c674", active: "#5be3a4", abandoned: "#ff6b86" };
+const K = { main: "#8f86ff", active: "#5be3a4" };
 type Kind = keyof typeof K;
-type Range = "all" | "year" | "month";
+type Range = "all" | "month" | number; // number = a calendar year
 
-// branch colours (one per game, so overlapping branches always differ)
 const PALETTE = ["#6ea8ff", "#5be3a4", "#ff9a4d", "#c58bff", "#f0c674", "#ff7aa8", "#4fd8e8"];
-
-const STATUS_LABEL: Record<Kind, string> = {
-  main: "Completed",
-  side: "Side journey",
-  active: "In progress",
-  abandoned: "Abandoned",
-};
+const STATUS_LABEL: Record<Kind, string> = { main: "Completed", active: "In progress" };
+const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 const fmt = (t: number) =>
   new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(t);
+const fmtShort = (t: number) =>
+  new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", timeZone: "UTC" }).format(t);
 
-const kindOf = (g: Game): Kind =>
-  g.status === "Abandoned"
-    ? "abandoned"
-    : g.finishedAt
-      ? g.status === "Completed" ? "main" : "side"
-      : ["Retired", "Shelved", "On hold"].includes(g.status) ? "side" : "active";
-
-// lane index -> level: 0, -1, +1, -2, +2 ...
 const level = (lane: number) => (lane === 0 ? 0 : lane % 2 ? -(lane + 1) / 2 : lane / 2);
+const clamp = (v: number, max: number) => Math.max(0, Math.min(max, v));
+const cssVar = (c: string) => ({ ["--c" as string]: c }) as CSSProperties;
+
+/** axis ticks: years for long spans, months for medium, weeks for short */
+const makeTicks = (min: number, last: number) => {
+  const span = (last - min) / DAY;
+  const out: { t: number; label: string }[] = [];
+  if (span > 900) {
+    for (let y = new Date(min).getUTCFullYear() + 1; Date.UTC(y, 0, 1) <= last; y++)
+      out.push({ t: Date.UTC(y, 0, 1), label: String(y) });
+  } else if (span > 70) {
+    const d = new Date(min);
+    let y = d.getUTCFullYear(), m = d.getUTCMonth() + 1;
+    for (;; m++) {
+      if (m > 11) { m = 0; y++; }
+      const t = Date.UTC(y, m, 1);
+      if (t > last) break;
+      out.push({ t, label: m === 0 ? String(y) : MON[m] });
+    }
+  } else {
+    for (let t = min + 7 * DAY; t <= last; t += 7 * DAY) out.push({ t, label: fmtShort(t) });
+  }
+  return out;
+};
 
 /* ───────────── path + braid geometry ───────────── */
 type P = { x: number; y: number };
@@ -60,7 +72,6 @@ const line = (a: P, b: P): P[] => {
   }));
 };
 
-/** points along a branch: fork off the trunk, run on its lane, optionally merge back */
 const route = (x1: number, x2: number, T: number, y: number, merge: boolean): P[] => {
   if (y === T) return line({ x: x1, y: T }, { x: x2, y: T });
   const c = 70;
@@ -73,7 +84,6 @@ const route = (x1: number, x2: number, T: number, y: number, merge: boolean): P[
     : [...out, ...line({ x: x2 - 2 * c, y }, { x: x2, y }).slice(1)];
 };
 
-/** one braided strand: offsets the route along its normal with a sine wave, pinched to 0 at both ends */
 const strand = (pts: P[], phase: number, amp: number) => {
   const len: number[] = [0];
   pts.forEach((p, i) => i && len.push(len[i - 1] + Math.hypot(p.x - pts[i - 1].x, p.y - pts[i - 1].y)));
@@ -96,194 +106,420 @@ const STRANDS = [
   { phase: (4 * Math.PI) / 3, mix: "black 35%" },
 ];
 
-const cssVar = (c: string) => ({ ["--c" as string]: c }) as CSSProperties;
+type Item = { game: Game; start: number; end?: number };
 
 /* ───────────── component ───────────── */
 export function JourneyView({ games, openGame }: { games: Game[]; openGame: (id: string) => void }) {
   const [range, setRange] = useState<Range>("all");
+  const [menu, setMenu] = useState(false);
   const [zoom, setZoom] = useState(1);
+  const [fit, setFit] = useState(false);
   const [hoverId, setHoverId] = useState<string>();
   const [pickId, setPickId] = useState<string>();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const dragged = useRef(false);
+  const keep = useRef<number | null>(null);
 
-  const items = useMemo(() => {
-    const now = new Date();
-    const hit = (t?: number) =>
-      t !== undefined &&
-      new Date(t).getFullYear() === now.getFullYear() &&
-      (range === "year" || new Date(t).getMonth() === now.getMonth());
-    return games.flatMap((game) => {
-      const start = Date.parse(game.startedAt ?? "");
-      if (Number.isNaN(start)) return [];
-      const end = game.finishedAt ? Date.parse(game.finishedAt) : undefined;
-      if (range !== "all" && !hit(start) && !hit(end)) return [];
-      return [{ game, start, end }];
-    });
-  }, [games, range]);
+  // only completed + in-progress games that have a start date
+  const all = useMemo<Item[]>(
+    () =>
+      games.flatMap((game) => {
+        if (game.status !== "Completed" && game.status !== "Playing") return [];
+        const start = Date.parse(game.startedAt ?? "");
+        if (Number.isNaN(start)) return [];
+        const end = game.finishedAt ? Date.parse(game.finishedAt) : NaN;
+        return [{ game, start, end: Number.isNaN(end) ? undefined : end }];
+      }),
+    [games]
+  );
 
-  const L = useMemo(() => {
-    if (!items.length) return null;
-    const sorted = [...items].sort((a, b) => a.start - b.start);
-    const min = sorted[0].start;
+  // dropdown years: earliest start -> latest completion (or this year if something is still open)
+  const years = useMemo(() => {
+    if (!all.length) return [] as number[];
     const now = Date.now();
-    const ppd = 4 * zoom;
+    const a = new Date(Math.min(...all.map((i) => i.start))).getUTCFullYear();
+    const b = new Date(Math.max(...all.map((i) => i.end ?? now))).getUTCFullYear();
+    return Array.from({ length: Math.max(1, b - a + 1) }, (_, i) => b - i);
+  }, [all]);
+
+  // the visible time window for the chosen range
+  const win = useMemo(() => {
+    if (range === "all") return null;
+    const now = Date.now();
+    if (range === "month") {
+      const d = new Date();
+      return {
+        a: Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1),
+        b: Math.min(now, Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1) - 1),
+      };
+    }
+    return { a: Date.UTC(range, 0, 1), b: Math.min(now, Date.UTC(range + 1, 0, 1) - 1) };
+  }, [range]);
+
+  // games that overlap the window
+  const items = useMemo(() => {
+    if (!win) return all;
+    const now = Date.now();
+    return all.filter((i) => i.start <= win.b && (i.end ?? now) >= win.a);
+  }, [all, win]);
+
+  const base = useMemo(() => {
+    if (!items.length) return null;
+    const now = Date.now();
+    const sorted = [...items]
+      .sort((a, b) => a.start - b.start)
+      .map((r, idx) => ({
+        ...r,
+        color: PALETTE[idx % PALETTE.length],
+        kind: (r.game.status === "Completed" ? "main" : "active") as Kind,
+      }));
+    const min = win ? win.a : sorted[0].start;
+    const last = win ? win.b : Math.max(...sorted.map((r) => r.end ?? now));
+    const cs = (t: number) => (win ? Math.min(win.b, Math.max(win.a, t)) : t);
+    return { sorted, min, last, now, cs, ticks: makeTicks(min, last), open: sorted.filter((r) => !r.end).length };
+  }, [items, win]);
+
+  /* ── timeline layout ── */
+  const L = useMemo(() => {
+    if (!base) return null;
+    const { sorted, min, last, now, cs } = base;
+    const ppd = range === "all" ? 4 : range === "month" ? 24 : 5;
     const laneEnds: number[] = [];
 
-    const raw = sorted.map(({ game, start, end }, idx) => {
-      const x1 = X0 + ((start - min) / DAY) * ppd;
-      const x2 = Math.max(X0 + (((end ?? now) - min) / DAY) * ppd, x1 + MINW);
+    const raw = sorted.map((r) => {
+      const x1 = X0 + ((cs(r.start) - min) / DAY) * ppd;
+      const x2 = Math.max(X0 + ((cs(r.end ?? now) - min) / DAY) * ppd, x1 + MINW);
       let lane = laneEnds.findIndex((e) => e + 70 <= x1);
       if (lane < 0) lane = laneEnds.length;
       laneEnds[lane] = x2;
-      const kind = kindOf(game);
-      return {
-        game, start, end, x1, x2,
-        lv: level(lane),
-        kind,
-        color: PALETTE[idx % PALETTE.length],
-        merge: !!end && kind !== "abandoned",
-      };
+      return { ...r, x1, x2, lv: level(lane), merge: !!r.end };
     });
 
     const ups = Math.max(0, ...raw.map((r) => -r.lv));
     const downs = Math.max(0, ...raw.map((r) => r.lv));
-    const T = 220 + ups * GAP;
+    const T = 150 + ups * GAP;
+    const axisY = T + downs * GAP + 80; // axis sits right under the lowest branch
     const endX = Math.max(...raw.map((r) => r.x2)) + 150;
-    const last = Math.max(...raw.map((r) => r.end ?? now));
 
-    const years: { y: number; x: number }[] = [];
-    for (let y = new Date(min).getUTCFullYear() + 1; Date.UTC(y, 0, 1) <= last; y++)
-      years.push({ y, x: X0 + ((Date.UTC(y, 0, 1) - min) / DAY) * ppd });
+    const branches = raw.map((r) => {
+      const y = T + r.lv * GAP;
+      const pts = route(r.x1, r.x2, T, y, r.merge);
+      const amp = r.lv === 0 ? 5 : 6;
+      return {
+        ...r, y,
+        ex: r.x2,
+        ey: r.merge ? T : y,
+        glow: pts.map((p, i) => `${i ? "L" : "M"} ${p.x} ${p.y}`).join(" "),
+        strands: STRANDS.map((s) => strand(pts, s.phase, amp)),
+      };
+    });
+
+    // date labels: stack into tiers when they would overlap on the same row
+    type Lbl = { id: string; x: number; y: number; text: string; ty: number };
+    const rows = new Map<number, Lbl[]>();
+    const add = (id: string, x: number, y: number, text: string) => {
+      const arr = rows.get(y) ?? [];
+      arr.push({ id, x, y, text, ty: 0 });
+      rows.set(y, arr);
+    };
+    branches.forEach((b) => {
+      add(b.game.id, b.x1, T, fmt(b.start));
+      add(b.game.id, b.ex, b.ey, b.end ? fmt(b.end) : "Now");
+    });
+    const labels: Lbl[] = [];
+    rows.forEach((arr) => {
+      arr.sort((a, b) => a.x - b.x);
+      const tiers: number[] = [];
+      arr.forEach((l) => {
+        let t = tiers.findIndex((lx) => l.x - lx >= LABEL_GAP);
+        if (t < 0) t = tiers.length;
+        tiers[t] = l.x;
+        l.ty = l.y - 18 - t * 14;
+        labels.push(l);
+      });
+    });
 
     return {
-      raw: raw.map((r) => ({ ...r, y: T + r.lv * GAP })),
-      T, endX, last, years, min,
+      branches, labels, T, axisY, endX,
+      ticks: base.ticks.map((k) => ({ x: X0 + ((k.t - min) / DAY) * ppd, label: k.label })),
       width: endX + 260,
-      height: Math.max(T + downs * GAP + 220, 600),
-      open: raw.filter((r) => !r.end).length,
+      height: axisY + 50,
     };
-  }, [items, zoom]);
+  }, [base, range]);
 
-  // vertical wheel -> horizontal scroll (when there is nothing to scroll vertically)
+  const scale = zoom;
+
+  // start at the far right (most recent) whenever the timeline opens or the range changes
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    const on = (e: WheelEvent) => {
-      if (el.scrollHeight > el.clientHeight + 4 || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
-      e.preventDefault();
-      el.scrollLeft += e.deltaY * 2;
+    el.scrollLeft = el.scrollWidth;
+    el.scrollTop = 0;
+  }, [range, !!L, fit]);
+
+  // keep the same centre when zooming
+  const zoomTo = (next: number) => {
+    const el = scrollRef.current;
+    if (el && el.scrollWidth) keep.current = (el.scrollLeft + el.clientWidth / 2) / el.scrollWidth;
+    setZoom(next);
+  };
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || keep.current == null) return;
+    el.scrollLeft = keep.current * el.scrollWidth - el.clientWidth / 2;
+    keep.current = null;
+  }, [zoom]);
+
+  // smooth wheel + click-and-drag panning
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    let tx = el.scrollLeft, ty = el.scrollTop, raf = 0, down = false, moved = false;
+    let sx = 0, sy = 0, sl = 0, st = 0;
+
+    const tick = () => {
+      const dx = tx - el.scrollLeft, dy = ty - el.scrollTop;
+      if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) { raf = 0; return; }
+      el.scrollLeft += dx * 0.18;
+      el.scrollTop += dy * 0.18;
+      raf = requestAnimationFrame(tick);
     };
-    el.addEventListener("wheel", on, { passive: false });
-    return () => el.removeEventListener("wheel", on);
-  }, [L]);
+    const kick = () => { if (!raf) raf = requestAnimationFrame(tick); };
+
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const maxX = el.scrollWidth - el.clientWidth, maxY = el.scrollHeight - el.clientHeight;
+      const d = (Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY) * 1.6;
+      if (maxX > 0) tx = clamp(tx + d, maxX);
+      else ty = clamp(ty + d, maxY);
+      kick();
+    };
+    const onScroll = () => { if (!raf && !down) { tx = el.scrollLeft; ty = el.scrollTop; } };
+
+    const onDown = (e: PointerEvent) => {
+      if (e.button !== 0 || (e.target as HTMLElement).closest(".jn-node")) return;
+      down = true; moved = false;
+      sx = e.clientX; sy = e.clientY; sl = el.scrollLeft; st = el.scrollTop;
+    };
+    const onMove = (e: PointerEvent) => {
+      if (!down) return;
+      const dx = e.clientX - sx, dy = e.clientY - sy;
+      if (!moved && Math.hypot(dx, dy) > 4) {
+        moved = true;
+        el.setPointerCapture(e.pointerId);
+        el.classList.add("drag");
+      }
+      if (moved) {
+        cancelAnimationFrame(raf); raf = 0;
+        el.scrollLeft = sl - dx;
+        el.scrollTop = st - dy;
+        tx = el.scrollLeft; ty = el.scrollTop;
+      }
+    };
+    const onUp = (e: PointerEvent) => {
+      if (!down) return;
+      down = false;
+      if (moved) {
+        dragged.current = true;
+        setTimeout(() => (dragged.current = false), 0);
+        el.releasePointerCapture?.(e.pointerId);
+        el.classList.remove("drag");
+      }
+    };
+
+    el.addEventListener("wheel", onWheel, { passive: false });
+    el.addEventListener("scroll", onScroll, { passive: true });
+    el.addEventListener("pointerdown", onDown);
+    el.addEventListener("pointermove", onMove);
+    el.addEventListener("pointerup", onUp);
+    el.addEventListener("pointercancel", onUp);
+    return () => {
+      cancelAnimationFrame(raf);
+      el.removeEventListener("wheel", onWheel);
+      el.removeEventListener("scroll", onScroll);
+      el.removeEventListener("pointerdown", onDown);
+      el.removeEventListener("pointermove", onMove);
+      el.removeEventListener("pointerup", onUp);
+      el.removeEventListener("pointercancel", onUp);
+    };
+  }, [!!L, fit, range]);
 
   const active = hoverId ?? pickId;
-  const picked = L?.raw.find((r) => r.game.id === pickId);
+  const picked = base?.sorted.find((r) => r.game.id === pickId);
+
+  /* overview helpers */
+  const span = base ? Math.max(base.last - base.min, DAY) : 1;
+  const pct = (t: number) => (base ? clamp(((base.cs(t) - base.min) / span) * 100, 100) : 0);
 
   return createPortal(
     <div className="jn-screen" style={{ backgroundImage: `url(${BG_IMAGE})` }}>
       <div className="jn-shade" />
+      {menu && <div className="jn-dd-bg" onClick={() => setMenu(false)} />}
 
       <header className="jn-top">
         <div className="jn-title">
-          <span className="jn-mark"><Route size={20} /></span>
+          <span className="jn-mark"><Route size={18} /></span>
           <div><h1>Game Journey</h1><p>Your gaming timeline, visualized</p></div>
         </div>
         <div className="jn-tools">
           <div className="jn-pills">
-            {([["all", "All Time"], ["year", "This Year"], ["month", "This Month"]] as const).map(([k, label]) => (
-              <button key={k} className={range === k ? "on" : ""} onClick={() => setRange(k)}>{label}</button>
-            ))}
+            <button className={range === "all" ? "on" : ""} onClick={() => { setRange("all"); setMenu(false); }}>All Time</button>
+            <div className="jn-dd">
+              <button className={typeof range === "number" ? "on" : ""} onClick={() => setMenu(!menu)} disabled={!years.length}>
+                {typeof range === "number" ? range : "Year"} <ChevronDown size={13} />
+              </button>
+              {menu && (
+                <div className="jn-dd-menu">
+                  {years.map((y) => (
+                    <button key={y} className={range === y ? "on" : ""} onClick={() => { setRange(y); setMenu(false); }}>{y}</button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <button className={range === "month" ? "on" : ""} onClick={() => { setRange("month"); setMenu(false); }}>This Month</button>
           </div>
-          <div className="jn-zoom">
-            <button onClick={() => setZoom((z) => Math.max(0.5, z - 0.2))} aria-label="Zoom out"><Minus size={14} /></button>
-            <span>{Math.round(zoom * 100)}%</span>
-            <button onClick={() => setZoom((z) => Math.min(2.4, z + 0.2))} aria-label="Zoom in"><Plus size={14} /></button>
-          </div>
+          <button className={`jn-fit${fit ? " on" : ""}`} onClick={() => setFit(!fit)} title="See the whole journey in one screen">
+            {fit ? <Minimize2 size={14} /> : <Maximize2 size={14} />} {fit ? "Timeline" : "Fit all"}
+          </button>
+          {!fit && (
+            <div className="jn-zoom">
+              <button onClick={() => zoomTo(Math.max(0.1, +(zoom / 1.25).toFixed(2)))} aria-label="Zoom out"><Minus size={14} /></button>
+              <span>{Math.round(zoom * 100)}%</span>
+              <button onClick={() => zoomTo(Math.min(2.4, +(zoom * 1.25).toFixed(2)))} aria-label="Zoom in"><Plus size={14} /></button>
+            </div>
+          )}
         </div>
       </header>
 
-      {!L ? (
+      {!L || !base ? (
         <div className="jn-empty">
           <CalendarDays size={30} />
-          <h2>Your journey is waiting</h2>
-          <p>Add a start date to your games and they will flow through your history here.</p>
+          <h2>{range === "all" ? "Your journey is waiting" : "Nothing in this period"}</h2>
+          <p>Games you are playing or have completed, with a start date, will appear here.</p>
         </div>
-      ) : (
-        <div className="jn-scroll" ref={scrollRef}>
-          <div className="jn-canvas" style={{ width: L.width, height: L.height }} onClick={() => setPickId(undefined)}>
-            <svg className="jn-svg" width={L.width} height={L.height}>
-              {L.years.map(({ y, x }) => (
-                <g key={y}>
-                  <line className="jn-year" x1={x} y1={110} x2={x} y2={L.height - 90} />
-                  <text className="jn-year-label" x={x} y={L.height - 66} textAnchor="middle">{y}</text>
-                </g>
+      ) : fit ? (
+        /* ───── Fit all: compact overview, one row per game ───── */
+        <div className="jn-ov">
+          <div className="jn-ov-axis">
+            <span className="jn-ov-count">{base.sorted.length} {base.sorted.length === 1 ? "game" : "games"}</span>
+            <div className="jn-ov-ticks">
+              {base.ticks.map((k) => (
+                <span key={k.t} style={{ left: `${pct(k.t)}%` }}>{k.label}</span>
               ))}
-
-              <path className="jn-trunk-glow" d={`M 80 ${L.T} L ${L.endX} ${L.T}`} />
-              <path className="jn-trunk" d={`M 80 ${L.T} L ${L.endX} ${L.T}`} />
-
-              {L.raw.map((r) => {
-                const c = r.color;
-                const ex = r.x2;
-                const ey = r.merge ? L.T : r.y;
-                const pts = route(r.x1, r.x2, L.T, r.y, r.merge);
-                const braid = r.lv === 0 ? 5 : 6;
-                return (
-                  <g key={r.game.id} className={active && active !== r.game.id ? "dim" : ""}>
-                    <path className="jn-glow" stroke={c} d={pts.map((p, i) => `${i ? "L" : "M"} ${p.x} ${p.y}`).join(" ")} />
-                    {STRANDS.map((s, i) => (
-                      <path
-                        key={i}
-                        className={`jn-strand${r.kind === "abandoned" ? " abandoned" : ""}`}
-                        style={{ stroke: `color-mix(in srgb, ${c}, ${s.mix})` }}
-                        d={strand(pts, s.phase, braid)}
-                      />
-                    ))}
-                    <circle cx={r.x1} cy={L.T} r={5} fill={c} className="jn-dot" style={{ color: c }} />
-                    <circle
-                      cx={ex} cy={ey} r={r.merge ? 7 : 6}
-                      fill={r.merge ? "#fff" : c}
-                      className={`jn-dot${r.kind === "active" ? " pulse" : ""}`}
-                      style={{ color: c }}
-                    />
-                    <text className="jn-pt" x={r.x1} y={L.T - 18} textAnchor="middle">{fmt(r.start)}</text>
-                    <text className="jn-pt" x={ex} y={ey - 18} textAnchor="middle">{r.end ? fmt(r.end) : "Now"}</text>
-                    {r.merge && <text className="jn-pt sub" x={ex} y={ey + 24} textAnchor="middle">MERGE</text>}
-                  </g>
-                );
-              })}
-
-              <circle cx={80} cy={L.T} r={17} className="jn-start-ring" />
-              <circle cx={80} cy={L.T} r={8} className="jn-start" />
-              <text className="jn-end-label" x={80} y={L.T + 46} textAnchor="middle">START · {fmt(L.min)}</text>
-              <rect className="jn-end" x={L.endX - 7} y={L.T - 7} width={14} height={14} transform={`rotate(45 ${L.endX} ${L.T})`} />
-              <text className="jn-end-label" x={L.endX} y={L.T - 26} textAnchor="middle">
-                {L.open ? "TODAY" : "END"} · {fmt(L.open ? Date.now() : L.last)}
-              </text>
-            </svg>
-
-            {L.raw.map((r) => {
+            </div>
+          </div>
+          <div className="jn-ov-body">
+            {base.sorted.map((r) => {
+              const left = pct(r.start);
+              const right = pct(r.end ?? base.now);
+              const width = Math.max(1.5, right - left);
+              const flip = left + width > 66;
               const dim = active && active !== r.game.id;
+              const dateStyle: CSSProperties = flip
+                ? { right: `calc(${100 - left}% + 14px)` }
+                : { left: `calc(${left + width}% + 14px)` };
               return (
-                <button
+                <div
                   key={r.game.id}
-                  className={`jn-node${dim ? " dim" : ""}${pickId === r.game.id ? " on" : ""}`}
-                  style={{ left: (r.x1 + r.x2) / 2, top: r.y, ...cssVar(r.color) }}
+                  className={`jn-ov-row${dim ? " dim" : ""}${pickId === r.game.id ? " on" : ""}`}
+                  style={cssVar(r.color)}
                   onMouseEnter={() => setHoverId(r.game.id)}
                   onMouseLeave={() => setHoverId(undefined)}
-                  onClick={(e) => { e.stopPropagation(); setPickId(r.game.id); }}
+                  onClick={() => setPickId(r.game.id)}
                   onDoubleClick={() => openGame(r.game.id)}
                   title="Click for details · double-click to open"
                 >
-                  <span className="jn-label top">
-                    <strong>{r.game.title}</strong>
-                    <small><i />{formatPlaytime(r.game.totalSeconds)} · {STATUS_LABEL[r.kind]}</small>
-                  </span>
-                  <span className="jn-cover" style={r.game.cover ? { backgroundImage: `url(${r.game.cover})` } : undefined} />
-                </button>
+                  <div className="jn-ov-name">
+                    <span className="jn-ov-cover" style={r.game.cover ? { backgroundImage: `url(${r.game.cover})` } : undefined} />
+                    <div>
+                      <strong>{r.game.title}</strong>
+                      <small>{formatPlaytime(r.game.totalSeconds)} · {STATUS_LABEL[r.kind]}</small>
+                    </div>
+                  </div>
+                  <div className="jn-ov-track">
+                    {base.ticks.map((k) => <i key={k.t} className="jn-ov-line" style={{ left: `${pct(k.t)}%` }} />)}
+                    {base.open > 0 && base.now >= base.min && base.now <= base.last && (
+                      <i className="jn-ov-today" style={{ left: `${pct(base.now)}%` }} />
+                    )}
+                    <div className={`jn-ov-bar${r.end ? "" : " open"}`} style={{ left: `${left}%`, width: `${width}%` }} />
+                    <span className="jn-ov-date" style={dateStyle}>{fmt(r.start)} → {r.end ? fmt(r.end) : "Now"}</span>
+                  </div>
+                </div>
               );
             })}
+          </div>
+        </div>
+      ) : (
+        /* ───── Timeline ───── */
+        <div className="jn-scroll" ref={scrollRef}>
+          <div className="jn-stage" style={{ width: L.width * scale, height: L.height * scale }}>
+            <div
+              className="jn-canvas"
+              style={{ width: L.width, height: L.height, transform: `scale(${scale})` }}
+              onClick={() => { if (!dragged.current) setPickId(undefined); }}
+            >
+              <svg className="jn-svg" width={L.width} height={L.height}>
+                {L.ticks.map((k, i) => (
+                  <g key={i}>
+                    <line className="jn-year" x1={k.x} y1={100} x2={k.x} y2={L.axisY - 22} />
+                    <text className="jn-year-label" x={k.x} y={L.axisY} textAnchor="middle">{k.label}</text>
+                  </g>
+                ))}
+
+                <path className="jn-trunk-glow" d={`M 80 ${L.T} L ${L.endX} ${L.T}`} />
+                <path className="jn-trunk" d={`M 80 ${L.T} L ${L.endX} ${L.T}`} />
+
+                {L.branches.map((r) => (
+                  <g key={r.game.id} className={active && active !== r.game.id ? "dim" : ""}>
+                    <path className="jn-glow" stroke={r.color} d={r.glow} />
+                    {r.strands.map((d, i) => (
+                      <path key={i} className="jn-strand" style={{ stroke: `color-mix(in srgb, ${r.color}, ${STRANDS[i].mix})` }} d={d} />
+                    ))}
+                    <circle cx={r.x1} cy={L.T} r={5} fill={r.color} className="jn-dot" style={{ color: r.color }} />
+                    <circle
+                      cx={r.ex} cy={r.ey} r={r.merge ? 7 : 6}
+                      fill={r.merge ? "#fff" : r.color}
+                      className={`jn-dot${r.kind === "active" ? " pulse" : ""}`}
+                      style={{ color: r.color }}
+                    />
+                  </g>
+                ))}
+
+                {L.labels.map((l, i) => (
+                  <text key={i} className={`jn-pt${active && active !== l.id ? " dim" : ""}`} x={l.x} y={l.ty} textAnchor="middle">{l.text}</text>
+                ))}
+
+                <circle cx={80} cy={L.T} r={17} className="jn-start-ring" />
+                <circle cx={80} cy={L.T} r={8} className="jn-start" />
+                <text className="jn-end-label" x={80} y={L.T + 46} textAnchor="middle">START · {fmt(base.min)}</text>
+                <rect className="jn-end" x={L.endX - 7} y={L.T - 7} width={14} height={14} transform={`rotate(45 ${L.endX} ${L.T})`} />
+                <text className="jn-end-label" x={L.endX} y={L.T - 26} textAnchor="middle">
+                  {base.open ? "TODAY" : "END"} · {fmt(base.open ? base.now : base.last)}
+                </text>
+              </svg>
+
+              {L.branches.map((r) => {
+                const dim = active && active !== r.game.id;
+                return (
+                  <button
+                    key={r.game.id}
+                    className={`jn-node${dim ? " dim" : ""}${pickId === r.game.id ? " on" : ""}`}
+                    style={{ left: (r.x1 + r.x2) / 2, top: r.y, ...cssVar(r.color) }}
+                    onMouseEnter={() => setHoverId(r.game.id)}
+                    onMouseLeave={() => setHoverId(undefined)}
+                    onClick={(e) => { e.stopPropagation(); setPickId(r.game.id); }}
+                    onDoubleClick={() => openGame(r.game.id)}
+                    title="Click for details · double-click to open"
+                  >
+                    <span className="jn-label top">
+                      <strong>{r.game.title}</strong>
+                      <small><i />{formatPlaytime(r.game.totalSeconds)} · {STATUS_LABEL[r.kind]}</small>
+                    </span>
+                    <span className="jn-cover" style={r.game.cover ? { backgroundImage: `url(${r.game.cover})` } : undefined} />
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
       )}
@@ -306,12 +542,6 @@ export function JourneyView({ games, openGame }: { games: Game[]; openGame: (id:
           <button className="jn-open" onClick={() => openGame(picked.game.id)}>View Details <ArrowRight size={14} /></button>
         </aside>
       )}
-
-      <div className="jn-legend">
-        <span><i style={{ background: "#fff" }} />Merge point</span>
-        <span><i style={{ background: K.active }} />In progress (open end)</span>
-        <span><i style={{ background: K.abandoned }} />Abandoned (dashed)</span>
-      </div>
     </div>,
     document.body
   );
