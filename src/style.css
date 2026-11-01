@@ -3784,6 +3784,55 @@ nav {
     background: rgba(117, 221, 177, .12)
 }
 
+html {
+    scrollbar-width: none;
+    -ms-overflow-style: none
+}
+
+html::-webkit-scrollbar {
+    display: none
+}
+
+
+/* ── Slim variant for modals, menus and panels ──── */
+.modal,
+.pf-menu,
+.igdb-dropdown,
+.pf-chips,
+.series-modal,
+textarea {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(164, 149, 255, .35) transparent
+}
+
+.modal::-webkit-scrollbar,
+.pf-menu::-webkit-scrollbar,
+.igdb-dropdown::-webkit-scrollbar,
+.pf-chips::-webkit-scrollbar,
+textarea::-webkit-scrollbar {
+    width: 8px;
+    height: 8px
+}
+
+.modal::-webkit-scrollbar-thumb,
+.pf-menu::-webkit-scrollbar-thumb,
+.igdb-dropdown::-webkit-scrollbar-thumb,
+.pf-chips::-webkit-scrollbar-thumb,
+textarea::-webkit-scrollbar-thumb {
+    min-height: 32px;
+    border-width: 2px;
+    background: rgba(164, 149, 255, .4) padding-box
+}
+
+.modal::-webkit-scrollbar-thumb:hover,
+.pf-menu::-webkit-scrollbar-thumb:hover,
+.igdb-dropdown::-webkit-scrollbar-thumb:hover,
+.pf-chips::-webkit-scrollbar-thumb:hover,
+textarea::-webkit-scrollbar-thumb:hover {
+    background: rgba(164, 149, 255, .75) padding-box
+}
+
+
 @media (max-width: 750px) {
     .trailer-row:has(.trailer-side) {
         grid-template-columns: 1fr
