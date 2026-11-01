@@ -2242,31 +2242,13 @@ nav {
     text-shadow: 0 2px 10px rgba(0, 0, 0, .8)
 }
 
-/* Accent glow ring on focused card */
-/* .ps4-card-focus-ring {
-    position: absolute;
-    inset: -3px;
-    top: -3px;
-    height: 156px;
-    border-radius: 13px;
-    pointer-events: none;
-    box-shadow: 0 0 0 2 px var(--accent), 0 0 0px rgba(164, 149, 255, .55);
-    animation: ps4-pulse 2s ease-in-out infinite
+.ps4-card,
+.ps4-card:focus,
+.ps4-card:focus-visible {
+    outline: none;
+    -webkit-tap-highlight-color: transparent
 }
 
-@keyframes ps4-pulse {
-    0% {
-        box-shadow: 0 0 0 2px var(--accent), 0 0 26px rgba(164, 149, 255, .55)
-    }
-
-    50% {
-        box-shadow: 0 0 0 2px var(--accent), 0 0 36px rgba(164, 149, 255, .75)
-    }
-
-    to {
-        box-shadow: 0 0 0 2px var(--accent), 0 0 26px rgba(164, 149, 255, .55)
-    }
-} */
 
 
 /* ═══════════════════════════════════════════════════════════

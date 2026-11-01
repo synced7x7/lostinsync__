@@ -42,9 +42,8 @@ export type AppSettings = {
   igdbClientSecret?: string;
 };
 export type AppData = { games: Game[]; activities: ActivityEvent[]; journal: JournalEntry[]; profile: Profile; settings: AppSettings };
-export function validateGame(title: string, platform: string): string | null {
+export function validateGame(title: string): string | null {
   if (title.trim().length < 2) return "Enter a game title with at least two characters.";
-  if (platform.trim().length < 2) return "Enter a platform.";
   return null;
 }
 export function formatPlaytime(seconds: number): string {

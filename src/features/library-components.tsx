@@ -100,7 +100,7 @@ export function AddGame({ onClose, onAdd, igdb, initial }: { onClose: () => void
   };
 
   const submit = () => {
-    const issue = validateGame(title, played[0] ?? "");
+    const issue = validateGame(title);
     if (issue) { setError(issue); return; }
     if (startedAt && finishedAt && finishedAt < startedAt) { setError("Completion date cannot be before the starting date."); return; }
     const totalSeconds = (Math.max(0, Number(hours) || 0) * 3600) + (Math.min(59, Math.max(0, Number(minutes) || 0)) * 60);
@@ -198,7 +198,7 @@ export function AddGame({ onClose, onAdd, igdb, initial }: { onClose: () => void
             <label>Description<textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="About the game…" /></label>
             <div className="form-grid">
               <PlatformPicker label="Released on" value={released} onChange={setReleased} options={options} hint="Platforms the game came out for" />
-              <PlatformPicker label="Played on" value={played} onChange={setPlayed} options={options} hint="Where you played it" />
+              <PlatformPicker single label="Played on" value={played} onChange={setPlayed} options={options} hint="Where you played it" />
             </div>
             {emu.length > 0 && <p className="emu-note">Emulation detected: {emu.join(", ")}</p>}
             <label>Genre<input value={genre} onChange={(e) => setGenre(e.target.value)} placeholder="RPG, strategy…" /></label>
@@ -233,3 +233,5 @@ export function AddGame({ onClose, onAdd, igdb, initial }: { onClose: () => void
     document.body
   );
 }
+
+

@@ -376,7 +376,7 @@ export function MasteryProgress({
 }
 
 
-const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const pad = (n: number) => String(n).padStart(2, "0");
 
 export const formatDate = (v?: string) => {
@@ -479,21 +479,26 @@ export function DateField({
 }
 
 export function PlatformPicker({
-  label, value, onChange, options, hint,
+  label, value, onChange, options, hint, single = false,
 }: {
   label: string;
   value: string[];
   onChange: (v: string[]) => void;
   options: string[];
   hint?: string;
+  single?: boolean;
 }) {
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
   const list = useMemo(
-    () => options.filter((o) => !value.includes(o) && o.toLowerCase().includes(q.toLowerCase())).slice(0, 40),
-    [options, value, q]
+    () => options.filter((o) => (single || !value.includes(o)) && o.toLowerCase().includes(q.toLowerCase())).slice(0, 40),
+    [options, value, q, single]
   );
-  const add = (o: string) => { onChange([...value, o]); setQ(""); };
+  const add = (o: string) => {
+    onChange(single ? [o] : [...value, o]);
+    setQ("");
+    if (single) setOpen(false);
+  };
   return (
     <div className="pf">
       <span className="pf-label">{label}</span>
@@ -510,12 +515,18 @@ export function PlatformPicker({
         )}
         <input
           value={q}
-          placeholder={value.length ? "Add more…" : "Search platforms…"}
+
           onFocus={() => setOpen(true)}
           onBlur={() => setTimeout(() => setOpen(false), 120)}
           onChange={(e) => { setQ(e.target.value); setOpen(true); }}
           onKeyDown={(e) => {
-            if (e.key === "Enter") { e.preventDefault(); if (list[0]) add(list[0]); }
+            if (e.key === "Enter") {
+              e.preventDefault();
+              const typed = q.trim();
+              if (!typed) return;
+              const exact = options.find((o) => o.toLowerCase() === typed.toLowerCase());
+              add(exact ?? (list[0] && list[0].toLowerCase().startsWith(typed.toLowerCase()) ? list[0] : typed));
+            }
             if (e.key === "Backspace" && !q && value.length) onChange(value.slice(0, -1));
           }}
         />
@@ -525,6 +536,11 @@ export function PlatformPicker({
           {list.map((o) => (
             <button type="button" key={o} onMouseDown={(e) => { e.preventDefault(); add(o); }}>{o}</button>
           ))}
+            {q.trim() && !options.some((o) => o.toLowerCase() === q.trim().toLowerCase()) && (
+            <button type="button" onMouseDown={(e) => { e.preventDefault(); add(q.trim()); }}>
+              + Add '{q.trim()}'
+            </button>
+          )}
         </div>
       )}
       {hint && <span className="pf-hint">{hint}</span>}

@@ -360,10 +360,8 @@ function PS4ShelfView({
     } else if (e.key === "ArrowLeft") {
       e.preventDefault();
       setFocusedIdx((p) => Math.max(p - 1, 0));
-    } else if (e.key === "Enter" && focusedGame) {
-      openGame(focusedGame.id);
-    }
-  }, [games.length, focusedGame, openGame]);
+    } 
+  }, [games.length]);
 
   useEffect(() => {
     window.addEventListener("keydown", handleKey);
@@ -463,7 +461,7 @@ function PS4ShelfView({
         </div>
       </div>
       <div className="ps4-nav-hint">
-        <ChevronLeft size={13} /><ChevronRight size={13} /><span>Scroll / Arrow keys to explore · Enter / Double-click to open</span>
+        <ChevronLeft size={13} /><ChevronRight size={13} /><span>Scroll / Arrow keys to explore · Double-click to open</span>
       </div>
     </>
   );
