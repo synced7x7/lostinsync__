@@ -263,7 +263,7 @@ function PS4ShelfView({
 
   useEffect(() => {
     const el = shelfRef.current?.children[focusedIdx] as HTMLElement | undefined;
-    el?.scrollIntoView({ block: "nearest", inline: "center", behavior: "smooth" });
+    el?.scrollIntoView({ block: "nearest", inline: "center", behavior: "auto" });
   }, [focusedIdx]);
 
   useEffect(() => {
@@ -271,7 +271,7 @@ function PS4ShelfView({
     if (!shelf) return;
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
-      const delta = (Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY) * 2.8;
+      const delta = (Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY) * 5;
       shelf.scrollLeft += delta;
     };
     shelf.addEventListener("wheel", onWheel, { passive: false });
@@ -279,95 +279,86 @@ function PS4ShelfView({
   }, []);
 
   return (
-    <div className="ps4-library">
-      <AnimatePresence mode="wait">
-        {featured && (
-          <motion.div
-            key={featured.id}
-            className="ps4-bg"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.5 }}
-            style={featured.backgroundCover || featured.cover ? { backgroundImage: `url(${featured.backgroundCover ?? featured.cover})` } : undefined}
-          />
-        )}
-      </AnimatePresence>
-      <div className="ps4-bg-overlay" />
-      <AnimatePresence mode="wait">
-        {featured && (
-          <motion.div
-            key={featured.id + "-info"}
-            className="ps4-featured-info"
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.28, ease: "easeOut" }}
-          >
-            <span className="status">{featured.status}</span>
-            <h2 className="ps4-title">{featured.title}</h2>
-            <p className="ps4-meta">{featured.platform}<span> · </span>{featured.genre || "Uncategorized"}<span> · </span>{formatPlaytime(featured.totalSeconds)}</p>
-            <div className="ps4-actions">
-              <button className="button primary" onClick={() => openGame(featured.id)}><Gamepad2 size={15} /> Open</button>
-              <button className="icon-btn featured-heart" onClick={() => saveGame({ ...featured, favorite: !featured.favorite })}>
-                <Heart size={16} fill={featured.favorite ? "currentColor" : "none"} />
-              </button>
-              {featured.rating && <span className="ps4-rating">{featured.rating}<small>/10</small></span>}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+    <>
+      <div className="ps4-library">
+        <AnimatePresence mode="wait">
+          {featured && (
+            <motion.div
+              key={featured.id}
+              className="ps4-bg"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.5 }}
+              style={featured.backgroundCover || featured.cover ? { backgroundImage: `url(${featured.backgroundCover ?? featured.cover})` } : undefined}
+            />
+          )}
+        </AnimatePresence>
+        <div className="ps4-bg-overlay" />
+        <AnimatePresence mode="wait">
+          {featured && (
+            <motion.div
+              key={featured.id + "-info"}
+              className="ps4-featured-info"
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.28, ease: "easeOut" }}
+            >
+              <span className="status">{featured.status}</span>
+              <h2 className="ps4-title">{featured.title}</h2>
+              <p className="ps4-meta">{featured.platform}<span> · </span>{featured.genre || "Uncategorized"}</p>
+              <div className="ps4-actions">
+                <button className="button primary" onClick={() => openGame(featured.id)}><Gamepad2 size={15} /> Open</button>
+                <button className="icon-btn featured-heart" onClick={() => saveGame({ ...featured, favorite: !featured.favorite })}>
+                  <Heart size={16} fill={featured.favorite ? "currentColor" : "none"} />
+                </button>
+                {featured.rating && <span className="ps4-rating">{featured.rating}<small>/10</small></span>}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+        <div className="ps4-shelves">
+          <div className="ps4-shelf-row" ref={shelfRef}>
+            {games.map((game, idx) => {
+              const isFocused = focusedIdx === idx;
+              return (
+                <motion.button
+                  key={game.id}
+                  layout
+                  className={`ps4-card${isFocused ? " ps4-card--focused" : ""}`}
+                  onClick={() => setFocusedIdx(idx)}
+                  onDoubleClick={() => openGame(game.id)}
+                  animate={isFocused ? {
+                    scale: 1.25,
+                    zIndex: 20,
+                    y: -12,
+                    marginLeft: idx === 0 ? 8 : 18,
+                    marginRight: 18,
+                  } : {
+                    scale: 1,
+                    zIndex: 1,
+                    y: 0,
+                    marginLeft: 0,
+                    marginRight: 0,
+                  }}
+                  transition={{ type: "spring", stiffness: 360, damping: 28 }}
+                  whileHover={!isFocused ? { scale: 1.08, y: -4 } : {}}
+                >
+                  <div className="ps4-card-art" style={game.cover ? { backgroundImage: `url(${game.cover})` } : undefined}>
+                    {!game.cover && <Gamepad2 size={24} />}
+                  </div>
+                  {isFocused && <div className="ps4-card-focus-ring" />}
+                </motion.button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
       <div className="ps4-nav-hint">
         <ChevronLeft size={13} /><ChevronRight size={13} /><span>Scroll / Arrow keys to explore · Enter / Double-click to open</span>
       </div>
-      <div className="ps4-shelves">
-        <div className="ps4-shelf-row" ref={shelfRef}>
-          {games.map((game, idx) => {
-            const isFocused = focusedIdx === idx;
-            return (
-              <motion.button
-                key={game.id}
-                layout
-                className={`ps4-card${isFocused ? " ps4-card--focused" : ""}`}
-                onClick={() => setFocusedIdx(idx)}
-                onDoubleClick={() => openGame(game.id)}
-                onMouseEnter={() => setFocusedIdx(idx)}
-                animate={isFocused ? {
-                  scale: 1.25,
-                  zIndex: 20,
-                  y: -12,
-                  marginLeft: idx === 0 ? 8 : 18,
-                  marginRight: 18,
-                } : {
-                  scale: 1,
-                  zIndex: 1,
-                  y: 0,
-                  marginLeft: 0,
-                  marginRight: 0,
-                }}
-                transition={{ type: "spring", stiffness: 360, damping: 28 }}
-                whileHover={!isFocused ? { scale: 1.08, y: -4 } : {}}
-              >
-                <div className="ps4-card-art" style={game.cover ? { backgroundImage: `url(${game.cover})` } : undefined}>
-                  {!game.cover && <Gamepad2 size={24} />}
-                </div>
-                {isFocused && (
-                  <motion.span
-                    className="ps4-card-label"
-                    initial={{ opacity: 0, y: 4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.05 }}
-                  >
-                    {game.title}
-                  </motion.span>
-                )}
-                {isFocused && <div className="ps4-card-focus-ring" />}
-              </motion.button>
-            );
-          })}
-        </div>
-      </div>
-    </div>
+    </>
   );
 }
 
@@ -437,7 +428,6 @@ function GridCard({
     >
       <div className="grid-card-art" style={game.cover ? { backgroundImage: `url(${game.cover})` } : undefined}>
         {!game.cover && <Gamepad2 size={gridSize === "lg" ? 36 : gridSize === "md" ? 26 : 18} />}
-        <span className="grid-card-platform">{game.platform}</span>
         <AnimatePresence>
           {hovered && (
             <motion.div className="grid-card-hover-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }} />
@@ -445,10 +435,6 @@ function GridCard({
         </AnimatePresence>
       </div>
       <motion.div className="grid-card-glow-border" animate={hovered ? { opacity: 1 } : { opacity: 0 }} transition={{ duration: 0.18 }} />
-      <div className="grid-card-info">
-        <span className="grid-card-title">{game.title}</span>
-        {gridSize !== "sm" && <span className="grid-card-sub">{game.genre || "Uncategorized"}</span>} {/* · */}
-      </div>
     </motion.div>
   );
 }

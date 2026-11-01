@@ -1,3 +1,27 @@
+@font-face {
+    font-family: "Chiffon";
+    src: url("./fonts/chiffon-trial-semibold.ttf") format("truetype");
+    font-weight: 600;
+    font-style: normal;
+    font-display: swap
+}
+
+@font-face {
+    font-family: "title font";
+    src: url("./fonts/TitleFontSub.ttf") format("truetype");
+    font-weight: 600;
+    font-style: normal;
+    font-display: swap
+}
+
+@font-face {
+    font-family: "info font";
+    src: url("./fonts/InfoTextSub.ttf") format("truetype");
+    font-weight: 600;
+    font-style: normal;
+    font-display: swap
+}
+
 :root {
     font-family: Manrope, system-ui, sans-serif;
     color: #f5f4fb;
@@ -22,6 +46,8 @@
 * {
     box-sizing: border-box
 }
+
+
 
 body {
     margin: 0;
@@ -1066,6 +1092,7 @@ nav {
 }
 
 .detail-copy h1 {
+    font-family: "Chiffon";
     font-size: 37px;
     margin: 8px 0 4px
 }
@@ -1961,13 +1988,15 @@ nav {
 }
 
 .ps4-title {
-    font-size: clamp(28px, 4.5vw, 58px);
+    font-family: Title font;
+    font-size: clamp(28px, 4.5vw, 56px);
     font-weight: 800;
     letter-spacing: -.05em;
     line-height: .96;
     margin: 8px 0 10px;
     text-shadow: 0 2px 20px rgba(0, 0, 0, .5)
 }
+
 
 .ps4-meta {
     font-size: 11px;
@@ -2001,14 +2030,13 @@ nav {
 
 /* Keyboard nav hint */
 .ps4-nav-hint {
-    position: relative;
-    z-index: 2;
     display: flex;
     align-items: center;
-    gap: 4px;
-    padding: 0 32px 8px;
-    color: rgba(255, 255, 255, .35);
-    font-size: 9px;
+    justify-content: center;
+    gap: 6px;
+    padding: 12px 0 0;
+    color: var(--dim);
+    font-size: 10px;
     letter-spacing: .04em
 }
 
@@ -2068,7 +2096,7 @@ nav {
 
 .ps4-card--focused .ps4-card-art {
     border-color: var(--accent);
-    box-shadow: 0 0 0 2px var(--accent), 0 14px 34px rgba(164, 149, 255, .5)
+    box-shadow: 0 0 0 2px var(--accent), 0 5px 20px rgba(164, 149, 255, .5)
 }
 
 /* Label that appears below focused card */
@@ -2087,28 +2115,31 @@ nav {
 }
 
 /* Accent glow ring on focused card */
-.ps4-card-focus-ring {
+/* .ps4-card-focus-ring {
     position: absolute;
     inset: -3px;
     top: -3px;
     height: 156px;
     border-radius: 13px;
     pointer-events: none;
-    box-shadow: 0 0 0 2px var(--accent), 0 0 26px rgba(164, 149, 255, .55);
+    box-shadow: 0 0 0 2 px var(--accent), 0 0 0px rgba(164, 149, 255, .55);
     animation: ps4-pulse 2s ease-in-out infinite
 }
 
 @keyframes ps4-pulse {
-
-    0%,
-    100% {
+    0% {
         box-shadow: 0 0 0 2px var(--accent), 0 0 26px rgba(164, 149, 255, .55)
     }
 
     50% {
-        box-shadow: 0 0 0 2px var(--accent), 0 0 44px rgba(164, 149, 255, .8)
+        box-shadow: 0 0 0 2px var(--accent), 0 0 36px rgba(164, 149, 255, .75)
     }
-}
+
+    to {
+        box-shadow: 0 0 0 2px var(--accent), 0 0 26px rgba(164, 149, 255, .55)
+    }
+} */
+
 
 /* ═══════════════════════════════════════════════════════════
    CATALOG GRID VIEW
@@ -2244,7 +2275,8 @@ nav {
 }
 
 .grid-card-title {
-    font-size: 11px;
+    font-family: "Title font";
+    font-size: 13px;
     font-weight: 700;
     white-space: nowrap;
     overflow: hidden;
