@@ -476,7 +476,7 @@ function PS4ShelfView({
             >
               <span className="status">{featured.status}</span>
               <h2 className="ps4-title">{featured.title}</h2>
-              <p className="ps4-meta">{featured.platform}<span> · </span>{featured.genre || "Uncategorized"}</p>
+              <p className="ps4-meta">{featured.platform}<span> · </span>{featured.genre || "Uncategorized"}<span> · </span>{formatDate(featured.releaseDate)}</p>
               <div className="ps4-actions">
                 {featured.rating && <span className="ps4-rating">{featured.rating}<small>/10</small></span>}
               </div>
