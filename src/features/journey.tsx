@@ -570,9 +570,9 @@ export function JourneyView({
                 <circle cx={80} cy={L.T} r={17} className="jn-start-ring" />
                 <circle cx={80} cy={L.T} r={8} className="jn-start" />
                 <text className="jn-end-label" x={80} y={L.T + 40} textAnchor="middle">START</text>                <rect className="jn-end" x={L.endX - 7} y={L.T - 7} width={14} height={14} transform={`rotate(45 ${L.endX} ${L.T})`} />
-                <text className="jn-end-label" x={L.endX} y={L.T + 40} textAnchor="middle">
+                {/* <text className="jn-end-label" x={L.endX} y={L.T + 40} textAnchor="middle">
                   {base.open ? "TODAY" : "END"} · {fmt(base.open ? base.now : base.last)}
-                </text>
+                </text> */}
               </svg>
 
               {L.branches.map((r) => {

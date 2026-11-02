@@ -46,8 +46,10 @@ export function validateGame(title: string): string | null {
   if (title.trim().length < 2) return "Enter a game title with at least two characters.";
   return null;
 }
-export function formatPlaytime(seconds: number): string {
-  const hours = Math.floor(seconds / 3600); const minutes = Math.floor((seconds % 3600) / 60);
+export function formatPlaytime(seconds: number): string | null {
+  const hours = Math.floor(seconds / 3600); 
+  const minutes = Math.floor((seconds % 3600) / 60);
+  if (hours ==0 && minutes == 0) return null;
   return hours ? `${hours}h ${minutes}m` : `${minutes}m`;
 }
 export const defaultData: AppData = {
