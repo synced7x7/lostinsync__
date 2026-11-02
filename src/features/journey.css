@@ -102,7 +102,22 @@ body:has(.sidebar.closed) .jn-screen { --jn-left: 92px }
 }
 
 .jn-zoom button:hover { color: var(--text); background: rgba(255, 255, 255, .08) }
-.jn-zoom span { min-width: 44px; text-align: center; font-size: 11px }
+.jn-zoom input {
+    width: 42px;
+    padding: 3px 0;
+    border: 0;
+    outline: none;
+    background: transparent;
+    color: var(--text);
+    text-align: right;
+    font: inherit;
+    font-size: 11px;
+    appearance: textfield
+}
+
+.jn-zoom input::-webkit-outer-spin-button,
+.jn-zoom input::-webkit-inner-spin-button { margin: 0; appearance: none }
+.jn-zoom span { min-width: 10px; text-align: left; font-size: 11px }
 
 /* scroll + canvas */
 .jn-scroll {
@@ -621,4 +636,3 @@ body:has(.sidebar.closed) .jn-screen { --jn-left: 92px }
     .jn-legend { flex-wrap: wrap; gap: 10px; border-radius: 14px; right: 12px }
     .jn-detail { width: auto; left: 12px; right: 12px; bottom: 96px }
 }
-

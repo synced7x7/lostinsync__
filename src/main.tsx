@@ -71,6 +71,9 @@ function App() {
   const [libraryFocusId, setLibraryFocusId] = useState<string>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const dataRef = useRef(data);
+  const journeyPreferencesDirty = useRef(false);
+  dataRef.current = data;
   useEffect(() => {
     if (view === "details" && routeGameId && routeGameId !== selectedId) {
       setSelectedId(routeGameId);
@@ -90,6 +93,36 @@ function App() {
       )
       .finally(() => setLoading(false));
   }, []);
+  useEffect(() => {
+    const saveJourneyPreferences = () => {
+      if (!journeyPreferencesDirty.current) return;
+      journeyPreferencesDirty.current = false;
+      void repo.save(dataRef.current).catch((e: unknown) =>
+        setError(e instanceof Error ? e.message : "Could not save data.")
+      );
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "hidden") saveJourneyPreferences();
+    };
+    window.addEventListener("pagehide", saveJourneyPreferences);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      window.removeEventListener("pagehide", saveJourneyPreferences);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, []);
+  const updateJourneyPreferences = (preferences: { range: "all" | "month" | number; zoom: number; fit: boolean }) => {
+    journeyPreferencesDirty.current = true;
+    setData((current) => ({
+      ...current,
+      settings: {
+        ...current.settings,
+        journeyRange: preferences.range,
+        journeyZoom: preferences.zoom,
+        journeyFit: preferences.fit,
+      },
+    }));
+  };
   const update = (next: AppData) => {
     setData(next);
     void repo
@@ -147,7 +180,14 @@ function App() {
       {view === "library" && (
         <LibraryView data={data} update={update} addGame={addGame} saveGame={saveGame} deleteGame={deleteGame} openGame={openGame} focusedGameId={libraryFocusId} onFocusedGameChange={setLibraryFocusId} />
       )}{" "}
-      {view === "journey" && <JourneyView games={data.games} openGame={openGame} />}{" "}
+      {view === "journey" && (
+        <JourneyView
+          games={data.games}
+          openGame={openGame}
+          preferences={{ range: data.settings.journeyRange ?? "all", zoom: data.settings.journeyZoom ?? 1, fit: data.settings.journeyFit ?? false }}
+          onPreferencesChange={updateJourneyPreferences}
+        />
+      )}{" "}
       {view === "details" && selected && (
         <Details game={selected} saveGame={saveGame} deleteGame={deleteGame} goBack={() => setView("library")} igdb={{ clientId: data.settings.igdbClientId ?? "", clientSecret: data.settings.igdbClientSecret ?? "" }} />
       )}{" "}

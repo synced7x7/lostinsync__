@@ -31,7 +31,7 @@ const clamp = (v: number, max: number) => Math.max(0, Math.min(max, v));
 const cssVar = (c: string) => ({ ["--c" as string]: c }) as CSSProperties;
 
 /** axis ticks: years for long spans, months for medium, weeks for short */
-const makeTicks = (min: number, last: number) => {
+const makeTicks = (min: number, last: number, daily = false) => {
   const span = (last - min) / DAY;
   const out: { t: number; label: string }[] = [];
   if (span > 900) {
@@ -45,6 +45,10 @@ const makeTicks = (min: number, last: number) => {
       const t = Date.UTC(y, m, 1);
       if (t > last) break;
       out.push({ t, label: m === 0 ? String(y) : MON[m] });
+    }
+  } else if (daily) {
+    for (let t = min; t <= last; t += DAY) {
+      out.push({ t, label: String(new Date(t).getUTCDate()) });
     }
   } else {
     for (let t = min + 7 * DAY; t <= last; t += 7 * DAY) out.push({ t, label: fmtShort(t) });
@@ -107,18 +111,37 @@ const STRANDS = [
 ];
 
 type Item = { game: Game; start: number; end?: number };
+type JourneyPreferences = { range: Range; zoom: number; fit: boolean };
 
 /* ───────────── component ───────────── */
-export function JourneyView({ games, openGame }: { games: Game[]; openGame: (id: string) => void }) {
-  const [range, setRange] = useState<Range>("all");
+export function JourneyView({
+  games,
+  openGame,
+  preferences,
+  onPreferencesChange,
+}: {
+  games: Game[];
+  openGame: (id: string) => void;
+  preferences: JourneyPreferences;
+  onPreferencesChange: (preferences: JourneyPreferences) => void;
+}) {
+  const [range, setRange] = useState<Range>(preferences.range);
   const [menu, setMenu] = useState(false);
-  const [zoom, setZoom] = useState(1);
-  const [fit, setFit] = useState(false);
+  const [zoom, setZoom] = useState(() => Math.max(0.1, Math.min(2.4, preferences.zoom)));
+  const [zoomInput, setZoomInput] = useState(() => String(Math.round(preferences.zoom * 100)));
+  const [fit, setFit] = useState(preferences.fit);
   const [hoverId, setHoverId] = useState<string>();
   const [pickId, setPickId] = useState<string>();
   const scrollRef = useRef<HTMLDivElement>(null);
   const dragged = useRef(false);
-  const keep = useRef<number | null>(null);
+  const keep = useRef<{ ratio: number; offset: number } | null>(null);
+
+  useEffect(() => {
+    setRange(preferences.range);
+    setZoom(Math.max(0.1, Math.min(2.4, preferences.zoom)));
+    setZoomInput(String(Math.round(preferences.zoom * 100)));
+    setFit(preferences.fit);
+  }, [preferences.range, preferences.zoom, preferences.fit]);
 
   // only completed + in-progress games that have a start date
   const all = useMemo<Item[]>(
@@ -176,7 +199,7 @@ export function JourneyView({ games, openGame }: { games: Game[]; openGame: (id:
     const min = win ? win.a : sorted[0].start;
     const last = win ? win.b : Math.max(...sorted.map((r) => r.end ?? now));
     const cs = (t: number) => (win ? Math.min(win.b, Math.max(win.a, t)) : t);
-    return { sorted, min, last, now, cs, ticks: makeTicks(min, last), open: sorted.filter((r) => !r.end).length };
+    return { sorted, min, last, now, cs, ticks: makeTicks(min, last, range === "month"), open: sorted.filter((r) => !r.end).length };
   }, [items, win]);
 
   /* ── timeline layout ── */
@@ -258,15 +281,21 @@ export function JourneyView({ games, openGame }: { games: Game[]; openGame: (id:
   }, [range, !!L, fit]);
 
   // keep the same centre when zooming
-  const zoomTo = (next: number) => {
+  const zoomTo = (next: number, clientX?: number) => {
     const el = scrollRef.current;
-    if (el && el.scrollWidth) keep.current = (el.scrollLeft + el.clientWidth / 2) / el.scrollWidth;
-    setZoom(next);
+    if (el && el.scrollWidth) {
+      const offset = clientX == null ? el.clientWidth / 2 : clientX - el.getBoundingClientRect().left;
+      keep.current = { ratio: (el.scrollLeft + offset) / el.scrollWidth, offset };
+    }
+    const bounded = Math.max(0.1, Math.min(2.4, next));
+    setZoom(bounded);
+    setZoomInput(String(Math.round(bounded * 100)));
+    onPreferencesChange({ range, zoom: bounded, fit });
   };
   useEffect(() => {
     const el = scrollRef.current;
     if (!el || keep.current == null) return;
-    el.scrollLeft = keep.current * el.scrollWidth - el.clientWidth / 2;
+    el.scrollLeft = keep.current.ratio * el.scrollWidth - keep.current.offset;
     keep.current = null;
   }, [zoom]);
 
@@ -288,6 +317,10 @@ export function JourneyView({ games, openGame }: { games: Game[]; openGame: (id:
 
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
+      if (e.ctrlKey && !fit) {
+        zoomTo(zoom - e.deltaY * 0.001, e.clientX);
+        return;
+      }
       const maxX = el.scrollWidth - el.clientWidth, maxY = el.scrollHeight - el.clientHeight;
       const d = (Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY) * 1.6;
       if (maxX > 0) tx = clamp(tx + d, maxX);
@@ -342,7 +375,12 @@ export function JourneyView({ games, openGame }: { games: Game[]; openGame: (id:
       el.removeEventListener("pointerup", onUp);
       el.removeEventListener("pointercancel", onUp);
     };
-  }, [!!L, fit, range]);
+  }, [!!L, fit, range, zoom]);
+
+  const changeRange = (next: Range) => {
+    setRange(next);
+    onPreferencesChange({ range: next, zoom, fit });
+  };
 
   const active = hoverId ?? pickId;
   const picked = base?.sorted.find((r) => r.game.id === pickId);
@@ -363,7 +401,7 @@ export function JourneyView({ games, openGame }: { games: Game[]; openGame: (id:
         </div>
         <div className="jn-tools">
           <div className="jn-pills">
-            <button className={range === "all" ? "on" : ""} onClick={() => { setRange("all"); setMenu(false); }}>All Time</button>
+            <button className={range === "all" ? "on" : ""} onClick={() => { changeRange("all"); setMenu(false); }}>All Time</button>
             <div className="jn-dd">
               <button className={typeof range === "number" ? "on" : ""} onClick={() => setMenu(!menu)} disabled={!years.length}>
                 {typeof range === "number" ? range : "Year"} <ChevronDown size={13} />
@@ -371,21 +409,38 @@ export function JourneyView({ games, openGame }: { games: Game[]; openGame: (id:
               {menu && (
                 <div className="jn-dd-menu">
                   {years.map((y) => (
-                    <button key={y} className={range === y ? "on" : ""} onClick={() => { setRange(y); setMenu(false); }}>{y}</button>
+                    <button key={y} className={range === y ? "on" : ""} onClick={() => { changeRange(y); setMenu(false); }}>{y}</button>
                   ))}
                 </div>
               )}
             </div>
-            <button className={range === "month" ? "on" : ""} onClick={() => { setRange("month"); setMenu(false); }}>This Month</button>
+            <button className={range === "month" ? "on" : ""} onClick={() => { changeRange("month"); setMenu(false); }}>This Month</button>
           </div>
-          <button className={`jn-fit${fit ? " on" : ""}`} onClick={() => setFit(!fit)} title="See the whole journey in one screen">
+          <button className={`jn-fit${fit ? " on" : ""}`} onClick={() => {
+            const next = !fit;
+            setFit(next);
+            onPreferencesChange({ range, zoom, fit: next });
+          }} title="See the whole journey in one screen">
             {fit ? <Minimize2 size={14} /> : <Maximize2 size={14} />} {fit ? "Timeline" : "Fit all"}
           </button>
           {!fit && (
             <div className="jn-zoom">
-              <button onClick={() => zoomTo(Math.max(0.1, +(zoom / 1.25).toFixed(2)))} aria-label="Zoom out"><Minus size={14} /></button>
-              <span>{Math.round(zoom * 100)}%</span>
-              <button onClick={() => zoomTo(Math.min(2.4, +(zoom * 1.25).toFixed(2)))} aria-label="Zoom in"><Plus size={14} /></button>
+              <button onClick={() => zoomTo(zoom - 0.1)} aria-label="Zoom out"><Minus size={14} /></button>
+              <input
+                type="number"
+                min={10}
+                max={240}
+                step={10}
+                value={zoomInput}
+                onChange={(e) => setZoomInput(e.target.value)}
+                onBlur={() => {
+                  const value = Number(zoomInput);
+                  zoomTo(Number.isFinite(value) ? value / 100 : zoom);
+                }}
+                aria-label="Timeline zoom percentage"
+              />
+              <span>%</span>
+              <button onClick={() => zoomTo(zoom + 0.1)} aria-label="Zoom in"><Plus size={14} /></button>
             </div>
           )}
         </div>
@@ -399,7 +454,7 @@ export function JourneyView({ games, openGame }: { games: Game[]; openGame: (id:
         </div>
       ) : fit ? (
         /* ───── Fit all: compact overview, one row per game ───── */
-        <div className="jn-ov">
+        <div className="jn-ov" onClick={() => setPickId(undefined)}>
           <div className="jn-ov-axis">
             <span className="jn-ov-count">{base.sorted.length} {base.sorted.length === 1 ? "game" : "games"}</span>
             <div className="jn-ov-ticks">
@@ -425,7 +480,7 @@ export function JourneyView({ games, openGame }: { games: Game[]; openGame: (id:
                   style={cssVar(r.color)}
                   onMouseEnter={() => setHoverId(r.game.id)}
                   onMouseLeave={() => setHoverId(undefined)}
-                  onClick={() => setPickId(r.game.id)}
+                  onClick={(e) => { e.stopPropagation(); setPickId(r.game.id); }}
                   onDoubleClick={() => openGame(r.game.id)}
                   title="Click for details · double-click to open"
                 >

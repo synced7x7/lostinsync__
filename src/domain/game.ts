@@ -35,6 +35,9 @@ export type AppSettings = {
   libraryFavoritesOnly: boolean;
   timerSound: boolean;
   automaticTracking: boolean;
+  journeyRange?: "all" | "month" | number;
+  journeyZoom?: number;
+  journeyFit?: boolean;
   igdbClientId?: string;
   igdbClientSecret?: string;
 };
