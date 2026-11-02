@@ -5,8 +5,6 @@ import type { Game } from "../domain/game";
 import { formatPlaytime } from "../domain/game";
 import "./journey.css";
 
-const BG_IMAGE = "/images/journey-bg.jpg"; // TODO: replace with your background image path
-
 const DAY = 86_400_000;
 const GAP = 150;      // vertical distance between branches
 const X0 = 80;       // where the timeline starts
@@ -403,7 +401,7 @@ export function JourneyView({
   const pct = (t: number) => (base ? clamp(((base.cs(t) - base.min) / span) * 100, 100) : 0);
 
   return createPortal(
-    <div className="jn-screen" style={{ backgroundImage: `url(${BG_IMAGE})` }}>
+    <div className="jn-screen">
       <div className="jn-shade" />
       {menu && <div className="jn-dd-bg" onClick={() => setMenu(false)} />}
 
