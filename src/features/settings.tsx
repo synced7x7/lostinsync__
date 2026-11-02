@@ -1,6 +1,7 @@
 import { BookOpen, Check, Sparkles } from "lucide-react";
 import type { AppData, AppSettings, GridSize, LibraryLayout, LibrarySort, View } from "../domain/game";
 import { Header } from "../components/shared";
+import "./settings.css";
 
 export function SettingsView({ data, update }: { data: AppData; update: (data: AppData) => void }) {
   const updateSettings = (partial: Partial<AppSettings>) => {

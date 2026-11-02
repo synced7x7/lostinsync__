@@ -1,0 +1,45 @@
+.settings-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px
+}
+
+.settings-panel {
+    border-radius: 15px;
+    padding: 23px
+}
+
+.settings-panel:last-child { grid-column: span 2 }
+.settings-panel h2 { font-size: 18px; margin: 0 0 18px }
+
+.setting-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 20px;
+    padding: 16px 0;
+    border-top: 1px solid var(--line-soft)
+}
+
+.setting-row strong,
+.setting-row span { display: block }
+.setting-row strong { font-size: 12px }
+
+.setting-row div span {
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 4px
+}
+
+.setting-row select {
+    width: auto;
+    color: var(--muted);
+    font-size: 11px
+}
+
+.setting-row.disabled { opacity: .5 }
+
+@media (max-width: 750px) {
+    .settings-grid { grid-template-columns: 1fr }
+    .settings-panel:last-child { grid-column: auto }
+}

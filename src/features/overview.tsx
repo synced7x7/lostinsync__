@@ -1,11 +1,28 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Camera, PenLine, Sparkles } from "lucide-react";
 import type { AppData } from "../domain/game";
+import "./overview.css";
 
 export function ProfileSection({ data, update }: { data: AppData; update: (data: AppData) => void }) {
   const [editing, setEditing] = useState(false);
   const [pictureError, setPictureError] = useState("");
+  const [displayName, setDisplayName] = useState(data.profile.displayName);
+  const [bio, setBio] = useState(data.profile.bio);
   const pictureInput = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!editing) {
+      setDisplayName(data.profile.displayName);
+      setBio(data.profile.bio);
+    }
+  }, [data.profile.displayName, data.profile.bio, editing]);
+
+  const finishEditing = () => {
+    if (displayName !== data.profile.displayName || bio !== data.profile.bio) {
+      update({ ...data, profile: { ...data.profile, displayName, bio } });
+    }
+    setEditing(false);
+  };
 
   const updatePicture = (file?: File) => {
     if (!file) return;
@@ -35,7 +52,10 @@ export function ProfileSection({ data, update }: { data: AppData; update: (data:
 
   return (
     <section className="profile-banner glass">
-      <button className="profile-edit button soft" onClick={() => setEditing(!editing)}>
+      <button
+        className="profile-edit button soft"
+        onClick={() => editing ? finishEditing() : setEditing(true)}
+      >
         <PenLine size={16} /> {editing ? "Done" : "Edit profile"}
       </button>
       <button
@@ -61,10 +81,10 @@ export function ProfileSection({ data, update }: { data: AppData; update: (data:
       />
       <div className="profile-copy">
         {editing
-          ? <input value={data.profile.displayName} onChange={(e) => update({ ...data, profile: { ...data.profile, displayName: e.target.value } })} />
+          ? <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
           : <h2>{data.profile.displayName}</h2>}
         {editing
-          ? <textarea value={data.profile.bio} onChange={(e) => update({ ...data, profile: { ...data.profile, bio: e.target.value } })} />
+          ? <textarea value={bio} onChange={(e) => setBio(e.target.value)} />
           : <p>{data.profile.bio}</p>}
         <span className="pill"><Sparkles size={13} /> Local collector</span>
         {pictureError && <span className="date-error">{pictureError}</span>}
