@@ -179,7 +179,7 @@ function App() {
       onNavigate={setView}
       error={error}
     >
-      {view === "dashboard" && <Dashboard data={data} openLibrary={() => setView("library")} openGame={openGame} profile={<ProfileSection data={data} update={update} />} />}{" "}
+      {view === "dashboard" && <Dashboard data={data} update={update} openLibrary={() => setView("library")} openGame={openGame} profile={<ProfileSection data={data} update={update} />} />}{" "}
       {view === "library" && (
         <LibraryView data={data} update={update} addGame={addGame} saveGame={saveGame} deleteGame={deleteGame} openGame={openGame} focusedGameId={libraryFocusId} onFocusedGameChange={setLibraryFocusId} />
       )}{" "}

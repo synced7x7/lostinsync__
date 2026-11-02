@@ -16,8 +16,7 @@ export type Game = {
   igdbImages?: IgdbDebugImage[]; igdbVideos?: { id: string; name?: string }[];
   gameType?: string; gameStatus?: string;
 };
-export type Profile = { displayName: string; bio: string; accent: string; picture?: string };
-export type GridSize = "sm" | "md" | "lg";
+export type Profile = { displayName: string; bio: string; accent: string; picture?: string; topFive?: string[] };export type GridSize = "sm" | "md" | "lg";
 export type LibraryLayout = "ps4" | "catalog";
 export type LibrarySort = "recent" | "completion" | "playtime" | "rating" | "igdbRating" | "title" | "releaseDate" | "avgTime" | "mainTime" | "fullTime";
 export type SortDirection = "asc" | "desc";
