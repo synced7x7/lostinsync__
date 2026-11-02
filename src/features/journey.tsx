@@ -136,6 +136,7 @@ export function JourneyView({
   const scrollRef = useRef<HTMLDivElement>(null);
   const dragged = useRef(false);
   const keep = useRef<{ ratio: number; offset: number } | null>(null);
+  
 
   useEffect(() => {
     setRange(preferences.range);
@@ -590,7 +591,10 @@ export function JourneyView({
                   >
                     <span className="jn-label top">
                       <strong>{r.game.title}</strong>
-                      <small><i />{formatPlaytime(r.game.totalSeconds)} · {STATUS_LABEL[r.kind]}</small>
+                      <small><i />
+                        {formatPlaytime(r.game.totalSeconds)}
+                         {" ‣ "} 
+                        {STATUS_LABEL[r.kind]}</small>
                     </span>
                     <span className="jn-cover" style={r.game.cover ? { backgroundImage: `url(${r.game.cover})` } : undefined} />
                   </button>
