@@ -3,6 +3,7 @@
     align-items: center;
     gap: 20px;
     padding: 27px;
+    height: 9%;
     border-radius: 18px;
     background: linear-gradient(115deg, rgba(47, 37, 86, .75), rgba(17, 45, 57, .55));
     position: relative;
@@ -365,8 +366,8 @@
 
 .big-stat {
     text-align: center;
-    padding: 4px 12px;
-    border-left: 1px solid var(--line-soft)
+    padding: 2px 12px;
+    border-left: 1px solid var(--line-soft);
 }
 
 .big-stat:first-child { border-left: 0 }

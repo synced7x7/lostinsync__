@@ -21,11 +21,6 @@ const ago = (t: number) => {
 
 const hours = (s: number) => (s >= 3600 ? `${Math.round(s / 3600)}h` : `${Math.floor(s / 60)}m`);
 
-const greeting = () => {
-  const h = new Date().getHours();
-  return h < 5 ? "GOOD NIGHT" : h < 12 ? "GOOD MORNING" : h < 18 ? "GOOD AFTERNOON" : "GOOD EVENING";
-};
-
 const pad = (n: number) => String(n).padStart(3, "0");
 
 // x position (%), dot y (px), card height (px) for the five slots
@@ -98,7 +93,7 @@ export function Dashboard({
       data.games
         .filter((g) => !["Backlog", "Wishlist"].includes(g.status))
         .sort((a, b) => lastTouched(b) - lastTouched(a))
-        .slice(0, 6),
+        .slice(0, 7),
     [data.games]
   );
 
@@ -109,16 +104,7 @@ export function Dashboard({
 
   return (
     <>
-      <Header
-        eyebrow={`${greeting()}, ${data.profile.displayName.toUpperCase()}`}
-        title="Your gaming universe"
-        action={<button className="button primary" onClick={openLibrary}><Plus size={17} /> Add a game</button>}
-      />
-
       {profile}
-
-
-
       <section className="fav-section">
         <div className="section-title">
           <div><p className="eyebrow">HALL OF FAME</p></div>
@@ -189,7 +175,7 @@ export function Dashboard({
 
       <section className="section">
         <div className="section-title">
-          <div><p className="eyebrow">PICK UP WHERE YOU LEFT</p><h2>Recently played</h2></div>
+          <div><p className="eyebrow" style={{ marginTop: "15px" }}>PICK UP WHERE YOU LEFT</p></div>
           <button className="text-button" onClick={openLibrary}>View all <ChevronRight size={14} /></button>
         </div>
         {recent.length ? (

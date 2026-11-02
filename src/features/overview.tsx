@@ -56,7 +56,7 @@ export function ProfileSection({ data, update }: { data: AppData; update: (data:
         className="profile-edit button soft"
         onClick={() => editing ? finishEditing() : setEditing(true)}
       >
-        <PenLine size={16} /> {editing ? "Done" : "Edit profile"}
+        <PenLine size={16} /> {editing ? "Done" : ""}
       </button>
       <button
         type="button"
