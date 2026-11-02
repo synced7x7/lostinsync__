@@ -28,6 +28,7 @@ import {
   ArrowUp,
   Building2,
   CalendarDays,
+  Camera,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { createAppRepository } from "./data/repository";
@@ -74,6 +75,9 @@ function App() {
   const dataRef = useRef(data);
   const journeyPreferencesDirty = useRef(false);
   dataRef.current = data;
+  useEffect(() => {
+    if (location.pathname === "/profile") navigate("/");
+  }, [location.pathname, navigate]);
   useEffect(() => {
     if (view === "details" && routeGameId && routeGameId !== selectedId) {
       setSelectedId(routeGameId);
@@ -175,7 +179,12 @@ function App() {
       error={error}
     >
       {view === "dashboard" && (
-        <Dashboard data={data} openLibrary={() => setView("library")} openGame={openGame} />
+        <Dashboard
+          data={data}
+          openLibrary={() => setView("library")}
+          openGame={openGame}
+          profile={<ProfileSection data={data} update={update} />}
+        />
       )}{" "}
       {view === "library" && (
         <LibraryView data={data} update={update} addGame={addGame} saveGame={saveGame} deleteGame={deleteGame} openGame={openGame} focusedGameId={libraryFocusId} onFocusedGameChange={setLibraryFocusId} />
@@ -190,9 +199,6 @@ function App() {
       )}{" "}
       {view === "details" && selected && (
         <Details game={selected} saveGame={saveGame} deleteGame={deleteGame} goBack={() => setView("library")} igdb={{ clientId: data.settings.igdbClientId ?? "", clientSecret: data.settings.igdbClientSecret ?? "" }} />
-      )}{" "}
-      {view === "profile" && (
-        <ProfileView data={data} update={update} openGame={openGame} />
       )}{" "}
       {view === "settings" && <SettingsView data={data} update={update} />}{" "}
     </AppLayout>
@@ -844,40 +850,75 @@ function Details({
   );
 }
 
-function ProfileView({
-  data, update, openGame,
+function ProfileSection({
+  data, update,
 }: {
   data: AppData;
   update: (data: AppData) => void;
-  openGame: (id: string) => void;
 }) {
   const [editing, setEditing] = useState(false);
-  const completed = data.games.filter((game) => game.status === "Completed");
+  const [pictureError, setPictureError] = useState("");
+  const pictureInput = useRef<HTMLInputElement>(null);
+  const updatePicture = (file?: File) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setPictureError("Choose an image file.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const image = new Image();
+      image.onload = () => {
+        const size = 512;
+        const scale = Math.min(1, size / Math.max(image.naturalWidth, image.naturalHeight));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+        canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+        canvas.getContext("2d")?.drawImage(image, 0, 0, canvas.width, canvas.height);
+        const picture = canvas.toDataURL("image/jpeg", 0.86);
+        update({ ...data, profile: { ...data.profile, picture } });
+        setPictureError("");
+      };
+      image.onerror = () => setPictureError("The selected image could not be decoded.");
+      image.src = String(reader.result);
+    };
+    reader.onerror = () => setPictureError("The selected image could not be read.");
+    reader.readAsDataURL(file);
+  };
   return (
-    <>
-      <Header eyebrow="YOUR PERSONAL SPACE" title="Profile" action={<button className="button soft" onClick={() => setEditing(!editing)}><PenLine size={16} /> {editing ? "Done" : "Customize"}</button>} />
-      <section className="profile-banner glass">
-        <div className="profile-avatar">{data.profile.displayName.slice(0, 1)}</div>
+    <section className="profile-banner glass">
+      <button className="profile-edit button soft" onClick={() => setEditing(!editing)}>
+        <PenLine size={16} /> {editing ? "Done" : ""}
+      </button>
+        <button
+          type="button"
+          className={`profile-avatar${editing ? " editable" : ""}`}
+          onClick={() => editing && pictureInput.current?.click()}
+          title={editing ? "Change profile picture" : undefined}
+        >
+          {data.profile.picture
+            ? <img src={data.profile.picture} alt={`${data.profile.displayName} profile`} />
+            : data.profile.displayName.slice(0, 1)}
+          {editing && <span className="profile-avatar-action"><Camera size={16} /></span>}
+        </button>
+        <input
+          ref={pictureInput}
+          type="file"
+          accept="image/*"
+          hidden
+          onChange={(event) => {
+            updatePicture(event.target.files?.[0]);
+            event.target.value = "";
+          }}
+        />
         <div className="profile-copy">
           {editing ? <input value={data.profile.displayName} onChange={(e) => update({ ...data, profile: { ...data.profile, displayName: e.target.value } })} /> : <h2>{data.profile.displayName}</h2>}
           {editing ? <textarea value={data.profile.bio} onChange={(e) => update({ ...data, profile: { ...data.profile, bio: e.target.value } })} /> : <p>{data.profile.bio}</p>}
           <span className="pill"><Sparkles size={13} /> Local collector</span>
+          {pictureError && <span className="date-error">{pictureError}</span>}
         </div>
         <div className="profile-count"><strong>{data.games.length}</strong><span>games collected</span></div>
       </section>
-      <div className="stats-row">
-        <Stat label="Total games" value={String(data.games.length)} hint="in collection" icon={<Gamepad2 />} />
-        <Stat label="Completed" value={String(completed.length)} hint="adventures finished" icon={<Check />} />
-        <Stat label="Playtime" value={formatPlaytime(data.games.reduce((sum, game) => sum + game.totalSeconds, 0))} hint="across all games" icon={<Clock3 />} />
-      </div>
-      <section className="section">
-        <div className="section-title"><div><p className="eyebrow">HIGHLIGHTS</p><h2>Recently completed</h2></div></div>
-        {completed.length
-          ? <div className="mini-grid">{completed.slice(0, 4).map((game) => <GameMini key={game.id} game={game} onClick={() => openGame(game.id)} />)}</div>
-          : <Empty icon={<Check />} title="Your first finish is waiting" text="Completed games will be featured here." />
-        }
-      </section>
-    </>
   );
 }
 function SettingsView({ data, update }: { data: AppData; update: (data: AppData) => void }) {
@@ -934,7 +975,6 @@ function SettingsView({ data, update }: { data: AppData; update: (data: AppData)
             <select value={data.settings.defaultView ?? "library"} onChange={(e) => updateSettings({ defaultView: e.target.value as View })}>
               <option value="library">Library</option>
               <option value="dashboard">Overview (Dashboard)</option>
-              <option value="profile">Profile</option>
             </select>
           </div>
           <div className="setting-row">

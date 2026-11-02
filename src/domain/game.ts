@@ -2,7 +2,7 @@ import type { IgdbDebugImage } from "../data/igdb";
 
 export const STATUSES = ["Backlog", "Wishlist", "Playing", "Completed", "Retired", "Shelved", "Abandoned", "On hold"] as const;
 export type Status = typeof STATUSES[number];
-export type View = "dashboard" | "library" | "details" | "journey" | "profile" | "settings";
+export type View = "dashboard" | "library" | "details" | "journey" | "settings";
 export type Game = {
   id: string; title: string; platform: string; genre: string; tags: string[];
   status: Status; notes: string; rating?: number; mastery?: number; favorite: boolean;
@@ -16,7 +16,7 @@ export type Game = {
   igdbImages?: IgdbDebugImage[]; igdbVideos?: { id: string; name?: string }[];
   gameType?: string; gameStatus?: string;
 };
-export type Profile = { displayName: string; bio: string; accent: string };
+export type Profile = { displayName: string; bio: string; accent: string; picture?: string };
 export type GridSize = "sm" | "md" | "lg";
 export type LibraryLayout = "ps4" | "catalog";
 export type LibrarySort = "recent" | "completion" | "playtime" | "rating" | "igdbRating" | "title" | "releaseDate" | "avgTime" | "mainTime" | "fullTime";

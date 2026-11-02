@@ -7,7 +7,6 @@ import {
   LayoutDashboard,
   Route,
   Settings,
-  UserRound,
   X,
 } from "lucide-react";
 import type { AppData, View } from "../domain/game";
@@ -16,7 +15,6 @@ export const navigation: { id: View; label: string; icon: typeof BookOpen }[] = 
   { id: "dashboard", label: "Overview", icon: LayoutDashboard },
   { id: "library", label: "Library", icon: Gamepad2 },
   { id: "journey", label: "Game Journey", icon: Route },
-  { id: "profile", label: "Profile", icon: UserRound },
   { id: "settings", label: "Settings", icon: Settings },
 ];
 
@@ -110,7 +108,11 @@ function Sidebar({
         </div>
 
         <div className="profile-mini" title={data.profile.displayName}>
-          <div className="avatar">{data.profile.displayName.slice(0, 1)}</div>
+          <div className="avatar">
+            {data.profile.picture
+              ? <img src={data.profile.picture} alt="" />
+              : data.profile.displayName.slice(0, 1)}
+          </div>
           {isOpen && (
             <div className="profile-info">
               <strong>{data.profile.displayName}</strong>

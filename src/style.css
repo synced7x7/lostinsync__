@@ -275,6 +275,15 @@ textarea {
     color: #151224
 }
 
+.avatar img,
+.profile-avatar img {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
+    border-radius: inherit
+}
+
 .avatar.small {
     width: 32px;
     border: 1px solid var(--line);
@@ -1303,6 +1312,13 @@ nav {
     top: -150px
 }
 
+.profile-edit {
+    position: absolute;
+    top: 3px;
+    right: 18px;
+    z-index: 2
+}
+
 .profile-avatar {
     width: 77px;
     height: 77px;
@@ -1315,6 +1331,38 @@ nav {
     color: #181229;
     z-index: 1
 }
+
+.profile-avatar {
+    position: relative;
+    padding: 0;
+    border: 0;
+    overflow: hidden
+}
+
+.profile-avatar.editable {
+    cursor: pointer;
+    box-shadow: 0 0 0 2px rgba(155, 140, 255, .35), 0 10px 24px rgba(0, 0, 0, .22);
+    transition: transform .2s, box-shadow .2s
+}
+
+.profile-avatar.editable:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0 0 3px rgba(155, 140, 255, .7), 0 12px 28px rgba(0, 0, 0, .3)
+}
+
+.profile-avatar-action {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    color: #fff;
+    background: rgba(15, 13, 35, .58);
+    opacity: 0;
+    transition: opacity .2s
+}
+
+.profile-avatar.editable:hover .profile-avatar-action,
+.profile-avatar.editable:focus-visible .profile-avatar-action { opacity: 1 }
 
 .profile-copy {
     flex: 1;
@@ -1355,6 +1403,7 @@ nav {
 }
 
 .profile-count {
+    margin-top: 30px;
     z-index: 1;
     text-align: right
 }

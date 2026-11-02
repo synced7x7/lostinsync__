@@ -1,14 +1,16 @@
 import { Activity as StreakIcon, Check, ChevronRight, Clock3, Gamepad2, Play, Plus, Sparkles } from "lucide-react";
+import type { ReactNode } from "react";
 import { formatPlaytime, type AppData, type Game } from "../domain/game";
 import { Empty, GameMini, Header, Stat } from "../components/shared";
 
-export function Dashboard({ data, openLibrary, openGame }: { data: AppData; openLibrary: () => void; openGame: (id: string) => void }) {
+export function Dashboard({ data, openLibrary, openGame, profile }: { data: AppData; openLibrary: () => void; openGame: (id: string) => void; profile: ReactNode }) {
   const playing = data.games.filter((game) => game.status === "Playing");
   const total = data.games.reduce((sum, game) => sum + game.totalSeconds, 0);
   const completed = data.games.filter((game) => game.status === "Completed").length;
   return (
     <>
       <Header eyebrow="GOOD EVENING, {data.profile.displayName.toUpperCase()}" title="Your gaming universe" action={<button className="button primary" onClick={openLibrary}><Plus size={17} /> Add a game</button>} />
+      {profile}
       <section className="hero glass"><div className="hero-copy"><span className="hero-icon"><Sparkles size={22} /></span><p className="eyebrow">YOUR OFFLINE SPACE</p><h2>Make every game<br /><span>count.</span></h2><p>Track the games you love and build a collection that feels like yours.</p><button className="button soft" onClick={openLibrary}>Explore library <ChevronRight size={16} /></button></div><div className="hero-orbit"><div className="orbit orbit-one"></div><div className="orbit orbit-two"></div><Gamepad2 size={100} /></div></section>
       <div className="stats-row"><Stat label="Collection" value={String(data.games.length)} hint="games tracked" icon={<Gamepad2 />} /><Stat label="Playtime" value={formatPlaytime(total)} hint="verified time" icon={<Clock3 />} /><Stat label="Completed" value={String(completed)} hint="finished games" icon={<Check />} /><Stat label="Current streak" value={playing.length ? `${playing.length}` : "0"} hint="active games" icon={<StreakIcon />} /></div>
       <section className="section"><div className="section-title"><div><p className="eyebrow">IN PROGRESS</p><h2>Currently playing</h2></div><button className="text-button" onClick={openLibrary}>View all <ChevronRight size={14} /></button></div>{playing.length ? <div className="mini-grid">{playing.slice(0, 3).map((game) => <GameMini key={game.id} game={game} onClick={() => openGame(game.id)} />)}</div> : <Empty icon={<Play />} title="No games in progress" text="Games marked as Playing will appear here." action={openLibrary} />}</section>
