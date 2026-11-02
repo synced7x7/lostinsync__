@@ -8,10 +8,11 @@ import "./journey.css";
 const BG_IMAGE = "/images/journey-bg.jpg"; // TODO: replace with your background image path
 
 const DAY = 86_400_000;
-const GAP = 190;      // vertical distance between branches
-const X0 = 230;       // where the timeline starts
-const MINW = 380;     // minimum branch length so cards never collide
-const LABEL_GAP = 88; // min horizontal distance between date labels on the same row
+const GAP = 150;      // vertical distance between branches
+const X0 = 80;       // where the timeline starts
+const SHORT = 140;     // branches narrower than this are drawn as a vertical "pillar"
+const CARD_HALF = 90;  // horizontal space a game card + title needs on its lane
+
 
 const K = { main: "#8f86ff", active: "#5be3a4" };
 type Kind = keyof typeof K;
@@ -40,7 +41,7 @@ const makeTicks = (min: number, last: number, daily = false) => {
   } else if (span > 70) {
     const d = new Date(min);
     let y = d.getUTCFullYear(), m = d.getUTCMonth() + 1;
-    for (;; m++) {
+    for (; ; m++) {
       if (m > 11) { m = 0; y++; }
       const t = Date.UTC(y, m, 1);
       if (t > last) break;
@@ -78,7 +79,7 @@ const line = (a: P, b: P): P[] => {
 
 const route = (x1: number, x2: number, T: number, y: number, merge: boolean): P[] => {
   if (y === T) return line({ x: x1, y: T }, { x: x2, y: T });
-  const c = 70;
+  const c = Math.min(70, (x2 - x1) / 4);
   const out = [
     ...bez({ x: x1, y: T }, { x: x1 + c, y: T }, { x: x1 + c, y }, { x: x1 + 2 * c, y }),
     ...line({ x: x1 + 2 * c, y }, { x: x2 - 2 * c, y }).slice(1),
@@ -207,27 +208,32 @@ export function JourneyView({
     if (!base) return null;
     const { sorted, min, last, now, cs } = base;
     const ppd = range === "all" ? 4 : range === "month" ? 24 : 5;
+    const xOf = (t: number) => X0 + ((cs(t) - min) / DAY) * ppd; // one date -> x mapping for everything
     const laneEnds: number[] = [];
 
     const raw = sorted.map((r) => {
-      const x1 = X0 + ((cs(r.start) - min) / DAY) * ppd;
-      const x2 = Math.max(X0 + ((cs(r.end ?? now) - min) / DAY) * ppd, x1 + MINW);
-      let lane = laneEnds.findIndex((e) => e + 70 <= x1);
-      if (lane < 0) lane = laneEnds.length;
-      laneEnds[lane] = x2;
-      return { ...r, x1, x2, lv: level(lane), merge: !!r.end };
+      const x1 = xOf(r.start);
+      const x2 = Math.max(x1, xOf(r.end ?? now));
+      const pillar = x2 - x1 < SHORT;
+      const xm = (x1 + x2) / 2;
+      const o1 = Math.min(x1, xm - CARD_HALF);
+      const o2 = Math.max(x2, xm + CARD_HALF);
+      let lane = pillar ? 1 : 0; // pillars never sit on the trunk
+      while (laneEnds[lane] !== undefined && laneEnds[lane] + 24 > o1) lane++;
+      laneEnds[lane] = o2;
+      return { ...r, x1, x2, xm, pillar, lv: level(lane), merge: !!r.end };
     });
 
     const ups = Math.max(0, ...raw.map((r) => -r.lv));
     const downs = Math.max(0, ...raw.map((r) => r.lv));
     const T = 150 + ups * GAP;
-    const axisY = T + downs * GAP + 80; // axis sits right under the lowest branch
-    const endX = Math.max(...raw.map((r) => r.x2)) + 150;
+    const axisY = T + downs * GAP + 80;
+    const endX = Math.max(xOf(last), ...raw.map((r) => r.x2)); // END diamond sits exactly on the last date
 
     const branches = raw.map((r) => {
       const y = T + r.lv * GAP;
-      const pts = route(r.x1, r.x2, T, y, r.merge);
-      const amp = r.lv === 0 ? 5 : 6;
+      const pts = r.pillar ? line({ x: r.xm, y: T }, { x: r.xm, y }) : route(r.x1, r.x2, T, y, r.merge);
+      const amp = r.pillar ? 4 : r.lv === 0 ? 5 : 6;
       return {
         ...r, y,
         ex: r.x2,
@@ -237,7 +243,7 @@ export function JourneyView({
       };
     });
 
-    // date labels: stack into tiers when they would overlap on the same row
+    // date labels: stack into tiers using each label's real width
     type Lbl = { id: string; x: number; y: number; text: string; ty: number };
     const rows = new Map<number, Lbl[]>();
     const add = (id: string, x: number, y: number, text: string) => {
@@ -246,17 +252,23 @@ export function JourneyView({
       rows.set(y, arr);
     };
     branches.forEach((b) => {
-      add(b.game.id, b.x1, T, fmt(b.start));
-      add(b.game.id, b.ex, b.ey, b.end ? fmt(b.end) : "Now");
+      if (b.pillar) {
+        const same = b.end !== undefined && fmt(b.start) === fmt(b.end);
+        add(b.game.id, b.xm, T, same ? fmt(b.start) : `${fmtShort(b.start)} → ${b.end ? fmt(b.end) : "Now"}`);
+      } else {
+        add(b.game.id, b.x1, T, fmt(b.start));
+        add(b.game.id, b.ex, b.ey, b.end ? fmt(b.end) : "Now");
+      }
     });
     const labels: Lbl[] = [];
     rows.forEach((arr) => {
       arr.sort((a, b) => a.x - b.x);
-      const tiers: number[] = [];
+      const tiers: number[] = []; // right edge of the last label in each tier
       arr.forEach((l) => {
-        let t = tiers.findIndex((lx) => l.x - lx >= LABEL_GAP);
+        const half = (l.text.length * 6.3) / 2;
+        let t = tiers.findIndex((edge) => l.x - half >= edge + 8);
         if (t < 0) t = tiers.length;
-        tiers[t] = l.x;
+        tiers[t] = l.x + half;
         l.ty = l.y - 18 - t * 14;
         labels.push(l);
       });
@@ -264,7 +276,7 @@ export function JourneyView({
 
     return {
       branches, labels, T, axisY, endX,
-      ticks: base.ticks.map((k) => ({ x: X0 + ((k.t - min) / DAY) * ppd, label: k.label })),
+      ticks: base.ticks.map((k) => ({ x: xOf(k.t), label: k.label })),
       width: endX + 260,
       height: axisY + 50,
     };
@@ -530,13 +542,24 @@ export function JourneyView({
                     {r.strands.map((d, i) => (
                       <path key={i} className="jn-strand" style={{ stroke: `color-mix(in srgb, ${r.color}, ${STRANDS[i].mix})` }} d={d} />
                     ))}
-                    <circle cx={r.x1} cy={L.T} r={5} fill={r.color} className="jn-dot" style={{ color: r.color }} />
-                    <circle
-                      cx={r.ex} cy={r.ey} r={r.merge ? 7 : 6}
-                      fill={r.merge ? "#fff" : r.color}
-                      className={`jn-dot${r.kind === "active" ? " pulse" : ""}`}
-                      style={{ color: r.color }}
-                    />
+                    {r.pillar ? (
+                      <circle
+                        cx={r.xm} cy={L.T} r={7}
+                        fill={r.merge ? "#fff" : r.color}
+                        className={`jn-dot${r.kind === "active" ? " pulse" : ""}`}
+                        style={{ color: r.color }}
+                      />
+                    ) : (
+                      <>
+                        <circle cx={r.x1} cy={L.T} r={5} fill={r.color} className="jn-dot" style={{ color: r.color }} />
+                        <circle
+                          cx={r.ex} cy={r.ey} r={r.merge ? 7 : 6}
+                          fill={r.merge ? "#fff" : r.color}
+                          className={`jn-dot${r.kind === "active" ? " pulse" : ""}`}
+                          style={{ color: r.color }}
+                        />
+                      </>
+                    )}
                   </g>
                 ))}
 
@@ -546,9 +569,8 @@ export function JourneyView({
 
                 <circle cx={80} cy={L.T} r={17} className="jn-start-ring" />
                 <circle cx={80} cy={L.T} r={8} className="jn-start" />
-                <text className="jn-end-label" x={80} y={L.T + 46} textAnchor="middle">START · {fmt(base.min)}</text>
-                <rect className="jn-end" x={L.endX - 7} y={L.T - 7} width={14} height={14} transform={`rotate(45 ${L.endX} ${L.T})`} />
-                <text className="jn-end-label" x={L.endX} y={L.T - 26} textAnchor="middle">
+                <text className="jn-end-label" x={80} y={L.T + 40} textAnchor="middle">START</text>                <rect className="jn-end" x={L.endX - 7} y={L.T - 7} width={14} height={14} transform={`rotate(45 ${L.endX} ${L.T})`} />
+                <text className="jn-end-label" x={L.endX} y={L.T + 40} textAnchor="middle">
                   {base.open ? "TODAY" : "END"} · {fmt(base.open ? base.now : base.last)}
                 </text>
               </svg>
