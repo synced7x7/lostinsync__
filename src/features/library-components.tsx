@@ -46,6 +46,8 @@ export function AddGame({ onClose, onAdd, igdb, initial }: { onClose: () => void
   const [pickedImages, setPickedImages] = useState<IgdbDebugImage[]>(initial?.igdbImages ?? []);
   const [pickedVideos, setPickedVideos] = useState<{ id: string; name?: string }[]>(initial?.igdbVideos ?? []);
   const canSearch = hasTauri && !!igdb.clientId && !!igdb.clientSecret;
+  const today = new Date();
+  const todayValue = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
 
   useEffect(() => {
     if (!canSearch || !open || title.trim().length < 2) { setHits([]); return; }
@@ -102,7 +104,11 @@ export function AddGame({ onClose, onAdd, igdb, initial }: { onClose: () => void
   const submit = () => {
     const issue = validateGame(title);
     if (issue) { setError(issue); return; }
-    if (startedAt && finishedAt && finishedAt < startedAt) { setError("Completion date cannot be before the starting date."); return; }
+    const safeStartedAt = startedAt > todayValue ? todayValue : startedAt;
+    const safeFinishedAt = finishedAt > todayValue ? todayValue : finishedAt;
+    if (safeStartedAt !== startedAt) setStartedAt(safeStartedAt);
+    if (safeFinishedAt !== finishedAt) setFinishedAt(safeFinishedAt);
+    if (safeStartedAt && safeFinishedAt && safeFinishedAt < safeStartedAt) { setError("Completion date cannot be before the starting date."); return; }
     const totalSeconds = (Math.max(0, Number(hours) || 0) * 3600) + (Math.min(59, Math.max(0, Number(minutes) || 0)) * 60);
     onAdd({
       ...initial,
@@ -122,8 +128,8 @@ export function AddGame({ onClose, onAdd, igdb, initial }: { onClose: () => void
       backgroundCover,
       totalSeconds,
       createdAt: initial?.createdAt ?? now(),
-      startedAt: startedAt || undefined,
-      finishedAt: finishedAt || undefined,
+      startedAt: safeStartedAt || undefined,
+      finishedAt: safeFinishedAt || undefined,
       developer: developer.trim() || undefined,
       releaseDate: releaseDate || undefined,
       description: description.trim() || undefined,
@@ -209,8 +215,8 @@ export function AddGame({ onClose, onAdd, igdb, initial }: { onClose: () => void
 
           {/* Column 3: your tracking */}
           <div className="add-col">
-            <DateField label="Starting date" value={startedAt || undefined} max={finishedAt || undefined} onChange={(v) => setStartedAt(v ?? "")} />
-            <DateField label="Completion date" value={finishedAt || undefined} min={startedAt || undefined} onChange={(v) => setFinishedAt(v ?? "")} />
+            <DateField label="Starting date" value={startedAt || undefined} max={finishedAt || undefined} capAtToday onChange={(v) => setStartedAt(v ?? "")} />
+            <DateField label="Completion date" value={finishedAt || undefined} min={startedAt || undefined} capAtToday onChange={(v) => setFinishedAt(v ?? "")} />
             <div className="form-grid">
               <label>Hours played<input type="number" min="0" value={hours} onChange={(e) => setHours(e.target.value)} /></label>
               <label>Minutes played<input type="number" min="0" max="59" value={minutes} onChange={(e) => setMinutes(e.target.value)} /></label>
@@ -234,5 +240,3 @@ export function AddGame({ onClose, onAdd, igdb, initial }: { onClose: () => void
     document.body
   );
 }
-
-

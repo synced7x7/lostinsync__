@@ -376,18 +376,22 @@ export const parseDate = (raw: string): string | undefined => {
 };
 
 export function DateField({
-  label, value, onChange, min, max,
+  label, value, onChange, min, max, capAtToday = false,
 }: {
   label: string;
   value?: string;
   onChange: (v: string | undefined) => void;
   min?: string;
   max?: string;
+  capAtToday?: boolean;
 }) {
   const [text, setText] = useState(formatDate(value));
   const [saved, setSaved] = useState(false);
   const [invalid, setInvalid] = useState("");
   const pickerRef = useRef<HTMLInputElement>(null);
+  const today = new Date();
+  const todayValue = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
+  const effectiveMax = capAtToday ? (max && max < todayValue ? max : todayValue) : max;
   useEffect(() => setText(formatDate(value)), [value])
   
   useEffect(() => {
@@ -399,19 +403,20 @@ export function DateField({
   const commit = (raw: string) => {
     const parsed = parseDate(raw);
     if (raw.trim() && !parsed) { setText(formatDate(value)); return; }
-    if (parsed && min && parsed < min) {
+    const capped = parsed && capAtToday && parsed > todayValue ? todayValue : parsed;
+    if (capped && min && capped < min) {
       setInvalid(`Must be on or after ${formatDate(min)}`);
       setText(formatDate(value));
       return;
     }
-    if (parsed && max && parsed > max) {
-      setInvalid(`Must be on or before ${formatDate(max)}`);
+    if (capped && effectiveMax && capped > effectiveMax) {
+      setInvalid(`Must be on or before ${formatDate(effectiveMax)}`);
       setText(formatDate(value));
       return;
     }
     setInvalid("");
-    setText(formatDate(parsed));
-    if (parsed !== value) save(parsed);
+    setText(formatDate(capped));
+    if (capped !== value) save(capped);
   };
   return (
     <label>
@@ -444,7 +449,7 @@ export function DateField({
           className="date-native"
           tabIndex={-1}
           min={min}
-          max={max}
+          max={effectiveMax}
           value={value ?? ""}
           onChange={(e) => commit(e.target.value)}
         />
