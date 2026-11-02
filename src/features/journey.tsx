@@ -10,7 +10,7 @@ const BG_IMAGE = "/images/journey-bg.jpg"; // TODO: replace with your background
 const DAY = 86_400_000;
 const GAP = 150;      // vertical distance between branches
 const X0 = 80;       // where the timeline starts
-const SHORT = 140;     // branches narrower than this are drawn as a vertical "pillar"
+const SHORT = 5;     // branches narrower than this are drawn as a vertical "pillar"
 const CARD_HALF = 90;  // horizontal space a game card + title needs on its lane
 
 
