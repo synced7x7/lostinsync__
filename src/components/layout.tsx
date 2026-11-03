@@ -8,6 +8,7 @@ import {
   Route,
   Settings,
   X,
+  Trophy,
 } from "lucide-react";
 import type { AppData, View } from "../domain/game";
 
@@ -15,6 +16,7 @@ export const navigation: { id: View; label: string; icon: typeof BookOpen }[] = 
   { id: "dashboard", label: "Overview", icon: LayoutDashboard },
   { id: "library", label: "Library", icon: Gamepad2 },
   { id: "journey", label: "Game Journey", icon: Route },
+  { id: "trophies", label: "Trophies", icon: Trophy },
   { id: "settings", label: "Settings", icon: Settings },
 ];
 

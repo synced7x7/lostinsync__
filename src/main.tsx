@@ -57,6 +57,7 @@ import { SeriesButton } from "./features/series";
 import { JourneyView } from "./features/journey";
 import { ProfileSection } from "./features/overview";
 import { SettingsView } from "./features/settings";
+import { TrophiesView } from "./features/trophies";
 
 
 const repo = createAppRepository();
@@ -76,6 +77,39 @@ function App() {
   const dataRef = useRef(data);
   const journeyPreferencesDirty = useRef(false);
   dataRef.current = data;
+  useEffect(() => {
+    const root = document.documentElement;
+    const enter = () => {
+      if (!document.fullscreenElement && root.requestFullscreen) {
+        void root.requestFullscreen().catch(() => undefined);
+      }
+    };
+    const toggle = (event: KeyboardEvent) => {
+      if (event.key !== "F11") return;
+      event.preventDefault();
+      if (document.fullscreenElement) {
+        void document.exitFullscreen().catch(() => undefined);
+      } else {
+        enter();
+      }
+    };
+    const onFirstInteraction = (event: PointerEvent | KeyboardEvent) => {
+      if (event instanceof KeyboardEvent && event.key === "F11") return;
+      enter();
+      window.removeEventListener("pointerdown", onFirstInteraction);
+      window.removeEventListener("keydown", onFirstInteraction);
+    };
+
+    window.addEventListener("keydown", toggle);
+    window.addEventListener("pointerdown", onFirstInteraction, { once: true });
+    window.addEventListener("keydown", onFirstInteraction, { once: true });
+    enter();
+    return () => {
+      window.removeEventListener("keydown", toggle);
+      window.removeEventListener("pointerdown", onFirstInteraction);
+      window.removeEventListener("keydown", onFirstInteraction);
+    };
+  }, []);
   useEffect(() => {
     if (location.pathname === "/profile") navigate("/");
   }, [location.pathname, navigate]);
@@ -191,6 +225,7 @@ function App() {
           onPreferencesChange={updateJourneyPreferences}
         />
       )}{" "}
+      {view === "trophies" && <TrophiesView data={data} />}{" "}
       {view === "details" && selected && (
         <Details game={selected} saveGame={saveGame} deleteGame={deleteGame} goBack={() => setView("library")} igdb={{ clientId: data.settings.igdbClientId ?? "", clientSecret: data.settings.igdbClientSecret ?? "" }} />
       )}{" "}

@@ -5,7 +5,7 @@ export type IgdbGame = {
   genres: string[]; platforms: string[]; rating?: number; ratingCount?: number;
   timeAvg?: number; timeMain?: number; timeFull?: number; cover?: string; background?: string;   
   videos: { videoId: string; name?: string }[]; screenshots: string[];
-  gameType?: string; gameStatus?: string;
+  gameType?: string; gameStatus?: string; franchises?: string[];
 };
 export type IgdbDebugImage = {
   category: "cover" | "artwork" | "screenshot";
