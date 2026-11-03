@@ -26,7 +26,7 @@
 }
 /* ======================================================================================================== */
 
-.tr-nav { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 3; display: flex; align-items: center; gap: 10px }
+.tr-nav { position: absolute; left:7%;  bottom: 20px; transform: translateX(-50%); z-index: 3; display: flex; align-items: center; gap: 10px }
 .tr-nav i { width: 9px; height: 9px; border-radius: 50%; background: rgba(164, 149, 255, .3); cursor: pointer }
 .tr-nav i.on { background: #c4baff; box-shadow: 0 0 10px #a495ff }
 

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, Lock, Trophy as TrophyIcon, X } from "lucide-react";
 import type { AppData } from "../domain/game";
-import { evaluate, RARITY_LABEL, RARITY_RANK, type Override, type Tier, type TrophyState } from "../domain/trophies";
+import { evaluate, RARITY_LABEL, type Override, type Tier, type TrophyState } from "../domain/trophies";
 import "./trophies.css";
 
 // badges: src/images/badges/*  |  backgrounds: src/images/trophy-bg/*  (4 files, page order = natural filename order, e.g. 1.png … 4.png)
@@ -19,21 +19,47 @@ const LIST = Object.entries(FILES).map(([p, url]) => {
 });
 const artOf = (t: Tier) => (LIST.find((f) => f.name === norm(t.name)) ?? LIST.find((f) => f.num === t.num))?.url;
 
-// ===================== TWEAK BADGE POSITIONS HERE =====================
-// One layout per background (page 1..4). x / y = centre of the frame in % of the background image,
-// w = badge width in % of the image width (badge is square, object-fit: contain).
-// Slot 0 = big top frame (lostinsync__ trophy). Slots 1-5 = bottom row, left -> right.
+// ===================== TWEAK EVERY BADGE HERE =====================
+// page = 0..3 (background index) | x / y = centre in % of the background image | w = badge width in % of image width
 type Pos = { x: number; y: number; w: number };
+type Place = Pos & { page: number };
 const BASE: Pos[] = [
   { x: 50, y: 30.3, w: 14.4 },
-  { x: 17.5, y: 68.5, w: 12.2 },
-  { x: 34.7, y: 68.5, w: 12 },
-  { x: 50.4, y: 68.5, w: 12.2 },
-  { x: 65.8, y: 68.5, w: 12 },
-  { x: 82.5, y: 68.5, w: 12.2 },
+  { x: 17.5, y: 68.5, w: 12.2 }, { x: 34.7, y: 68.5, w: 12 }, { x: 50.4, y: 68.5, w: 12.2 },
+  { x: 65.8, y: 68.5, w: 12 }, { x: 82.5, y: 68.5, w: 12.2 },
 ];
-const LAYOUTS: Pos[][] = [BASE, BASE, BASE, BASE]; // replace each BASE with its own array if frames differ
-// ======================================================================
+const P = (page: number, i: number): Place => ({ page, ...BASE[i] }); // starting point only; overwrite with literals, e.g. { page: 0, x: 51.2, y: 29.8, w: 15 }
+const PLACE: Record<string, Place> = {
+  // ---- page 1 ----
+  devfav: P(0, 0),      // Developer's Choice (lostinsync__)
+  annual: P(0, 1),      // Annual Legends
+  retro: P(0, 2),       // Time Traveler (pre-2000)
+  "4.1": P(0, 3),       // Requiescat in Pace
+  "4.2": P(0, 4),       // Leave me alone
+  "4.3": P(0, 5),       // Biohazard
+  // ---- page 2 ----
+  career: P(1, 0),      // Gaming Career (lostinsync__)
+  "4.4": P(1, 1),       // Symphony of the Night
+  "4.5": P(1, 2),       // Blacklist #1
+  "4.6": P(1, 3),       // The fallen leaves tell a story
+  genre: P(1, 4),       // Genre Master
+  hours: P(1, 5),       // One Game, One Obsession
+  // ---- page 3 ----
+  "9.4": P(2, 0),       // GOTY Slayer (lostinsync__)
+  span: P(2, 1),        // Wandering Nomad
+  complete: P(2, 2),    // Completionist
+  "8.1": P(2, 3),       // Arcade Roots
+  "8.2": P(2, 4),       // Classic Era
+  "8.3": P(2, 5),       // 2000s Veteran
+  // ---- page 4 ----
+  final: P(3, 0),       // lostinsync__
+  "8.4": P(3, 1),       // HD Generation
+  "8.5": P(3, 2),       // Modern Era
+  "9.1": P(3, 3),       // Relic of the Ancients
+  "9.2": P(3, 4),       // Vanguard Rusher
+  "9.3": P(3, 5),       // Bleeding Edge
+};
+// ==================================================================
 
 const PAGES = 4;
 const CHEAT_KEY = "lis.trophy.cheat";
@@ -135,17 +161,14 @@ export function TrophiesView({ data }: { data: AppData }) {
   const go = (d: number) => { setSel(undefined); setPage((p) => Math.min(PAGES - 1, Math.max(0, p + d))); };
 
   const states = useMemo(() => evaluate(data.games, cheat), [data.games, cheat]);
-  const rank = (s: TrophyState) => RARITY_RANK[s.tiers[s.tiers.length - 1].rarity];
-  const special = states.filter((s) => s.trophy.bottom);                       // 4 lostinsync__ groups -> big top frame, 1 per page
-  const rest = states.filter((s) => !s.trophy.bottom).sort((a, b) => rank(b) - rank(a)); // 20 others -> 5 per page
-  const items = [special[page], ...rest.slice(page * 5, page * 5 + 5)];
+  const items = states.filter((s) => PLACE[s.trophy.id]?.page === page);
   const selected = states.find((s) => s.trophy.id === sel);
 
   return createPortal(
     <div className="tr-stage">
       <div className="tr-canvas">
         <img className="tr-bg" src={BGS[page]} alt="" draggable={false} />
-        {items.map((s, i) => <BadgeSlot key={s?.trophy.id ?? i} s={s} pos={LAYOUTS[page][i]} onClick={() => s && setSel(s.trophy.id)} />)}
+        {items.map((s) => <BadgeSlot key={s.trophy.id} s={s} pos={PLACE[s.trophy.id]} onClick={() => setSel(s.trophy.id)} />)}
       </div>
       <div className="tr-nav">
         <button className="icon-btn" disabled={page === 0} onClick={() => go(-1)}><ChevronLeft size={18} /></button>
