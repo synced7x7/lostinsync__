@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { Camera, Check, PenLine, Plus, Search, Sparkles, Trash2 } from "lucide-react";
-import { igdbSearch, type IgdbHit } from "../data/igdb";
-import type { AppData, Collection } from "../domain/game";
+import { createPortal } from "react-dom";
+import { Camera, PenLine, Plus, Sparkles, X } from "lucide-react";
+import type { AppData, Collection, Game } from "../domain/game";
 import "./overview.css";
 
 export function ProfileSection({ data, update }: { data: AppData; update: (data: AppData) => void }) {
@@ -53,76 +53,80 @@ export function ProfileSection({ data, update }: { data: AppData; update: (data:
 
   return (
     <>
-    <section className="profile-banner glass">
-      <button
-        className="profile-edit button soft"
-        onClick={() => editing ? finishEditing() : setEditing(true)}
-      >
-        <PenLine size={16} /> {editing ? "Done" : ""}
-      </button>
-      <button
-        type="button"
-        className={`profile-avatar${editing ? " editable" : ""}`}
-        onClick={() => editing && pictureInput.current?.click()}
-        title={editing ? "Change profile picture" : undefined}
-      >
-        {data.profile.picture
-          ? <img src={data.profile.picture} alt={`${data.profile.displayName} profile`} />
-          : data.profile.displayName.slice(0, 1)}
-        {editing && <span className="profile-avatar-action"><Camera size={16} /></span>}
-      </button>
-      <input
-        ref={pictureInput}
-        type="file"
-        accept="image/*"
-        hidden
-        onChange={(event) => {
-          updatePicture(event.target.files?.[0]);
-          event.target.value = "";
-        }}
-      />
-      <div className="profile-copy">
-        {editing
-          ? <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
-          : <h2>{data.profile.displayName}</h2>}
-        {editing
-          ? <textarea value={bio} onChange={(e) => setBio(e.target.value)} />
-          : <p>{data.profile.bio}</p>}
-        <span className="pill"><Sparkles size={13} /> Local collector</span>
-        {pictureError && <span className="date-error">{pictureError}</span>}
-      </div>
-      <div className="profile-count"><strong>{data.games.length}</strong><span>games collected</span></div>
-    </section>
-    <Collections data={data} update={update} />
+      <section className="profile-banner glass">
+        <button
+          className="profile-edit button soft"
+          onClick={() => editing ? finishEditing() : setEditing(true)}
+        >
+          <PenLine size={16} /> {editing ? "Done" : ""}
+        </button>
+        <button
+          type="button"
+          className={`profile-avatar${editing ? " editable" : ""}`}
+          onClick={() => editing && pictureInput.current?.click()}
+          title={editing ? "Change profile picture" : undefined}
+        >
+          {data.profile.picture
+            ? <img src={data.profile.picture} alt={`${data.profile.displayName} profile`} />
+            : data.profile.displayName.slice(0, 1)}
+          {editing && <span className="profile-avatar-action"><Camera size={16} /></span>}
+        </button>
+        <input
+          ref={pictureInput}
+          type="file"
+          accept="image/*"
+          hidden
+          onChange={(event) => {
+            updatePicture(event.target.files?.[0]);
+            event.target.value = "";
+          }}
+        />
+        <div className="profile-copy">
+          {editing
+            ? <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
+            : <h2>{data.profile.displayName}</h2>}
+          {editing
+            ? <textarea value={bio} onChange={(e) => setBio(e.target.value)} />
+            : <p>{data.profile.bio}</p>}
+          <span className="pill"><Sparkles size={13} /> Local collector</span>
+          {pictureError && <span className="date-error">{pictureError}</span>}
+        </div>
+        <div className="profile-count"><strong>{data.games.length}</strong><span>games collected</span></div>
+      </section>
     </>
   );
 }
 
-function Collections({ data, update }: { data: AppData; update: (data: AppData) => void }) {
-  const [name, setName] = useState("");
-  const [activeId, setActiveId] = useState<string>();
-  const [query, setQuery] = useState("");
-  const [results, setResults] = useState<IgdbHit[]>([]);
-  const [error, setError] = useState("");
+export function CollectionShowcase({ data, update, openGame, openDiscover }: { data: AppData; update: (data: AppData) => void; openGame: (id: string) => void; openDiscover: (id: number) => void }) {
+  const [selected, setSelected] = useState<Collection>();
   const collections = data.collections ?? [];
-  const active = collections.find((collection) => collection.id === activeId) ?? collections[0];
+  return <section className="collections-panel glass"><div className="collections-heading"><div><p className="eyebrow">PERSONAL CURATION</p><h2>Collections</h2><p className="muted">Your curated game lists.</p></div></div>{collections.length === 0 ? <p className="muted">Create collections from any game detail page.</p> : <div className="collection-showcase-row">{collections.map((collection) => <button className="collection-showcase-card" key={collection.id} onClick={() => setSelected(collection)}><div className="collection-cover">{collection.items[0]?.cover ? <img src={collection.items[0].cover} alt="" /> : <Plus size={24} />}</div><strong>{collection.name}</strong><small>{collection.items.length} games</small></button>)}</div>}{selected && <CollectionDetail collection={selected} data={data} update={update} openDiscover={openDiscover} close={() => setSelected(undefined)} />}</section>;
+}
+
+function CollectionDetail({ collection, data, update, openDiscover, close }: { collection: Collection; data: AppData; update: (data: AppData) => void; openDiscover: (id: number) => void; close: () => void }) {
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(collection.name);
+  const [description, setDescription] = useState(collection.description ?? "");
+  const save = () => {
+    update({ ...data, collections: (data.collections ?? []).map((item) => item.id === collection.id ? { ...item, name: name.trim() || item.name, description: description.trim() } : item) });
+    setEditing(false);
+  };
+  return createPortal(<div className="modal-backdrop" onClick={close}><div className="modal modal-wide collection-modal glass" onClick={(event) => event.stopPropagation()}><div className="modal-head"><div><p className="eyebrow">PERSONAL CURATION</p><h2>{editing ? "Edit collection" : collection.name}</h2></div><button className="icon-btn" onClick={close} aria-label="Close collection"><X size={18} /></button></div>{editing ? <div className="collection-edit-form"><label>Name<input value={name} onChange={(event) => setName(event.target.value)} maxLength={60} /></label><label>Description<textarea value={description} onChange={(event) => setDescription(event.target.value.slice(0, 180))} maxLength={180} placeholder="Describe this collection (180 characters max)" /><small>{description.length}/180</small></label><button className="button soft" onClick={save}><PenLine size={15} /> Save collection</button></div> : <><p className="collection-description">{collection.description || "No description yet."}</p><div className="collection-items">{collection.items.length ? collection.items.map((item) => <button className="collection-detail-item" key={item.igdbId} onDoubleClick={() => openDiscover(item.igdbId)} title="Double-click to open details"><img src={item.cover} alt="" /><span>{item.name}</span></button>) : <p className="muted">This collection is empty.</p>}</div><button className="button soft collection-edit-button" onClick={() => setEditing(true)}><PenLine size={15} /> Edit collection</button></>}</div></div>, document.body);
+}
+
+export function CollectionActions({ data, update, game, igdbId, cover }: { data: AppData; update: (data: AppData) => void; game: Game; igdbId: number; cover?: string }) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const collections = data.collections ?? [];
   const create = () => {
     const trimmed = name.trim();
     if (!trimmed) return;
-    const collection: Collection = { id: crypto.randomUUID(), name: trimmed, items: [] };
+    const collection: Collection = { id: crypto.randomUUID(), name: trimmed, description: description.trim(), items: [{ igdbId, name: game.title, cover }] };
     update({ ...data, collections: [...collections, collection] });
     setName("");
-    setActiveId(collection.id);
+    setDescription("");
   };
-  const search = async () => {
-    if (!query.trim() || !data.settings.igdbClientId || !data.settings.igdbClientSecret) return;
-    try { setError(""); setResults(await igdbSearch(query, { clientId: data.settings.igdbClientId, clientSecret: data.settings.igdbClientSecret })); }
-    catch (reason) { setError(reason instanceof Error ? reason.message : "Could not search IGDB."); }
-  };
-  const add = (game: IgdbHit) => {
-    if (!active || active.items.some((item) => item.igdbId === game.id)) return;
-    update({ ...data, collections: collections.map((collection) => collection.id === active.id ? { ...collection, items: [...collection.items, { igdbId: game.id, name: game.name, cover: game.cover }] } : collection) });
-  };
-  const remove = (id: number) => active && update({ ...data, collections: collections.map((collection) => collection.id === active.id ? { ...collection, items: collection.items.filter((item) => item.igdbId !== id) } : collection) });
-  return <section className="collections-panel glass"><div className="collections-heading"><div><p className="eyebrow">PERSONAL CURATION</p><h2>Collections</h2><p className="muted">Build lists from the full IGDB catalog, even when a game is not in your library.</p></div><div className="collection-create"><input value={name} onChange={(event) => setName(event.target.value)} onKeyDown={(event) => event.key === "Enter" && create()} placeholder="New collection" /><button className="button soft" onClick={create}><Plus size={15} /> Create</button></div></div>{collections.length > 0 && <div className="collection-tabs">{collections.map((collection) => <button key={collection.id} className={collection.id === active?.id ? "active" : ""} onClick={() => setActiveId(collection.id)}>{collection.name}<span>{collection.items.length}</span></button>)}</div>}{active && <><div className="collection-search"><input value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => event.key === "Enter" && void search()} placeholder='Search IGDB to add a game...' /><button className="button soft" onClick={() => void search()}><Search size={15} /> Search</button></div>{error && <p className="date-error">{error}</p>}{results.length > 0 && <div className="collection-results">{results.map((game) => <button key={game.id} onClick={() => add(game)}><img src={game.cover} alt="" /><span><strong>{game.name}</strong><small>{game.developer ?? "Unknown developer"}</small></span><Check size={15} /></button>)}</div>}<div className="collection-items">{active.items.map((item) => <div key={item.igdbId}><img src={item.cover} alt="" /><span>{item.name}</span><button onClick={() => remove(item.igdbId)} aria-label={`Remove ${item.name}`}><Trash2 size={14} /></button></div>)}</div></>}</section>;
+  const add = (id: string) => update({ ...data, collections: collections.map((collection) => collection.id === id && !collection.items.some((item) => item.igdbId === igdbId) ? { ...collection, items: [...collection.items, { igdbId, name: game.title, cover }] } : collection) });
+  return <>{<button onClick={() => setOpen(true)}><Plus size={16} /> </button>}{open && createPortal(<div className="modal-backdrop" onClick={() => setOpen(false)}><div className="modal collection-modal glass" onClick={(event) => event.stopPropagation()}><div className="modal-head"><div><p className="eyebrow">PERSONAL CURATION</p><h2>Add game to collection</h2></div><button className="icon-btn" onClick={() => setOpen(false)} aria-label="Close collection picker"><X size={18} /></button></div><div className="collection-current-game">{cover ? <img src={cover} alt="" /> : <div className="collection-cover-placeholder" />}<strong>{game.title}</strong></div><div className="collection-picker-list">{collections.map((collection) => <button key={collection.id} onClick={() => { add(collection.id); setOpen(false); }}><div className="collection-picker-cover">{collection.items[0]?.cover && <img src={collection.items[0].cover} alt="" />}</div><span><strong>{collection.name}</strong><small>{collection.items.length} games{collection.description ? ` · ${collection.description}` : ""}</small></span><Plus size={16} /></button>)}</div><div className="collection-create-form"><input value={name} onChange={(event) => setName(event.target.value)} maxLength={60} placeholder="New collection name" /><textarea value={description} onChange={(event) => setDescription(event.target.value.slice(0, 180))} maxLength={180} placeholder="Description (180 characters max)" /><button className="button soft" onClick={create}><Plus size={15} /> Create collection</button></div></div></div>, document.body)}</>;
 }

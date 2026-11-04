@@ -4,6 +4,7 @@ import { ChevronRight, Clock3, Gamepad2, Heart, HelpCircle, Plus, Search, Star, 
 import type { ReactNode } from "react";
 import type { AppData, Game } from "../domain/game";
 import { Header } from "../components/shared";
+import { CollectionShowcase } from "./overview";
 
 const DAY = 86_400_000;
 
@@ -74,12 +75,13 @@ function Picker({ games, taken, onPick, onClose }: { games: Game[]; taken: strin
 }
 
 export function Dashboard({
-  data, update, openLibrary, openGame, profile,
+  data, update, openLibrary, openGame, openDiscoverGame, profile,
 }: {
   data: AppData;
   update: (d: AppData) => void;
   openLibrary: () => void;
   openGame: (id: string) => void;
+  openDiscoverGame: (id: number) => void;
   profile: ReactNode;
 }) {
   const [slot, setSlot] = useState<number | null>(null);
@@ -92,7 +94,17 @@ export function Dashboard({
     () =>
       data.games
         .filter((g) => !["Backlog", "Wishlist"].includes(g.status))
-        .sort((a, b) => lastTouched(b) - lastTouched(a))
+        .sort((a, b) => {
+          const rank = (game: Game) => game.status === "Playing" ? 0 : game.status === "Completed" ? 1 : 2;
+          if (rank(a) !== rank(b)) return rank(a) - rank(b);
+          if (a.status === "Completed" && b.status === "Completed") {
+            const aHasEnd = Boolean(a.finishedAt);
+            const bHasEnd = Boolean(b.finishedAt);
+            if (aHasEnd !== bHasEnd) return aHasEnd ? -1 : 1;
+            if (aHasEnd && bHasEnd) return (Date.parse(b.finishedAt ?? "") || 0) - (Date.parse(a.finishedAt ?? "") || 0);
+          }
+          return lastTouched(b) - lastTouched(a);
+        })
         .slice(0, 7),
     [data.games]
   );
@@ -207,6 +219,7 @@ export function Dashboard({
           }}
         />
       )}
+      <CollectionShowcase data={data} update={update} openGame={openGame} openDiscover={openDiscoverGame} />
     </>
   );
 }

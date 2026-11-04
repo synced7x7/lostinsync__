@@ -39,7 +39,7 @@ export type AppSettings = {
   igdbClientSecret?: string;
 };
 export type CollectionItem = { igdbId: number; name: string; cover?: string };
-export type Collection = { id: string; name: string; items: CollectionItem[] };
+export type Collection = { id: string; name: string; description?: string; items: CollectionItem[] };
 export type AppData = { games: Game[]; profile: Profile; settings: AppSettings; collections?: Collection[] };
 export function validateGame(title: string): string | null {
   if (title.trim().length < 2) return "Enter a game title with at least two characters.";

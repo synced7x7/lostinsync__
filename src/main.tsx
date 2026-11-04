@@ -55,7 +55,7 @@ import { AddGame } from "./features/library-components";
 import { MediaSection } from "./features/media";
 import { SeriesButton } from "./features/series";
 import { JourneyView } from "./features/journey";
-import { ProfileSection } from "./features/overview";
+import { CollectionActions, ProfileSection } from "./features/overview";
 import { SettingsView } from "./features/settings";
 import { TrophiesView } from "./features/trophies";
 import { DiscoverView } from "./features/discover";
@@ -228,7 +228,7 @@ function App() {
       onNavigate={setView}
       error={error}
     >
-      {view === "dashboard" && <Dashboard data={data} update={update} openLibrary={() => setView("library")} openGame={openGame} profile={<ProfileSection data={data} update={update} />} />}{" "}
+      {view === "dashboard" && <Dashboard data={data} update={update} openLibrary={() => setView("library")} openGame={openGame} openDiscoverGame={(id) => navigate(`/details?igdb=${id}`)} profile={<ProfileSection data={data} update={update} />} />}{" "}
       {view === "library" && (
         <LibraryView data={data} update={update} addGame={addGame} saveGame={saveGame} deleteGame={deleteGame} openGame={openGame} focusedGameId={libraryFocusId} onFocusedGameChange={setLibraryFocusId} />
       )}{" "}
@@ -250,13 +250,15 @@ function App() {
           openGame={(id) => navigate(`/details?igdb=${id}`)}
           credentials={{ clientId: data.settings.igdbClientId ?? "", clientSecret: data.settings.igdbClientSecret ?? "" }}
           savedGame={data.games.find((game) => game.igdbId === routeDiscoverId)}
+          data={data}
+          update={update}
           onAdd={addGame}
           onSave={saveGame}
           onDelete={deleteGame}
         />
       )}{" "}
       {view === "details" && !routeDiscoverId && selected && (
-        <Details game={selected} saveGame={saveGame} deleteGame={deleteGame} goBack={() => setView("library")} onOpenGame={(id) => navigate(`/details?igdb=${id}`)} igdb={{ clientId: data.settings.igdbClientId ?? "", clientSecret: data.settings.igdbClientSecret ?? "" }} />
+        <Details game={selected} data={data} update={update} saveGame={saveGame} deleteGame={deleteGame} goBack={() => setView("library")} onOpenGame={(id) => navigate(`/details?igdb=${id}`)} igdb={{ clientId: data.settings.igdbClientId ?? "", clientSecret: data.settings.igdbClientSecret ?? "" }} />
       )}{" "}
       {view === "settings" && <SettingsView data={data} update={update} />}{" "}
     </AppLayout>
@@ -717,9 +719,11 @@ function GridCard({
 
 
 function Details({
-  game, saveGame, deleteGame, goBack, onOpenGame, igdb,
+  game, data, update, saveGame, deleteGame, goBack, onOpenGame, igdb,
 }: {
   game: Game;
+  data: AppData;
+  update: (data: AppData) => void;
   saveGame: (game: Game) => void;
   deleteGame: (game: Game) => void;
   goBack: () => void;
@@ -760,6 +764,7 @@ function Details({
             <Heart size={16} fill={game.favorite ? "currentColor" : "none"} /><span>Favorite</span>
           </button>
           <button title="Delete game" className="del" onClick={() => deleteGame(game)}><Trash2 size={16} /><span>Delete</span></button>
+          <span className="collection-action" title="Collection actions" aria-label="Collection actions">{game.igdbId && <CollectionActions data={data} update={update} game={game} igdbId={game.igdbId} cover={game.cover} />}</span>
         </div>
         <div className="detail-art" style={game.cover ? { backgroundImage: `linear-gradient(145deg, rgba(68,51,113,.35), rgba(38,113,123,.35)), url(${game.cover})` } : undefined}>
           {!game.cover && <Gamepad2 size={60} />}
