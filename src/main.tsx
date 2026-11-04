@@ -329,6 +329,33 @@ function LibraryView({
       </button>
     </>
   );
+  const fullscreenActions = fullscreen && (
+    <div className="ps4-fullscreen-actions">
+      <button className="icon-btn glass" onClick={() => setShowFullscreenFilters((open) => !open)} title="Show library filters">
+        <SlidersHorizontal size={17} />
+      </button>
+      <button className="icon-btn glass" onClick={() => { updateSettings({ libraryFullscreen: false }); setFullscreen(false); }} title="Exit fullscreen shelf view">
+        <Minimize2 size={17} />
+      </button>
+      {showFullscreenFilters && (
+        <div className="ps4-fullscreen-filter-panel glass">
+          <div className="search-field">
+            <Search size={17} />
+            <input placeholder="Search your collection..." value={query} onChange={(e) => setQuery(e.target.value)} />
+          </div>
+          <select value={filter} onChange={(e) => updateSettings({ libraryFilter: e.target.value as Status | "All" })}>
+            <option value="All">All statuses</option>
+            {STATUSES.map((s) => <option key={s}>{s}</option>)}
+          </select>
+          {sortControl}
+          <button className={favoritesOnly ? "icon-btn active" : "icon-btn"} onClick={() => updateSettings({ libraryFavoritesOnly: !favoritesOnly })} title="Favorite games only" aria-label="Favorite games only">
+            <Heart size={16} fill={favoritesOnly ? "currentColor" : "none"} />
+          </button>
+          <button className="button primary" onClick={() => setShowAdd(true)}><Plus size={16} /> Add game</button>
+        </div>
+      )}
+    </div>
+  );
   const featured = games.find((g) => g.id === focusedGameId) ?? games[0];
   const openLibraryGame = (id: string) => {
     openGame(id);
@@ -364,38 +391,12 @@ function LibraryView({
           </button>
         </div>
       </div>}
+      {fullscreenActions}
       {games.length === 0
         ? <Empty icon={<Filter />} title="Nothing here yet" text="Try another search or add your first game." action={() => setShowAdd(true)} />
         : layout === "ps4"
           ? <div className={fullscreen ? "ps4-fullscreen-shell" : undefined}>
-            {fullscreen && (
-              <div className="ps4-fullscreen-actions">
-                <button className="icon-btn glass" onClick={() => setShowFullscreenFilters((open) => !open)} title="Show library filters">
-                  <SlidersHorizontal size={17} />
-                </button>
-                <button className="icon-btn glass" onClick={() => { updateSettings({ libraryFullscreen: false }); setFullscreen(false); }} title="Exit fullscreen shelf view">
-                  <Minimize2 size={17} />
-                </button>
-                {showFullscreenFilters && (
-                  <div className="ps4-fullscreen-filter-panel glass">
-                    <div className="search-field">
-                      <Search size={17} />
-                      <input placeholder="Search your collection..." value={query} onChange={(e) => setQuery(e.target.value)} />
-                    </div>
-                    <select value={filter} onChange={(e) => updateSettings({ libraryFilter: e.target.value as Status | "All" })}>
-                      <option value="All">All statuses</option>
-                      {STATUSES.map((s) => <option key={s}>{s}</option>)}
-                    </select>
-                    {sortControl}
-                    <button className={favoritesOnly ? "icon-btn active" : "icon-btn"} onClick={() => updateSettings({ libraryFavoritesOnly: !favoritesOnly })} title="Favorite games only" aria-label="Favorite games only">
-                      <Heart size={16} fill={favoritesOnly ? "currentColor" : "none"} />
-                    </button>
-                    <button className="button primary" onClick={() => setShowAdd(true)}><Plus size={16} /> Add game</button>
-                  </div>
-                )}
-              </div>
-            )}
-            <PS4ShelfView fullscreen={fullscreen} games={games} featured={featured} focusedGameId={focusedGameId} onFocusedGameChange={onFocusedGameChange} openGame={openLibraryGame} saveGame={saveGame} />
+            <PS4ShelfView fullscreen={fullscreen} games={games} featured={featured} focusedGameId={focusedGameId} onFocusedGameChange={onFocusedGameChange} openGame={openLibraryGame} saveGame={saveGame} keyboardEnabled={!showAdd} />
           </div>
           : <GridLibraryView games={games} openGame={openLibraryGame} saveGame={saveGame} gridSize={data.settings.gridSize ?? "md"} setGridSize={(size) => updateSettings({ gridSize: size })} />
       }
@@ -420,7 +421,7 @@ const PS4_CARD_LIFTS: Record<number, number> = {
 const PS4_NEIGHBOR_HOVER_BOOST = 0.08;
 
 function PS4ShelfView({
-  games, featured, focusedGameId, onFocusedGameChange, openGame, saveGame, fullscreen,
+  games, featured, focusedGameId, onFocusedGameChange, openGame, saveGame,   fullscreen, keyboardEnabled = true,
 }: {
   games: Game[];
   featured: Game | undefined;
@@ -429,6 +430,7 @@ function PS4ShelfView({
   openGame: (id: string) => void;
   saveGame: (g: Game) => void;
   fullscreen?: boolean;
+  keyboardEnabled?: boolean;
 }) {
   const [focusedIdx, setFocusedIdx] = useState(() => {
     const index = games.findIndex((game) => game.id === focusedGameId);
@@ -484,9 +486,10 @@ function PS4ShelfView({
   };
 
   useEffect(() => {
+    if (!keyboardEnabled) return;
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleKey]);
+  }, [handleKey, keyboardEnabled]);
 
   useEffect(() => {
     const shelf = shelfRef.current;

@@ -32,8 +32,6 @@ export type AppSettings = {
   libraryFilter: Status | "All";
   libraryGenre: string;
   libraryFavoritesOnly: boolean;
-  timerSound: boolean;
-  automaticTracking: boolean;
   journeyRange?: "all" | "month" | number;
   journeyZoom?: number;
   journeyFit?: boolean;
@@ -65,8 +63,6 @@ export const defaultData: AppData = {
     libraryFilter: "All",
     libraryGenre: "All",
     libraryFavoritesOnly: false,
-    timerSound: true,
-    automaticTracking: true,
   },
 };
 
