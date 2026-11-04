@@ -105,3 +105,18 @@ https://images.igdb.com/igdb/image/upload/t_{size}/{image_id}.jpg
 
 The application uses `cover_big` for the main cover and `720p` for background
 artwork and screenshots.
+
+## Discovery feeds
+
+The Discover tab uses the `igdb_discover` Tauri command. It queries the
+`games` endpoint for popular, personalized, latest, upcoming, top-rated, and
+anticipated games using the current Unix timestamp for release filtering.
+Search continues to use `igdb_search`, including the existing `/ ` exact-name
+syntax, while selected results load through `igdb_details` without persisting
+them to the library.
+
+Discovery cards use `total_rating` and `total_rating_count`; the UI displays
+the score on a 10-point scale. Each feed initially loads 20 cards, while its
+View all page loads batches of 30 on demand up to 100 cards. Detail responses
+also include themes, player perspectives, storyline, and similar games for
+contextual recommendations.

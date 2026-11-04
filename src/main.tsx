@@ -58,6 +58,9 @@ import { JourneyView } from "./features/journey";
 import { ProfileSection } from "./features/overview";
 import { SettingsView } from "./features/settings";
 import { TrophiesView } from "./features/trophies";
+import { DiscoverView } from "./features/discover";
+import { DiscoverGameDetails } from "./features/discover";
+import { igdbDetailsCached, type IgdbGame } from "./data/igdb";
 
 
 const repo = createAppRepository();
@@ -70,9 +73,12 @@ function App() {
   const setView = (next: View) =>
     navigate(next === "dashboard" ? "/" : `/${next}`);
   const routeGameId = new URLSearchParams(location.search).get("game") ?? undefined;
+  const routeDiscoverId = Number(new URLSearchParams(location.search).get("igdb")) || undefined;
   const [selectedId, setSelectedId] = useState<string | undefined>(routeGameId);
   const [libraryFocusId, setLibraryFocusId] = useState<string>();
   const [loading, setLoading] = useState(true);
+  const [discoverGame, setDiscoverGame] = useState<IgdbGame>();
+  const [discoverLoading, setDiscoverLoading] = useState(false);
   const [error, setError] = useState("");
   const dataRef = useRef(data);
   const journeyPreferencesDirty = useRef(false);
@@ -123,6 +129,15 @@ function App() {
       window.scrollTo({ top: 0, left: 0, behavior: "auto" });
     }
   }, [view, selectedId]);
+  useEffect(() => {
+    if (view !== "details" || !routeDiscoverId) return;
+    const creds = { clientId: data.settings.igdbClientId ?? "", clientSecret: data.settings.igdbClientSecret ?? "" };
+    setDiscoverLoading(true);
+    void igdbDetailsCached(routeDiscoverId, creds)
+      .then(setDiscoverGame)
+      .catch(() => setDiscoverGame(undefined))
+      .finally(() => setDiscoverLoading(false));
+  }, [view, routeDiscoverId, data.settings.igdbClientId, data.settings.igdbClientSecret]);
   useEffect(() => {
     repo
       .load()
@@ -217,6 +232,7 @@ function App() {
       {view === "library" && (
         <LibraryView data={data} update={update} addGame={addGame} saveGame={saveGame} deleteGame={deleteGame} openGame={openGame} focusedGameId={libraryFocusId} onFocusedGameChange={setLibraryFocusId} />
       )}{" "}
+      {view === "discover" && <DiscoverView data={data} />}{" "}
       {view === "journey" && (
         <JourneyView
           games={data.games}
@@ -226,7 +242,15 @@ function App() {
         />
       )}{" "}
       {view === "trophies" && <TrophiesView data={data} />}{" "}
-      {view === "details" && selected && (
+      {view === "details" && routeDiscoverId && (
+        <DiscoverGameDetails
+          game={discoverGame}
+          loading={discoverLoading}
+          close={() => setView("discover")}
+          openGame={(id) => navigate(`/details?igdb=${id}`)}
+        />
+      )}{" "}
+      {view === "details" && !routeDiscoverId && selected && (
         <Details game={selected} saveGame={saveGame} deleteGame={deleteGame} goBack={() => setView("library")} igdb={{ clientId: data.settings.igdbClientId ?? "", clientSecret: data.settings.igdbClientSecret ?? "" }} />
       )}{" "}
       {view === "settings" && <SettingsView data={data} update={update} />}{" "}

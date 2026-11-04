@@ -1,0 +1,34 @@
+.discover-page { display: grid; gap: 24px; }
+.discover-search { padding: 22px; display: grid; gap: 16px; }
+.discover-search h2, .discover-section h2 { margin: 3px 0 0; font-size: 22px; }
+.discover-search-row { display: flex; gap: 10px; }
+.discover-search-row input { flex: 1; }
+.discover-results { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 8px; }
+.discover-result { display: flex; gap: 10px; text-align: left; padding: 8px; background: rgba(255,255,255,.04); border: 1px solid var(--line-soft); border-radius: 10px; }
+.discover-result:hover { border-color: var(--accent); background: rgba(164,149,255,.1); }
+.discover-result img { width: 38px; height: 52px; object-fit: cover; border-radius: 5px; background: var(--panel-strong); }
+.discover-result span, .discover-card-copy { display: grid; align-content: center; gap: 5px; min-width: 0; }
+.discover-result strong, .discover-card-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.discover-result small, .discover-card-copy small { color: var(--muted); font-size: 11px; }
+.discover-section { display: grid; gap: 12px; }
+.discover-section-heading { display: flex; align-items: end; gap: 10px; }
+.discover-section-heading > div { flex: 1; }
+.discover-view-all { color: var(--muted); text-decoration: underline; text-underline-offset: 4px; background: transparent; font-size: 12px; }
+.discover-tone { width: 54px; height: 4px; border-radius: 99px; background: var(--accent); }
+.discover-tone.cyan { background: var(--cyan); }.discover-tone.gold { background: #e7c56c; }.discover-tone.rose { background: var(--rose); }.discover-tone.blue { background: #75a8ee; }.discover-tone.green { background: var(--success); }
+.discover-row { display: flex; gap: 14px; overflow-x: auto; padding: 2px 2px 12px; scroll-behavior: smooth; overscroll-behavior-x: contain; scrollbar-width: thin; scrollbar-color: rgba(164,149,255,.55) rgba(255,255,255,.04); }
+.discover-row::-webkit-scrollbar { height: 8px; }.discover-row::-webkit-scrollbar-track { background: rgba(255,255,255,.04); border-radius: 99px; }.discover-row::-webkit-scrollbar-thumb { background: rgba(164,149,255,.55); border-radius: 99px; }.discover-row::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+.discover-card { flex: 0 0 174px; text-align: left; background: transparent; padding: 0; }
+.discover-card-art { height: 238px; display: grid; place-items: center; overflow: hidden; border-radius: 14px; background: linear-gradient(145deg, #33275c, #163846); border: 1px solid var(--line-soft); }
+.discover-card-art img { width: 100%; height: 100%; object-fit: cover; transition: transform .3s; }
+.discover-card:hover .discover-card-art img { transform: scale(1.06); }
+.discover-card-copy { padding: 10px 3px; }.discover-card-copy span { color: #e7c56c; font-size: 12px; display: flex; align-items: center; gap: 4px; }
+.discover-detail { display: flex; gap: 24px; padding: 20px; position: relative; overflow: hidden; }
+.discover-detail-art { flex: 0 0 190px; height: 260px; border-radius: 12px; overflow: hidden; background: var(--panel-strong); }.discover-detail-art img { width: 100%; height: 100%; object-fit: cover; }
+.discover-detail-copy { display: grid; align-content: center; gap: 10px; max-width: 700px; }.discover-detail-copy h2 { margin: 0; font-size: 30px; }.discover-detail-copy p:not(.eyebrow) { color: var(--muted); line-height: 1.6; }
+.discover-meta, .discover-tags { display: flex; gap: 14px; flex-wrap: wrap; }.discover-meta span { display: flex; align-items: center; gap: 5px; color: var(--muted); font-size: 12px; }.discover-tags span { padding: 5px 9px; border-radius: 99px; background: rgba(164,149,255,.12); color: #c9c0ff; font-size: 11px; }
+.discover-close { position: absolute; right: 12px; top: 12px; border-radius: 8px; background: rgba(0,0,0,.25); padding: 6px; }.discover-empty, .discover-loading { text-align: center; padding: 70px 20px; color: var(--muted); }.discover-empty h2 { color: var(--text); }.discover-error { color: #ffafc8; background: rgba(240,138,181,.1); padding: 10px 14px; border-radius: 10px; }
+.discover-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(174px, 1fr)); gap: 22px 14px; }
+.discover-detail-loading { min-height: 55vh; display: grid; place-content: center; justify-items: center; gap: 12px; color: var(--muted); }
+.discover-game-page { display: grid; gap: 20px; }
+@media (max-width: 650px) { .discover-search-row { flex-direction: column; }.discover-detail { flex-direction: column; }.discover-detail-art { flex-basis: 240px; }.discover-card { flex-basis: 150px; }.discover-card-art { height: 205px; } }

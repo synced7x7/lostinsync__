@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { Camera, PenLine, Sparkles } from "lucide-react";
-import type { AppData } from "../domain/game";
+import { Camera, Check, PenLine, Plus, Search, Sparkles, Trash2 } from "lucide-react";
+import { igdbSearch, type IgdbHit } from "../data/igdb";
+import type { AppData, Collection } from "../domain/game";
 import "./overview.css";
 
 export function ProfileSection({ data, update }: { data: AppData; update: (data: AppData) => void }) {
@@ -51,6 +52,7 @@ export function ProfileSection({ data, update }: { data: AppData; update: (data:
   };
 
   return (
+    <>
     <section className="profile-banner glass">
       <button
         className="profile-edit button soft"
@@ -91,5 +93,36 @@ export function ProfileSection({ data, update }: { data: AppData; update: (data:
       </div>
       <div className="profile-count"><strong>{data.games.length}</strong><span>games collected</span></div>
     </section>
+    <Collections data={data} update={update} />
+    </>
   );
+}
+
+function Collections({ data, update }: { data: AppData; update: (data: AppData) => void }) {
+  const [name, setName] = useState("");
+  const [activeId, setActiveId] = useState<string>();
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<IgdbHit[]>([]);
+  const [error, setError] = useState("");
+  const collections = data.collections ?? [];
+  const active = collections.find((collection) => collection.id === activeId) ?? collections[0];
+  const create = () => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    const collection: Collection = { id: crypto.randomUUID(), name: trimmed, items: [] };
+    update({ ...data, collections: [...collections, collection] });
+    setName("");
+    setActiveId(collection.id);
+  };
+  const search = async () => {
+    if (!query.trim() || !data.settings.igdbClientId || !data.settings.igdbClientSecret) return;
+    try { setError(""); setResults(await igdbSearch(query, { clientId: data.settings.igdbClientId, clientSecret: data.settings.igdbClientSecret })); }
+    catch (reason) { setError(reason instanceof Error ? reason.message : "Could not search IGDB."); }
+  };
+  const add = (game: IgdbHit) => {
+    if (!active || active.items.some((item) => item.igdbId === game.id)) return;
+    update({ ...data, collections: collections.map((collection) => collection.id === active.id ? { ...collection, items: [...collection.items, { igdbId: game.id, name: game.name, cover: game.cover }] } : collection) });
+  };
+  const remove = (id: number) => active && update({ ...data, collections: collections.map((collection) => collection.id === active.id ? { ...collection, items: collection.items.filter((item) => item.igdbId !== id) } : collection) });
+  return <section className="collections-panel glass"><div className="collections-heading"><div><p className="eyebrow">PERSONAL CURATION</p><h2>Collections</h2><p className="muted">Build lists from the full IGDB catalog, even when a game is not in your library.</p></div><div className="collection-create"><input value={name} onChange={(event) => setName(event.target.value)} onKeyDown={(event) => event.key === "Enter" && create()} placeholder="New collection" /><button className="button soft" onClick={create}><Plus size={15} /> Create</button></div></div>{collections.length > 0 && <div className="collection-tabs">{collections.map((collection) => <button key={collection.id} className={collection.id === active?.id ? "active" : ""} onClick={() => setActiveId(collection.id)}>{collection.name}<span>{collection.items.length}</span></button>)}</div>}{active && <><div className="collection-search"><input value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => event.key === "Enter" && void search()} placeholder='Search IGDB to add a game...' /><button className="button soft" onClick={() => void search()}><Search size={15} /> Search</button></div>{error && <p className="date-error">{error}</p>}{results.length > 0 && <div className="collection-results">{results.map((game) => <button key={game.id} onClick={() => add(game)}><img src={game.cover} alt="" /><span><strong>{game.name}</strong><small>{game.developer ?? "Unknown developer"}</small></span><Check size={15} /></button>)}</div>}<div className="collection-items">{active.items.map((item) => <div key={item.igdbId}><img src={item.cover} alt="" /><span>{item.name}</span><button onClick={() => remove(item.igdbId)} aria-label={`Remove ${item.name}`}><Trash2 size={14} /></button></div>)}</div></>}</section>;
 }

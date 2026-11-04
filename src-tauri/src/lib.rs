@@ -164,6 +164,26 @@ struct IgdbGame {
     game_type: Option<String>,
     game_status: Option<String>,
     franchises: Vec<String>,
+    themes: Vec<String>,
+    player_perspectives: Vec<String>,
+    storyline: Option<String>,
+    similar_games: Vec<Value>,
+}
+
+fn discover_query(fields: &str, where_clause: &str, sort: &str) -> String {
+    format!("fields {fields}; where {where_clause}; sort {sort}; limit 20;")
+}
+
+fn discover_games(rows: &Value) -> Vec<Value> {
+    rows.as_array().cloned().unwrap_or_default()
+}
+
+fn discover_item(g: &Value) -> Value {
+    json!({
+        "id": g["id"], "name": g["name"], "cover": g["cover"]["image_id"].as_str().map(|i| img(i, "cover_big")),
+        "releaseTs": g["first_release_date"], "rating": g["total_rating"], "ratingCount": g["total_rating_count"],
+        "hypes": g["hypes"], "follows": g["follows"], "summary": g["summary"]
+    })
 }
 
 fn img(id: &str, size: &str) -> String {
@@ -343,7 +363,7 @@ async fn igdb_details(
     client_secret: String
 ) -> Result<IgdbGame, String> {
     let body = format!(
-        "fields name,summary,first_release_date,game_type.type,game_status.status,franchises.name,genres.name,platforms.name,total_rating,total_rating_count,cover.image_id,screenshots.image_id,videos.video_id,videos.name,involved_companies.developer,involved_companies.company.name; where id = {id};"
+        "fields name,summary,storyline,first_release_date,game_type.type,game_status.status,franchises.name,genres.name,themes.name,player_perspectives.name,platforms.name,total_rating,total_rating_count,cover.image_id,screenshots.image_id,videos.video_id,videos.name,similar_games.name,similar_games.cover.image_id,involved_companies.developer,involved_companies.company.name; where id = {id};"
     );
     let rows = igdb_post(&auth, "games", body, &client_id, &client_secret).await?;
     let g = rows.get(0).ok_or("Game not found on IGDB.")?;
@@ -414,6 +434,13 @@ async fn igdb_details(
         game_type: g["game_type"]["type"].as_str().map(String::from),
         game_status: g["game_status"]["status"].as_str().map(String::from),
         franchises: names(&g["franchises"]),
+        themes: names(&g["themes"]),
+        player_perspectives: names(&g["player_perspectives"]),
+        storyline: g["storyline"].as_str().map(String::from),
+        similar_games: g["similar_games"].as_array().cloned().unwrap_or_default().into_iter().map(|game| json!({
+            "id": game["id"], "name": game["name"],
+            "cover": game["cover"]["image_id"].as_str().map(|i| img(i, "cover_small"))
+        })).collect(),
     })
 }
 
@@ -435,6 +462,7 @@ async fn igdb_images(
         if let Some(name) = image_type["name"].as_str() {
             return Some(name.to_string());
         }
+
         let type_id = image_type.as_i64()?;
         image_types
             .as_array()?
@@ -476,6 +504,87 @@ async fn igdb_images(
         }
     }
     Ok(Value::Array(images))
+}
+
+#[tauri::command]
+async fn igdb_discover(
+    auth: tauri::State<'_, IgdbAuth>,
+    preferred_genres: Vec<String>,
+    client_id: String,
+    client_secret: String
+) -> Result<Value, String> {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_err(|error| error.to_string())?
+        .as_secs() as i64;
+    let fields = "name,summary,first_release_date,rating,rating_count,total_rating,total_rating_count,hypes,follows,cover.image_id";
+    let genre_filter = preferred_genres.iter().take(3).filter_map(|genre| {
+        let value = genre.trim().replace('\\', "\\\\").replace('"', "\\\"");
+        (!value.is_empty()).then(|| format!("genres.name = \"{value}\""))
+    }).collect::<Vec<_>>().join(" | ");
+    let for_you_where = if genre_filter.is_empty() {
+        "rating != null & rating_count > 25".to_string()
+    } else {
+        format!("({genre_filter}) & rating != null")
+    };
+    let queries = [
+        ("popular", discover_query(fields, "total_rating_count != null", "total_rating_count desc")),
+        ("forYou", discover_query(fields, &for_you_where, "total_rating desc")),
+        ("latest", discover_query(fields, &format!("first_release_date <= {now}"), "first_release_date desc")),
+        ("upcoming", discover_query(fields, &format!("first_release_date > {now}"), "first_release_date asc")),
+        ("topRated", discover_query(fields, "total_rating != null & total_rating_count > 100", "total_rating desc")),
+        ("anticipated", discover_query(fields, &format!("first_release_date > {now} & hypes != null"), "hypes desc")),
+        ("hiddenGems", discover_query(fields, "total_rating != null & total_rating_count > 10 & total_rating_count < 500", "total_rating desc")),
+        ("indie", discover_query(fields, "involved_companies.company != null & genres != null", "total_rating desc")),
+        ("story", discover_query(fields, "storyline != null & themes != null", "total_rating desc")),
+    ];
+    let mut result = serde_json::Map::new();
+    for (name, query) in queries {
+        let rows = igdb_post(&auth, "games", query, &client_id, &client_secret).await?;
+        result.insert(name.to_string(), Value::Array(discover_games(&rows).iter().map(discover_item).collect()));
+    }
+
+    Ok(Value::Object(result))
+}
+
+#[tauri::command]
+async fn igdb_discover_feed(
+    auth: tauri::State<'_, IgdbAuth>,
+    feed: String,
+    preferred_genres: Vec<String>,
+    offset: i64,
+    limit: i64,
+    client_id: String,
+    client_secret: String
+) -> Result<Value, String> {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_err(|error| error.to_string())?
+        .as_secs() as i64;
+    let genres = preferred_genres.iter().take(3).filter_map(|genre| {
+        let value = genre.trim().replace('\\', "\\\\").replace('"', "\\\"");
+        (!value.is_empty()).then(|| format!("genres.name = \"{value}\""))
+    }).collect::<Vec<_>>().join(" | ");
+    let for_you = if genres.is_empty() { "total_rating != null".to_string() } else { format!("({genres}) & total_rating != null") };
+    let (where_clause, sort): (String, &str) = match feed.as_str() {
+        "popular" => ("total_rating_count != null".into(), "total_rating_count desc"),
+        "forYou" => (for_you, "total_rating desc"),
+        "latest" => (format!("first_release_date <= {now}"), "first_release_date desc"),
+        "upcoming" => (format!("first_release_date > {now}"), "first_release_date asc"),
+        "topRated" => ("total_rating != null & total_rating_count > 100".into(), "total_rating desc"),
+        "anticipated" => (format!("first_release_date > {now} & hypes != null"), "hypes desc"),
+        "hiddenGems" => ("total_rating != null & total_rating_count > 10 & total_rating_count < 500".into(), "total_rating desc"),
+        "indie" => ("involved_companies.company != null & genres != null".into(), "total_rating desc"),
+        "story" => ("storyline != null & themes != null".into(), "total_rating desc"),
+        _ => return Err("Unknown discovery feed.".into()),
+    };
+    let safe_offset = offset.clamp(0, 90);
+    let safe_limit = limit.clamp(1, 30);
+    let body = format!(
+        "fields name,summary,first_release_date,total_rating,total_rating_count,hypes,follows,cover.image_id; where {where_clause}; sort {sort}; limit {safe_limit}; offset {safe_offset};"
+    );
+    let rows = igdb_post(&auth, "games", body, &client_id, &client_secret).await?;
+    Ok(Value::Array(discover_games(&rows).iter().map(discover_item).collect()))
 }
 
 fn idlist(v: &[i64]) -> String {
@@ -639,7 +748,9 @@ pub fn run() {
                 igdb_search,
                 igdb_details,
                 igdb_images,
-                igdb_series
+                igdb_series,
+                igdb_discover,
+                igdb_discover_feed
             ]
         )
         .run(tauri::generate_context!())

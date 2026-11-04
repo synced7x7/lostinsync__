@@ -2,7 +2,7 @@ import type { IgdbDebugImage } from "../data/igdb";
 
 export const STATUSES = ["Backlog", "Wishlist", "Playing", "Completed", "Retired", "Shelved", "Abandoned", "On hold"] as const;
 export type Status = typeof STATUSES[number];
-export type View = "dashboard" | "library" | "details" | "journey" | "trophies" | "settings";
+export type View = "dashboard" | "library" | "discover" | "details" | "journey" | "trophies" | "settings";
 export type Game = {
   id: string; title: string; platform: string; genre: string; tags: string[];
   status: Status; notes: string; rating?: number; mastery?: number; favorite: boolean;
@@ -38,7 +38,9 @@ export type AppSettings = {
   igdbClientId?: string;
   igdbClientSecret?: string;
 };
-export type AppData = { games: Game[]; profile: Profile; settings: AppSettings };
+export type CollectionItem = { igdbId: number; name: string; cover?: string };
+export type Collection = { id: string; name: string; items: CollectionItem[] };
+export type AppData = { games: Game[]; profile: Profile; settings: AppSettings; collections?: Collection[] };
 export function validateGame(title: string): string | null {
   if (title.trim().length < 2) return "Enter a game title with at least two characters.";
   return null;
@@ -51,6 +53,7 @@ export function formatPlaytime(seconds: number): string | null {
 }
 export const defaultData: AppData = {
   games: [],
+  collections: [],
   profile: { displayName: "Player One", bio: "Building a life in games.", accent: "#9b8cff" },
   settings: {
     theme: "aurora",
