@@ -5,8 +5,8 @@
 .tr-bg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; user-select: none }
 
 .tr-slot { position: absolute; transform: translate(-50%, -50%); aspect-ratio: 1; padding: 0; border: 0; border-radius: 50%; background: transparent; cursor: pointer }
-.tr-slot img { width: 100%; height: 100%; object-fit: contain; display: block; transition: transform .25s; transform: scale(var(--z, 1)) }
-.tr-slot.on:hover img { transform: scale(calc(var(--z, 1) * 1.05)) }
+.tr-slot img { width: 100%; height: 100%; object-fit: fill; display: block; transition: transform .25s; transform: scale(var(--z, 1)) }
+.tr-slot.on:hover img { transform: scale(calc(var(--z, 1) * 1.02)) }
 .tr-slot.off:hover { box-shadow: inset 0 0 0 1px rgba(164, 149, 255, .3) }
 
 /* ===================== TWEAK GLOW HERE (drop-shadow follows the badge's own edges) ===================== */
@@ -61,5 +61,21 @@
 .tr-dev-row { display: flex; justify-content: space-between; width: 100%; margin-top: 3px; text-align: left }
 .tr-dev-row.on { background: rgba(103, 216, 230, .18) !important }
 .tr-dev-row em { font-style: normal; opacity: .8 }
+
+/* ===================== PAGE TITLE (move with top / left) ===================== */
+.tr-title { position: absolute; top: 26px; left: clamp(76px, 6vw, 130px); z-index: 3; pointer-events: none; animation: trTitleIn .6s ease both }
+.tr-title small { display: block; font-size: 10px; letter-spacing: .32em; color: rgba(var(--tg), .85); text-shadow: 0 0 10px rgba(var(--tg), .7) }
+.tr-title h1 {
+    margin: 6px 0 0;
+    font-family: "Cinzel", "Trajan Pro", Georgia, serif;
+    font-size: clamp(22px, 2.6vw, 40px);
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--t);
+    text-shadow: 0 0 14px rgba(var(--tg), .85), 0 0 34px rgba(var(--tg), .5), 0 2px 4px #000
+}
+.tr-title h1::after { content: ""; display: block; height: 1px; margin-top: 10px; background: linear-gradient(90deg, rgba(var(--tg), .9), transparent) }
+@keyframes trTitleIn { from { opacity: 0; transform: translateY(-8px) } to { opacity: 1; transform: none } }
 
 @media (max-width: 750px) { .tr-panel { left: 10px; right: 10px; width: auto; bottom: 56px } }
