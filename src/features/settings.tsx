@@ -23,7 +23,7 @@ export function SettingsView({ data, update }: { data: AppData; update: (data: A
         </section>
         <section className="glass settings-panel">
           <p className="eyebrow">LOCAL SQLITE STORAGE</p><h2>Your data stays yours</h2>
-          <p className="muted">SQLite database: C:\Users\&lt;Username&gt;\AppData\Roaming\com.lostinsync.desktop\lost-in-sync.sqlite</p><p className="muted">Exported backup is stored in download section</p>
+          <p className="muted">SQLite database: C:\Users\&lt;Username&gt;\AppData\Roaming\com.lostinsync.desktop\lost-in-sync.sqlite</p><p className="muted">Exported backup: C:\Users\&lt;Username&gt;\Downloads</p>
           <div className="detail-actions">
             <button className="button soft" onClick={() => { const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }); const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `lost-in-sync-backup-${new Date().toISOString().slice(0, 10)}.json`; link.click(); URL.revokeObjectURL(link.href); }}><BookOpen size={15} /> Export backup</button>
             <label className="button soft">Import backup<input type="file" accept="application/json" hidden onChange={(event) => { const file = event.target.files?.[0]; if (!file) return; void file.text().then((text) => { try { update(JSON.parse(text) as AppData); } catch { window.alert("That backup file is not valid Lost in Sync data."); } }); }} /></label>

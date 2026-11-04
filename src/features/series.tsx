@@ -10,7 +10,7 @@ type T = {
     roots: number[];
 };
 
-function Node({ id, t, current, depth = 0 }: { id: number; t: T; current: number; depth?: number }) {
+function Node({ id, t, current, depth = 0, onOpenGame }: { id: number; t: T; current: number; depth?: number; onOpenGame?: (id: number) => void }) {
     const c = t.cols.get(id);
     if (!c || depth > 5) return null;
     const games = (c.games ?? [])
@@ -21,10 +21,22 @@ function Node({ id, t, current, depth = 0 }: { id: number; t: T; current: number
         <li>
             <div className="tree-col"><Layers size={14} />{c.name}<small>{games.length} games</small></div>
             <ul>
-                {(t.kids.get(id) ?? []).map((s) => <Node key={s} id={s} t={t} current={current} depth={depth + 1} />)}
+                {(t.kids.get(id) ?? []).map((s) => <Node key={s} id={s} t={t} current={current} depth={depth + 1} onOpenGame={onOpenGame} />)}
                 {games.map((g) => (
                     <li key={g.id}>
-                        <div className={`tree-game${g.id === current ? " me" : ""}`}>
+                        <div
+                            className={`tree-game${g.id === current ? " me" : ""}${g.id !== current ? " navigable" : ""}`}
+                            onClick={() => g.id !== current && onOpenGame?.(g.id)}
+                            onKeyDown={(event) => {
+                                if (g.id !== current && (event.key === "Enter" || event.key === " ")) {
+                                    event.preventDefault();
+                                    onOpenGame?.(g.id);
+                                }
+                            }}
+                            role={g.id === current ? undefined : "button"}
+                            tabIndex={g.id === current ? undefined : 0}
+                            title={g.id === current ? "Current game" : "Open this game"}
+                        >
                             <i style={g.cover ? { backgroundImage: `url(${g.cover})` } : undefined} />
                             <span>{g.name}</span>
                             <small>{g.releaseTs ? new Date(g.releaseTs * 1000).getUTCFullYear() : "TBA"}</small>
@@ -37,7 +49,7 @@ function Node({ id, t, current, depth = 0 }: { id: number; t: T; current: number
     );
 }
 
-function SeriesModal({ igdbId, creds, onClose }: { igdbId: number; creds: IgdbCreds; onClose: () => void }) {
+function SeriesModal({ igdbId, creds, onClose, onOpenGame }: { igdbId: number; creds: IgdbCreds; onClose: () => void; onOpenGame?: (id: number) => void }) {
     const [data, setData] = useState<SeriesData>();
     const [err, setErr] = useState("");
     useEffect(() => {
@@ -67,7 +79,7 @@ function SeriesModal({ igdbId, creds, onClose }: { igdbId: number; creds: IgdbCr
                 {err && <p className="error">{err}</p>}
                 {t && t.roots.length === 0 && <p className="muted">IGDB has no series for this game.</p>}
                 {t && t.roots.length > 0 && (
-                    <ul className="tree">{t.roots.map((r) => <Node key={r} id={r} t={t} current={igdbId} />)}</ul>
+                    <ul className="tree">{t.roots.map((r) => <Node key={r} id={r} t={t} current={igdbId} onOpenGame={onOpenGame} />)}</ul>
                 )}
             </div>
         </div>,
@@ -75,7 +87,7 @@ function SeriesModal({ igdbId, creds, onClose }: { igdbId: number; creds: IgdbCr
     );
 }
 
-export function SeriesButton({ igdbId, creds }: { igdbId: number; creds: IgdbCreds }) {
+export function SeriesButton({ igdbId, creds, onOpenGame }: { igdbId: number; creds: IgdbCreds; onOpenGame?: (id: number) => void }) {
     const [open, setOpen] = useState(false);
     return (
         <>
@@ -83,7 +95,7 @@ export function SeriesButton({ igdbId, creds }: { igdbId: number; creds: IgdbCre
                 <GitBranch size={15} />
                 <span>Series</span>
             </button>
-            {open && <SeriesModal igdbId={igdbId} creds={creds} onClose={() => setOpen(false)} />}
+            {open && <SeriesModal igdbId={igdbId} creds={creds} onClose={() => setOpen(false)} onOpenGame={(id) => { setOpen(false); onOpenGame?.(id); }} />}
         </>
     );
 }

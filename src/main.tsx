@@ -256,7 +256,7 @@ function App() {
         />
       )}{" "}
       {view === "details" && !routeDiscoverId && selected && (
-        <Details game={selected} saveGame={saveGame} deleteGame={deleteGame} goBack={() => setView("library")} igdb={{ clientId: data.settings.igdbClientId ?? "", clientSecret: data.settings.igdbClientSecret ?? "" }} />
+        <Details game={selected} saveGame={saveGame} deleteGame={deleteGame} goBack={() => setView("library")} onOpenGame={(id) => navigate(`/details?igdb=${id}`)} igdb={{ clientId: data.settings.igdbClientId ?? "", clientSecret: data.settings.igdbClientSecret ?? "" }} />
       )}{" "}
       {view === "settings" && <SettingsView data={data} update={update} />}{" "}
     </AppLayout>
@@ -717,12 +717,13 @@ function GridCard({
 
 
 function Details({
-  game, saveGame, deleteGame, goBack, igdb,
+  game, saveGame, deleteGame, goBack, onOpenGame, igdb,
 }: {
   game: Game;
   saveGame: (game: Game) => void;
   deleteGame: (game: Game) => void;
   goBack: () => void;
+  onOpenGame: (id: number) => void;
   igdb: { clientId: string; clientSecret: string };
 }) {
   const [editing, setEditing] = useState(false);
@@ -752,7 +753,7 @@ function Details({
     <>
       <button className="back-button" onClick={goBack}>← Back to library</button>
       <div className="detail-hero glass" style={game.backgroundCover ? { backgroundImage: `linear-gradient(90deg, rgba(10,9,22,.95) 0%, rgba(12,13,27,.82) 48%, rgba(10,13,23,.68) 100%), url(${game.backgroundCover})` } : undefined}>
-        {game.igdbId && <SeriesButton igdbId={game.igdbId} creds={igdb} />}
+        {game.igdbId && <SeriesButton igdbId={game.igdbId} creds={igdb} onOpenGame={onOpenGame} />}
         <div className="hero-tab">
           <button title="Edit game" onClick={() => setEditing(true)}><PenLine size={16} /><span>Edit</span></button>
           <button title={game.favorite ? "Unfavorite" : "Favorite"} className={game.favorite ? "fav on" : "fav"} onClick={() => saveGame({ ...game, favorite: !game.favorite })}>
@@ -888,7 +889,7 @@ function Details({
           <div style={{ marginTop: 12 }}><MasteryProgress value={game.mastery} readOnly /></div>
         </section>
       </div>
-      <MediaSection game={game} save={saveGame} igdbMedia={{ images: game.igdbImages ?? [], videos: game.igdbVideos ?? [] }} />
+      <MediaSection game={game} save={saveGame} igdbMedia={{ images: game.igdbImages ?? [], videos: game.igdbVideos ?? [] }} series={game.igdbId ? { igdbId: game.igdbId, creds: igdb } : undefined} onOpenGame={onOpenGame} />
 
       <section className="glass note-card" onClick={() => setEditing(true)} title="Edit note">
         <Notebook size={15} />

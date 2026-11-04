@@ -716,7 +716,7 @@ async fn igdb_series(
                 "id": r["id"],
                 "name": r["name"],
                 "releaseTs": r["first_release_date"],
-                "cover": r["cover"]["image_id"].as_str().map(|i| img(i, "cover_small")),
+                "cover": r["cover"]["image_id"].as_str().map(|i| img(i, "cover_big")),
             })
             );
         }

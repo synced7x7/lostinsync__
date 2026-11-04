@@ -3,6 +3,8 @@ import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, ImagePlus, Link2, Play, Trash2, X } from "lucide-react";
 import type { Game } from "../domain/game";
 import type { IgdbDebugImage } from "../data/igdb";
+import { SeriesButton } from "./series";
+import type { IgdbCreds } from "../data/igdb";
 
 export const ytId = (raw: string) => {
   const s = raw.trim();
@@ -41,7 +43,7 @@ const toDataUrl = (file: File) =>
     r.readAsDataURL(file);
   });
 
-export function MediaSection({ game, save, igdbMedia, igdbLoading, igdbError }: { game: Game; save: (g: Game) => void; igdbMedia?: { images: IgdbDebugImage[]; videos: { id: string; name?: string }[] }; igdbLoading?: boolean; igdbError?: string }) {
+export function MediaSection({ game, save, igdbMedia, igdbLoading, igdbError, series, onOpenGame }: { game: Game; save: (g: Game) => void; igdbMedia?: { images: IgdbDebugImage[]; videos: { id: string; name?: string }[] }; igdbLoading?: boolean; igdbError?: string; series?: { igdbId: number; creds: IgdbCreds }; onOpenGame?: (id: number) => void }) {
   const savedShots = game.screenshots ?? [];
   const savedVids = game.videos ?? [];
   const igdbScreenshots = (igdbMedia?.images ?? []).filter((image) => image.category === "screenshot");
@@ -97,6 +99,7 @@ export function MediaSection({ game, save, igdbMedia, igdbLoading, igdbError }: 
     <section className="glass detail-panel media-panel">
       <div className="about-head">
         <div><p className="eyebrow">GALLERY</p><h2>Trailer &amp; screenshots</h2></div>
+        {series && <SeriesButton igdbId={series.igdbId} creds={series.creds} onOpenGame={onOpenGame} />}
         <div className="media-actions">
           <button className="text-button" disabled={vids.length >= MAX_VIDEOS} title={vids.length >= MAX_VIDEOS ? "Limit reached: remove one first" : undefined} onClick={() => setAdding(!adding)}><Link2 size={14} /> Add trailer</button>
           <button className="text-button" onClick={() => fileRef.current?.click()}><ImagePlus size={14} /> Add screenshots</button>
