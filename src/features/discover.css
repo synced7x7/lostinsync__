@@ -16,7 +16,7 @@
 .discover-view-all { color: var(--muted); text-decoration: underline; text-underline-offset: 4px; background: transparent; font-size: 12px; }
 .discover-tone { width: 54px; height: 4px; border-radius: 99px; background: var(--accent); }
 .discover-tone.cyan { background: var(--cyan); }.discover-tone.gold { background: #e7c56c; }.discover-tone.rose { background: var(--rose); }.discover-tone.blue { background: #75a8ee; }.discover-tone.green { background: var(--success); }
-.discover-row { display: flex; gap: 14px; overflow-x: auto; padding: 2px 2px 12px; scroll-behavior: smooth; overscroll-behavior-x: contain; scrollbar-width: thin; scrollbar-color: rgba(164,149,255,.55) rgba(255,255,255,.04); }
+.discover-row { display: flex; gap: 14px; overflow-x: auto; overflow-y: hidden; padding: 2px 2px 12px; scroll-behavior: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: rgba(164,149,255,.55) rgba(255,255,255,.04); }
 .discover-row::-webkit-scrollbar { height: 8px; }.discover-row::-webkit-scrollbar-track { background: rgba(255,255,255,.04); border-radius: 99px; }.discover-row::-webkit-scrollbar-thumb { background: rgba(164,149,255,.55); border-radius: 99px; }.discover-row::-webkit-scrollbar-thumb:hover { background: var(--accent); }
 .discover-card { flex: 0 0 174px; text-align: left; background: transparent; padding: 0; }
 .discover-card-art { height: 238px; display: grid; place-items: center; overflow: hidden; border-radius: 14px; background: linear-gradient(145deg, #33275c, #163846); border: 1px solid var(--line-soft); }
@@ -31,4 +31,12 @@
 .discover-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(174px, 1fr)); gap: 22px 14px; }
 .discover-detail-loading { min-height: 55vh; display: grid; place-content: center; justify-items: center; gap: 12px; color: var(--muted); }
 .discover-game-page { display: grid; gap: 20px; }
+.discover-detail-grid { grid-template-columns: minmax(0, 1fr); }
+.discover-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 6px; }
+.discover-actions .active { color: var(--rose); }.discover-actions .danger { color: #ffafc8; }
+.discover-media-panel { padding: 20px; display: grid; gap: 16px; }
+.discover-video-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.discover-video { padding: 10px 13px; border-radius: 9px; color: var(--text); background: rgba(164,149,255,.12); text-decoration: none; font-size: 12px; }
+.discover-shot-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
+.discover-shot-grid img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 9px; background: var(--panel-strong); }
 @media (max-width: 650px) { .discover-search-row { flex-direction: column; }.discover-detail { flex-direction: column; }.discover-detail-art { flex-basis: 240px; }.discover-card { flex-basis: 150px; }.discover-card-art { height: 205px; } }

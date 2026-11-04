@@ -120,3 +120,7 @@ the score on a 10-point scale. Each feed initially loads 20 cards, while its
 View all page loads batches of 30 on demand up to 100 cards. Detail responses
 also include themes, player perspectives, storyline, and similar games for
 contextual recommendations.
+
+Discover details use the same `igdb_images` request as the library media
+section for covers, artworks, and screenshots. Studio data uses the same
+`involved_companies.developer` and `involved_companies.company.name` fields.

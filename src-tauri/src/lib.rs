@@ -439,7 +439,7 @@ async fn igdb_details(
         storyline: g["storyline"].as_str().map(String::from),
         similar_games: g["similar_games"].as_array().cloned().unwrap_or_default().into_iter().map(|game| json!({
             "id": game["id"], "name": game["name"],
-            "cover": game["cover"]["image_id"].as_str().map(|i| img(i, "cover_small"))
+            "cover": game["cover"]["image_id"].as_str().map(|i| img(i, "cover_big"))
         })).collect(),
     })
 }

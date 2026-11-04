@@ -248,6 +248,11 @@ function App() {
           loading={discoverLoading}
           close={() => setView("discover")}
           openGame={(id) => navigate(`/details?igdb=${id}`)}
+          credentials={{ clientId: data.settings.igdbClientId ?? "", clientSecret: data.settings.igdbClientSecret ?? "" }}
+          savedGame={data.games.find((game) => game.igdbId === routeDiscoverId)}
+          onAdd={addGame}
+          onSave={saveGame}
+          onDelete={deleteGame}
         />
       )}{" "}
       {view === "details" && !routeDiscoverId && selected && (

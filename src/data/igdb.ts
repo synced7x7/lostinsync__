@@ -32,6 +32,8 @@ export type IgdbDiscover = {
 };
 
 export type IgdbFeed = keyof IgdbDiscover;
+const discoverCache = new Map<string, Promise<IgdbDiscover>>();
+const discoverFeedCache = new Map<string, Promise<IgdbDiscoverGame[]>>();
 
 export const hasTauri = "__TAURI_INTERNALS__" in globalThis;
 
@@ -57,17 +59,45 @@ export async function igdbImages(id: number, c: IgdbCreds) {
   const { invoke } = await import("@tauri-apps/api/core");
   return invoke<IgdbDebugImage[]>("igdb_images", { id, clientId: c.clientId, clientSecret: c.clientSecret });
 }
+const imagesCache = new Map<string, Promise<IgdbDebugImage[]>>();
+export function igdbImagesCached(id: number, c: IgdbCreds) {
+  const key = `${c.clientId}:${id}`;
+  const cached = imagesCache.get(key);
+  if (cached) return cached;
+  const request = igdbImages(id, c);
+  imagesCache.set(key, request);
+  request.catch(() => imagesCache.delete(key));
+  return request;
+}
 export async function igdbDiscover(preferredGenres: string[], c: IgdbCreds) {
   const { invoke } = await import("@tauri-apps/api/core");
   return invoke<IgdbDiscover>("igdb_discover", {
     preferredGenres, clientId: c.clientId, clientSecret: c.clientSecret,
   });
 }
+export function igdbDiscoverCached(preferredGenres: string[], c: IgdbCreds) {
+  const key = `${c.clientId}:${preferredGenres.join("|")}`;
+  const cached = discoverCache.get(key);
+  if (cached) return cached;
+  const request = igdbDiscover(preferredGenres, c);
+  discoverCache.set(key, request);
+  request.catch(() => discoverCache.delete(key));
+  return request;
+}
 export async function igdbDiscoverFeed(feed: IgdbFeed, preferredGenres: string[], offset: number, limit: number, c: IgdbCreds) {
   const { invoke } = await import("@tauri-apps/api/core");
   return invoke<IgdbDiscoverGame[]>("igdb_discover_feed", {
     feed, preferredGenres, offset, limit, clientId: c.clientId, clientSecret: c.clientSecret,
   });
+}
+export function igdbDiscoverFeedCached(feed: IgdbFeed, preferredGenres: string[], offset: number, limit: number, c: IgdbCreds) {
+  const key = `${c.clientId}:${feed}:${preferredGenres.join("|")}:${offset}:${limit}`;
+  const cached = discoverFeedCache.get(key);
+  if (cached) return cached;
+  const request = igdbDiscoverFeed(feed, preferredGenres, offset, limit, c);
+  discoverFeedCache.set(key, request);
+  request.catch(() => discoverFeedCache.delete(key));
+  return request;
 }
 
 
