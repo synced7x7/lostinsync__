@@ -20,48 +20,50 @@ const LIST = Object.entries(FILES).map(([p, url]) => {
 const artOf = (t: Tier) => (LIST.find((f) => f.name === norm(t.name)) ?? LIST.find((f) => f.num === t.num))?.url;
 
 // ===================== TWEAK EVERY BADGE HERE =====================
-// page = 0..3 (background index) | x / y = centre in % of the background image | w = badge width in % of image width
-type Pos = { x: number; y: number; w: number };
+// page = 0..3 (background) | x / y = centre in % of the background image
+// w = slot (click area) width in % of image width | z = zoom of the badge art inside its slot (1 = fit, 1.2 = 20% bigger)
+type Pos = { x: number; y: number; w: number; z: number };
 type Place = Pos & { page: number };
-const BASE: Pos[] = [
-  { x: 50, y: 30.3, w: 14.4 },
-  { x: 17.5, y: 68.5, w: 12.2 }, { x: 34.7, y: 68.5, w: 12 }, { x: 50.4, y: 68.5, w: 12.2 },
-  { x: 65.8, y: 68.5, w: 12 }, { x: 82.5, y: 68.5, w: 12.2 },
-];
-const P = (page: number, i: number): Place => ({ page, ...BASE[i] }); // starting point only; overwrite with literals, e.g. { page: 0, x: 51.2, y: 29.8, w: 15 }
 const PLACE: Record<string, Place> = {
   // ---- page 1 ----
-  devfav: P(0, 0),      // Developer's Choice (lostinsync__)
-  annual: P(0, 1),      // Annual Legends
-  retro: P(0, 2),       // Time Traveler (pre-2000)
-  "4.1": P(0, 3),       // Requiescat in Pace
-  "4.2": P(0, 4),       // Leave me alone
-  "4.3": P(0, 5),       // Biohazard
+  "4.8":    { page: 0, x: 50,   y: 30.3, w: 14.4, z: 1 }, // Pantheon of Worlds (lostinsync__)
+  "4.1":    { page: 0, x: 17.5, y: 68.5, w: 12.2, z: 1 }, // Requiescat in Pace
+  "4.2":    { page: 0, x: 34.7, y: 68.5, w: 12,   z: 1 }, // Leave me alone
+  "4.3":    { page: 0, x: 50.4, y: 68.5, w: 12.2, z: 1 }, // Biohazard
+  "4.4":    { page: 0, x: 65.8, y: 68.5, w: 12,   z: 1 }, // Symphony of the Night
+  "4.5":    { page: 0, x: 82.5, y: 68.5, w: 12.2, z: 1 }, // Blacklist #1
   // ---- page 2 ----
-  career: P(1, 0),      // Gaming Career (lostinsync__)
-  "4.4": P(1, 1),       // Symphony of the Night
-  "4.5": P(1, 2),       // Blacklist #1
-  "4.6": P(1, 3),       // The fallen leaves tell a story
-  genre: P(1, 4),       // Genre Master
-  hours: P(1, 5),       // One Game, One Obsession
+  devfav:   { page: 1, x: 50,   y: 30.3, w: 14.4, z: 1 }, // Synced X chain (lostinsync__)
+  "4.6":    { page: 1, x: 17.5, y: 68.5, w: 12.2, z: 1 }, // The fallen leaves tell a story
+  "4.7":    { page: 1, x: 34.7, y: 68.5, w: 12,   z: 1 }, // Consider it done
+  hours:    { page: 1, x: 50.4, y: 68.5, w: 12.2, z: 1 }, // Dedicated Soul chain
+  annual:   { page: 1, x: 65.7, y: 69.1, w: 16,   z: 1 }, // Gaming Phenomenon chain
+  retro:    { page: 1, x: 82.7, y: 69.1, w: 16, z: 1 }, // Keeper of History chain
   // ---- page 3 ----
-  "9.4": P(2, 0),       // GOTY Slayer (lostinsync__)
-  span: P(2, 1),        // Wandering Nomad
-  complete: P(2, 2),    // Completionist
-  "8.1": P(2, 3),       // Arcade Roots
-  "8.2": P(2, 4),       // Classic Era
-  "8.3": P(2, 5),       // 2000s Veteran
+  "9.4":    { page: 2, x: 50,   y: 30.3, w: 14.4, z: 1 }, // GOTY Slayer (lostinsync__)
+  "8.1":    { page: 2, x: 17.5, y: 68.5, w: 12.2, z: 1 }, // Arcade Roots
+  "8.2":    { page: 2, x: 34.7, y: 68.5, w: 12,   z: 1 }, // Classic Era
+  "8.3":    { page: 2, x: 50.4, y: 68.5, w: 12.2, z: 1 }, // 2000s Veteran
+  "8.4":    { page: 2, x: 65.8, y: 68.5, w: 12,   z: 1 }, // HD Generation
+  "8.5":    { page: 2, x: 82.5, y: 68.5, w: 12.2, z: 1 }, // Modern Era
   // ---- page 4 ----
-  final: P(3, 0),       // lostinsync__
-  "8.4": P(3, 1),       // HD Generation
-  "8.5": P(3, 2),       // Modern Era
-  "9.1": P(3, 3),       // Relic of the Ancients
-  "9.2": P(3, 4),       // Vanguard Rusher
-  "9.3": P(3, 5),       // Bleeding Edge
+  career:   { page: 3, x: 50,   y: 30.3, w: 14.4, z: 1 }, // Immortal chain (lostinsync__)
+  "5.1":    { page: 3, x: 17.5, y: 68.5, w: 12.2, z: 1 }, // Action Specialist
+  "5.2":    { page: 3, x: 34.7, y: 68.5, w: 12,   z: 1 }, // RPG Veteran
+  "5.3":    { page: 3, x: 50.4, y: 68.5, w: 12.2, z: 1 }, // Adventure Seeker
+  "5.4":    { page: 3, x: 65.8, y: 68.5, w: 12,   z: 1 }, // Strategy Master
+  "5.5":    { page: 3, x: 82.5, y: 68.5, w: 12.2, z: 1 }, // One-Man Army
+  // ---- page 5 ----
+  final:    { page: 4, x: 50,   y: 30.3, w: 14.4, z: 1 }, // Achievement Hunter chain (lostinsync__)
+  span:     { page: 4, x: 17.5, y: 68.5, w: 12.2, z: 1 }, // Wandering Nomad chain
+  complete: { page: 4, x: 34.7, y: 68.5, w: 12,   z: 1 }, // Completionist chain
+  "9.1":    { page: 4, x: 50.4, y: 68.5, w: 12.2, z: 1 }, // Relic of the Ancients
+  "9.2":    { page: 4, x: 65.8, y: 68.5, w: 12,   z: 1 }, // Vanguard Rusher
+  "9.3":    { page: 4, x: 82.5, y: 68.5, w: 12.2, z: 1 }, // Bleeding Edge
 };
 // ==================================================================
 
-const PAGES = 4;
+const PAGES = 5;
 const CHEAT_KEY = "lis.trophy.cheat";
 
 function Art({ tier }: { tier: Tier }) {
@@ -74,7 +76,7 @@ function BadgeSlot({ s, pos, onClick }: { s?: TrophyState; pos: Pos; onClick: ()
   return (
     <button
       className={`tr-slot ${s.top ? `on glow-${s.top.rarity}` : "off"}`}
-      style={{ left: `${pos.x}%`, top: `${pos.y}%`, width: `${pos.w}%` }}
+      style={{ left: `${pos.x}%`, top: `${pos.y}%`, width: `${pos.w}%`, "--z": pos.z } as CSSProperties}
       onClick={onClick}
       aria-label={s.top ? s.top.name : "Locked trophy"}
     >
@@ -167,7 +169,7 @@ export function TrophiesView({ data }: { data: AppData }) {
   return createPortal(
     <div className="tr-stage">
       <div className="tr-canvas">
-        <img className="tr-bg" src={BGS[page]} alt="" draggable={false} />
+        <img className="tr-bg" src={BGS[page] ?? BGS[page % BGS.length]} alt="" draggable={false} />
         {items.map((s) => <BadgeSlot key={s.trophy.id} s={s} pos={PLACE[s.trophy.id]} onClick={() => setSel(s.trophy.id)} />)}
       </div>
       <div className="tr-nav">

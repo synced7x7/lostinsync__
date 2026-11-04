@@ -5,12 +5,12 @@
 .tr-bg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; user-select: none }
 
 .tr-slot { position: absolute; transform: translate(-50%, -50%); aspect-ratio: 1; padding: 0; border: 0; border-radius: 50%; background: transparent; cursor: pointer }
-.tr-slot img { width: 100%; height: 100%; object-fit: contain; display: block; transition: transform .25s }
-.tr-slot.on:hover img { transform: scale(1.05) }
+.tr-slot img { width: 100%; height: 100%; object-fit: contain; display: block; transition: transform .25s; transform: scale(var(--z, 1)) }
+.tr-slot.on:hover img { transform: scale(calc(var(--z, 1) * 1.05)) }
 .tr-slot.off:hover { box-shadow: inset 0 0 0 1px rgba(164, 149, 255, .3) }
 
 /* ===================== TWEAK GLOW HERE (drop-shadow follows the badge's own edges) ===================== */
-.glow-common img { filter: none }
+/* .glow-common img { filter: none }
 .glow-uncommon img { filter: drop-shadow(0 0 5px rgba(90, 200, 120, .55)) }
 .glow-rare img { filter: drop-shadow(0 0 6px rgba(80, 150, 255, .9)) drop-shadow(0 0 16px rgba(80, 150, 255, .45)) }
 .glow-legendary img { filter: drop-shadow(0 0 7px rgba(255, 200, 80, .95)) drop-shadow(0 0 20px rgba(255, 190, 70, .65)) drop-shadow(0 0 38px rgba(255, 170, 40, .35)) }
@@ -23,7 +23,7 @@
 @keyframes trLis {
     0%, 100% { filter: drop-shadow(0 0 7px #d8b4fe) drop-shadow(0 0 20px #8b2fe0) drop-shadow(0 0 44px #3b0764) drop-shadow(0 0 70px rgba(0, 0, 0, .9)) }
     50% { filter: drop-shadow(0 0 10px #e9d5ff) drop-shadow(0 0 28px #a042ff) drop-shadow(0 0 58px #4c1d95) drop-shadow(0 0 90px rgba(0, 0, 0, .95)) }
-}
+} */
 /* ======================================================================================================== */
 
 .tr-nav { position: absolute; left:7%;  bottom: 20px; transform: translateX(-50%); z-index: 3; display: flex; align-items: center; gap: 10px }

@@ -132,7 +132,11 @@ const fran = (sec: number, row: number, name: string, at: number, label: string,
   tiers: [T(sec, row, name, "mythic", at, `Complete ${at} games from ${label}`)],
 });
 const byTitle = (re: RegExp) => (g: Game) => re.test(g.title) || (g.franchises ?? []).some((f) => re.test(f));
-const gc = (re: RegExp) => (c: Ctx) => c.done.filter((g) => genresOf(g).some((x) => re.test(x))).length;
+const genre = (row: number, name: string, label: string, re: RegExp): Trophy => ({
+  id: `5.${row}`, title: name, evo: false,
+  value: (c) => c.done.filter((g) => genresOf(g).some((x) => re.test(x))).length,
+  tiers: [T(5, row, name, "rare", 100, `Complete 100 ${label} games`)],
+});
 const solo = (sec: number, row: number, name: string, rarity: Rarity, at: number, desc: string, value: (c: Ctx) => number, bottom = false): Trophy =>
   ({ id: `${sec}.${row}`, title: name, evo: false, bottom, value, tiers: [T(sec, row, name, rarity, at, desc)] });
 
@@ -169,14 +173,15 @@ export const TROPHIES: Trophy[] = [
   fran(4, 4, "Symphony of the Night", 15, "Castlevania", byTitle(/castlevania/i)),
   fran(4, 5, "Blacklist #1", 7, "NFS", byTitle(/need for speed/i)),
   fran(4, 6, "The fallen leaves tell a story", 6, "FromSoftware", (g) => /from ?software/i.test(g.developer ?? "")),
-  {
-    id: "genre", title: "Genre Master", evo: true, value: () => 0, tiers: [
-      { ...T(5, 1, "Action Specialist", "rare", 100, "Complete 100 Action games"), val: gc(/action/i) },
-      { ...T(5, 2, "RPG Veteran", "rare", 100, "Complete 100 RPG games"), val: gc(/role|rpg/i) },
-      { ...T(5, 3, "Adventure Seeker", "rare", 100, "Complete 100 Adventure games"), val: gc(/adventure/i) },
-      { ...T(5, 4, "Strategy Master", "rare", 100, "Complete 100 Strategy games"), val: gc(/strategy/i) },
-      { ...T(5, 5, "One-Man Army", "rare", 100, "Complete 100 Shooter games"), val: gc(/shooter/i) }]
-  },
+  fran(4, 7, "Consider it done", 5, "Commandos", byTitle(/commandos/i)),
+  solo(4, 8, "Pantheon of Worlds", "lostinsync", 100, "Complete 100 different franchises",
+    (c) => new Set(c.done.flatMap((g) => g.franchises ?? []).map(norm)).size, true),
+
+  genre(1, "Action Specialist", "Action", /action/i),
+  genre(2, "RPG Veteran", "RPG", /role|rpg/i),
+  genre(3, "Adventure Seeker", "Adventure", /adventure/i),
+  genre(4, "Strategy Master", "Strategy", /strategy/i),
+  genre(5, "One-Man Army", "Shooter", /shooter/i),
   {
     id: "hours", title: "One Game, One Obsession", evo: true, value: (c) => Math.max(0, ...c.all.map((g) => g.totalSeconds / 3600)), tiers: [
       T(6, 1, "One Game, One Obsession", "rare", 100, "Accumulate 100 hours in one game"),
@@ -225,9 +230,16 @@ export const TROPHIES: Trophy[] = [
     (c) => c.done.filter((g) => { const d = gap(g); return d !== undefined && d >= 0 && d <= DAY; }).length),
   solo(9, 4, "GOTY Slayer", "lostinsync", GOTY.length, "Play all GOTY games",
     (c) => { const s = new Set(c.all.filter((g) => !["Backlog", "Wishlist"].includes(g.status)).map((g) => norm(g.title))); return GOTY.filter((n) => s.has(norm(n))).length; }, true),
-  solo(9, 5, "lostinsync__", "lostinsync", 0, "Complete all achievements", () => 0, true),
+  {
+    id: "final", title: "Achievement Hunter", evo: true, bottom: true, value: () => 0, tiers: [
+      T(9, 5, "Initiate of Light", "common", 10, "Complete 10% of all achievements"),
+      T(9, 6, "Keeper of Seals", "uncommon", 25, "Complete 25% of all achievements"),
+      T(9, 7, "Equinox Sovereign", "rare", 50, "Complete 50% of all achievements"),
+      T(9, 8, "Crown of Dominion", "legendary", 75, "Complete 75% of all achievements"),
+      T(9, 9, "Threshold of the Gods", "mythic", 90, "Complete 90% of all achievements"),
+      T(9, 10, "lostinsync__", "lostinsync", 100, "Complete all achievements")]
+  },
 ];
-TROPHIES[TROPHIES.length - 1].id = "final";
 
 export function evaluate(games: Game[], cheat: Override): TrophyState[] {
   const c: Ctx = { all: games, done: games.filter((g) => g.status === "Completed") };
@@ -237,7 +249,7 @@ export function evaluate(games: Game[], cheat: Override): TrophyState[] {
   const base = TROPHIES.filter((t) => t.id !== "final").map((t) => calc(t, t.value(c)));
   const tiers = base.flatMap((s) => s.tiers);
   const fin = TROPHIES.find((t) => t.id === "final")!;
-  const finalState = calc(fin, tiers.filter((t) => t.unlocked).length, [{ ...fin.tiers[0], at: tiers.length }]);
+  const finalState = calc(fin, (tiers.filter((t) => t.unlocked).length / tiers.length) * 100);
   return TROPHIES.map((t) => (t.id === "final" ? finalState : base.find((s) => s.trophy === t)!));
 }
 
