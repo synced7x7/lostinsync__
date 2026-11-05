@@ -3,10 +3,8 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter, useLocation, useNavigate } from "react-router-dom";
 import {
   BookOpen,
-  Check,
   ChevronLeft,
   ChevronRight,
-  Clock3,
   Filter,
   Gamepad2,
   Grid2X2,
@@ -585,7 +583,7 @@ function PS4ShelfView({
               transition={{ duration: 0.28, ease: "easeOut" }}
             >
               <span className="status">{featured.status}</span>
-              <h2 className="ps4-title">{featured.title}</h2>
+              <h2 className="ps4-title" title={featured.title}>{featured.title.length > 30 ? `${featured.title.slice(0, 30).trimEnd()}...` : featured.title}</h2>
               <p className="ps4-meta">{featured.platform}<span> · </span>{featured.genre || "Uncategorized"}<span> · </span>{formatDate(featured.releaseDate)}</p>
               <div className="ps4-actions">
                 {featured.rating && <span className="ps4-rating">{featured.rating}<small>/10</small></span>}
@@ -620,7 +618,7 @@ function PS4ShelfView({
                     : {}}
                 >
                   <div className="ps4-card-art" style={game.cover ? { backgroundImage: `url(${game.cover})` } : undefined}>
-                    {!game.cover && <Gamepad2 size={24} />}
+                    {!game.cover && <div className="grid-card-fallback"><Gamepad2 size={28} style={{marginTop: 8}} />  <span style={{fontSize: "12px"}}>{game.title}</span></div>}
                   </div>
                   {isFocused && <div className="ps4-card-focus-ring" />}
                 </motion.button>
@@ -778,6 +776,7 @@ function Details({
             {!game.gameType && !game.gameStatus && <span className="status">{game.status}</span>}
           </div>
           <h1>{game.title}</h1>
+
           {(game.developer || game.releaseDate) && (
             <div className="hero-meta">
               {(game.developer || game.releaseDate) && (
