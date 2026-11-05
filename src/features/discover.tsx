@@ -119,23 +119,54 @@ function DiscoverCard({ game, onDoubleClick }: { game: IgdbDiscoverGame; onDoubl
   return <button className="discover-card" onDoubleClick={onDoubleClick} title="Double-click to open details"><div className="discover-card-art">{game.cover ? <img src={game.cover} alt={game.name} /> : <Compass size={28} />}</div></button>;
 }
 
-export function DiscoverGameDetails({ game, loading, close, openGame, credentials, savedGame, data, update, onAdd, onSave, onDelete }: { game?: IgdbGame; loading: boolean; close: () => void; openGame: (id: number) => void; credentials: IgdbCreds; savedGame?: Game; data: AppData; update: (data: AppData) => void; onAdd: (game: Game) => void; onSave: (game: Game) => void; onDelete: (game: Game) => void }) {
-  const [editing, setEditing] = useState(false);
+type DetailsViewProps = {
+  game: Game; data: AppData; update: (data: AppData) => void; saveGame: (game: Game) => void; deleteGame: (game: Game) => void;
+  goBack: () => void; onOpenGame: (id: number) => void; igdb: IgdbCreds; backLabel?: string; extra?: React.ReactNode;
+};
+
+export function DiscoverGameDetails({ game, loading, close, openGame, credentials, savedGame, data, update, onAdd, onSave, onDelete, DetailsView }: { game?: IgdbGame; loading: boolean; close: () => void; openGame: (id: number) => void; credentials: IgdbCreds; savedGame?: Game; data: AppData; update: (data: AppData) => void; onAdd: (game: Game) => void; onSave: (game: Game) => void; onDelete: (game: Game) => void; DetailsView: React.ComponentType<DetailsViewProps> }) {
   const [images, setImages] = useState<IgdbDebugImage[]>([]);
-  const [imagesLoading, setImagesLoading] = useState(false);
   useEffect(() => {
     if (!game) return;
-    setImagesLoading(true);
-    void igdbImagesCached(game.id, credentials).then(setImages).finally(() => setImagesLoading(false));
+    void igdbImagesCached(game.id, credentials).then(setImages);
   }, [game?.id, credentials.clientId, credentials.clientSecret]);
-  if (loading || !game) return <div className="discover-detail-loading"><Compass size={30} /><span>Loading game description and details...</span></div>;
-  const draft = savedGame ?? draftFromIgdb(game);
-  return <div className="discover-game-page"><button className="back-button" onClick={close}><ChevronLeft size={16} /> Back to Discover</button><DiscoverHero game={game} savedGame={savedGame} credentials={credentials} onOpenGame={openGame} onEdit={() => setEditing(true)} onSave={onSave} onDelete={onDelete} /><CollectionActions data={data} update={update} game={draft} igdbId={game.id} cover={game.cover} /><div className="detail-grid discover-detail-grid"><section className="glass detail-panel"><div className="about-head"><div className="about-main"><p className="eyebrow">ABOUT</p><p className="about-desc open">{game.description ?? "No description is available for this game."}</p></div>{game.rating != null && <div className="score-box"><div className="rating-ring" style={{ "--p": game.rating, "--ring": game.rating >= 75 ? "var(--success)" : game.rating >= 50 ? "#f4c679" : "var(--rose)" } as React.CSSProperties}><strong>{(game.rating / 10).toFixed(1)}</strong></div><span className="score-title">IGDB SCORE</span><small>{game.ratingCount ? `Based on ${game.ratingCount.toLocaleString()} ratings` : "Community score"}</small></div>}</div><div className="plat-block">{[...game.genres, ...game.themes, ...game.playerPerspectives].length > 0 && <div><span className="plat-label">Genres &amp; themes</span><div className="igdb-chips">{[...game.genres, ...game.themes, ...game.playerPerspectives].map((tag) => <span className="pill" key={tag}>{tag}</span>)}</div></div>}</div><StarRating value={savedGame?.rating} readOnly size={16} /></section></div><MediaSection game={{ ...draft, screenshots: [] }} save={(next) => savedGame ? onSave(next) : undefined} igdbLoading={imagesLoading} igdbMedia={{ images, videos: game.videos.map((video) => ({ id: video.videoId, name: video.name })) }} />{game.similarGames.length > 0 && <section className="discover-section"><div className="discover-section-heading"><h2>Similar Games</h2></div><SimilarShelf games={game.similarGames} onOpen={openGame} /></section>}{editing && <AddGame initial={draft} igdb={credentials} onClose={() => setEditing(false)} onAdd={(next) => { savedGame ? onSave(next) : onAdd(next); setEditing(false); }} />}</div>;
+
+  const view = useMemo<Game | undefined>(() => {
+    if (!game) return undefined;
+    const base = savedGame ?? { ...draftFromIgdb(game), screenshots: [], videos: [] };
+    return {
+      ...base,
+      igdbImages: base.igdbImages?.length ? base.igdbImages : images,
+      igdbVideos: base.igdbVideos?.length ? base.igdbVideos : game.videos.map((v) => ({ id: v.videoId, name: v.name })),
+    };
+  }, [game, savedGame, images]);
+
+  if (loading || !game || !view) return <div className="discover-detail-loading"><Compass size={30} /><span>Loading game description and details...</span></div>;
+  const tags = [...game.themes, ...game.playerPerspectives];
+  return (
+    <DetailsView
+      game={view} data={data} update={update} igdb={credentials} onOpenGame={openGame}
+      goBack={close} backLabel="Back to Discover"
+      saveGame={(next) => (savedGame ? onSave(next) : onAdd(next))}
+      deleteGame={(g) => savedGame && onDelete(g)}
+      extra={<>
+        {tags.length > 0 && (
+          <section className="glass detail-panel">
+            <p className="eyebrow">THEMES &amp; PERSPECTIVES</p>
+            <div className="igdb-chips">{tags.map((t) => <span className="pill" key={t}>{t}</span>)}</div>
+          </section>
+        )}
+        {game.similarGames.length > 0 && (
+          <section className="discover-section">
+            <div className="discover-section-heading"><h2>Similar Games</h2></div>
+            <SimilarShelf games={game.similarGames} onOpen={openGame} />
+          </section>
+        )}
+      </>}
+    />
+  );
 }
 
-function DiscoverHero({ game, savedGame, credentials, onOpenGame, onEdit, onSave, onDelete }: { game: IgdbGame; savedGame?: Game; credentials: IgdbCreds; onOpenGame: (id: number) => void; onEdit: () => void; onSave: (game: Game) => void; onDelete: (game: Game) => void }) {
-  return <div className="detail-hero glass" style={game.background ? { backgroundImage: `linear-gradient(90deg, rgba(10,9,22,.95) 0%, rgba(12,13,27,.82) 48%, rgba(10,13,23,.68) 100%), url(${game.background})` } : undefined}><SeriesButton igdbId={game.id} creds={credentials} onOpenGame={onOpenGame} /><div className="hero-tab"><button title="Edit game" onClick={onEdit}><PenLine size={16} /><span>Edit</span></button><button title={savedGame?.favorite ? "Unfavorite" : "Favorite"} className={savedGame?.favorite ? "fav on" : "fav"} onClick={() => savedGame && onSave({ ...savedGame, favorite: !savedGame.favorite })}><Heart size={16} fill={savedGame?.favorite ? "currentColor" : "none"} /><span>Favorite</span></button>{savedGame && <button title="Delete game" className="del" onClick={() => onDelete(savedGame)}><Trash2 size={16} /><span>Delete</span></button>}</div><div className="detail-art" style={game.cover ? { backgroundImage: `url(${game.cover})` } : undefined} /><div className="detail-copy"><div className="hero-tags"><span className="status">{savedGame?.status ?? game.gameStatus ?? "IGDB"}</span></div><h1>{game.name}</h1><p>{game.platforms.join(", ")} · {game.genres.join(", ") || "Uncategorized"}</p><div className="hero-meta"><div className="hero-credit">{game.developer && <div className="credit-item"><Building2 size={14} /><div><small>Studio</small><strong>{game.developer}</strong></div></div>}<div className="credit-item"><CalendarDays size={14} /><div><small>Released</small><strong>{dateLabel(game.releaseTs)}</strong></div></div></div></div></div><div className="detail-stat"><span>IGDB score</span><strong>{game.rating != null ? `${(game.rating / 10).toFixed(1)}/10` : "—"}</strong><small>{game.ratingCount ? `${game.ratingCount.toLocaleString()} ratings` : "Not rated"}</small></div></div>;
-}
 
 function draftFromIgdb(game: IgdbGame): Game {
   return {

@@ -3382,7 +3382,7 @@ nav {
     display: flex;
     align-items: center;
     gap: 18px;
-    margin-top: 16px
+    margin-top: 11px
 }
 
 .credit-item {
@@ -3634,6 +3634,8 @@ html::-webkit-scrollbar {
 }
 
 
+
+
 /* ── Slim variant for modals, menus and panels ──── */
 .modal,
 .pf-menu,
@@ -3671,6 +3673,9 @@ textarea::-webkit-scrollbar-thumb {
 textarea::-webkit-scrollbar-thumb:hover {
     background: rgba(164, 149, 255, .75) padding-box
 }
+
+
+
 
 
 @media (max-width: 750px) {

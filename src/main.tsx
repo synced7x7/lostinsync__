@@ -255,6 +255,7 @@ function App() {
           onAdd={addGame}
           onSave={saveGame}
           onDelete={deleteGame}
+          DetailsView={Details}
         />
       )}{" "}
       {view === "details" && !routeDiscoverId && selected && (
@@ -452,7 +453,7 @@ const PS4_CARD_LIFTS: Record<number, number> = {
 const PS4_NEIGHBOR_HOVER_BOOST = 0.08;
 
 function PS4ShelfView({
-  games, featured, focusedGameId, onFocusedGameChange, openGame, saveGame,   fullscreen, keyboardEnabled = true,
+  games, featured, focusedGameId, onFocusedGameChange, openGame, saveGame, fullscreen, keyboardEnabled = true,
 }: {
   games: Game[];
   featured: Game | undefined;
@@ -719,7 +720,7 @@ function GridCard({
 
 
 function Details({
-  game, data, update, saveGame, deleteGame, goBack, onOpenGame, igdb,
+  game, data, update, saveGame, deleteGame, goBack, onOpenGame, igdb, backLabel, extra,
 }: {
   game: Game;
   data: AppData;
@@ -729,6 +730,8 @@ function Details({
   goBack: () => void;
   onOpenGame: (id: number) => void;
   igdb: { clientId: string; clientSecret: string };
+  backLabel?: string;
+  extra?: React.ReactNode;
 }) {
   const [editing, setEditing] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -755,8 +758,7 @@ function Details({
   const emulated = game.emulatedOn ?? [];
   return (
     <>
-      <button className="back-button" onClick={goBack}>← Back to library</button>
-      <div className="detail-hero glass" style={game.backgroundCover ? { backgroundImage: `linear-gradient(90deg, rgba(10,9,22,.95) 0%, rgba(12,13,27,.82) 48%, rgba(10,13,23,.68) 100%), url(${game.backgroundCover})` } : undefined}>
+      <button className="back-button" onClick={goBack}>← {backLabel ?? "Back to library"}</button>      <div className="detail-hero glass" style={game.backgroundCover ? { backgroundImage: `linear-gradient(90deg, rgba(10,9,22,.95) 0%, rgba(12,13,27,.82) 48%, rgba(10,13,23,.68) 100%), url(${game.backgroundCover})` } : undefined}>
         {game.igdbId && <SeriesButton igdbId={game.igdbId} creds={igdb} onOpenGame={onOpenGame} />}
         <div className="hero-tab">
           <button title="Edit game" onClick={() => setEditing(true)}><PenLine size={16} /><span>Edit</span></button>
@@ -764,8 +766,7 @@ function Details({
             <Heart size={16} fill={game.favorite ? "currentColor" : "none"} /><span>Favorite</span>
           </button>
           <button title="Delete game" className="del" onClick={() => deleteGame(game)}><Trash2 size={16} /><span>Delete</span></button>
-          <span className="collection-action" title="Collection actions" aria-label="Collection actions">{game.igdbId && <CollectionActions data={data} update={update} game={game} igdbId={game.igdbId} cover={game.cover} />}</span>
-        </div>
+          <CollectionActions data={data} update={update} game={game} igdbId={game.igdbId} cover={game.cover} />        </div>
         <div className="detail-art" style={game.cover ? { backgroundImage: `linear-gradient(145deg, rgba(68,51,113,.35), rgba(38,113,123,.35)), url(${game.cover})` } : undefined}>
           {!game.cover && <Gamepad2 size={60} />}
         </div>
@@ -777,7 +778,6 @@ function Details({
             {!game.gameType && !game.gameStatus && <span className="status">{game.status}</span>}
           </div>
           <h1>{game.title}</h1>
-          <p>{game.platform} · {game.genre || "Uncategorized"}</p>
           {(game.developer || game.releaseDate) && (
             <div className="hero-meta">
               {(game.developer || game.releaseDate) && (
