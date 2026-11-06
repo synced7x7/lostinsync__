@@ -37,9 +37,9 @@ const discoverFeedCache = new Map<string, Promise<IgdbDiscoverGame[]>>();
 
 export const hasTauri = "__TAURI_INTERNALS__" in globalThis;
 
-export async function igdbSearch(query: string, c: IgdbCreds, restrictType = false) {
+export async function igdbSearch(query: string, c: IgdbCreds) {
   const { invoke } = await import("@tauri-apps/api/core");
-  return invoke<IgdbHit[]>("igdb_search", { query, clientId: c.clientId, clientSecret: c.clientSecret, restrictType });
+  return invoke<IgdbHit[]>("igdb_search", { query, clientId: c.clientId, clientSecret: c.clientSecret });
 }
 export async function igdbDetails(id: number, c: IgdbCreds) {
   const { invoke } = await import("@tauri-apps/api/core");

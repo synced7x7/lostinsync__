@@ -19,8 +19,7 @@ struct Game {
     status: String,
     notes: String,
     rating: Option<i64>,
-    #[serde(default)]
-    platinumed: Option<bool>,
+    mastery: Option<i64>,
     favorite: bool,
     cover: Option<String>,
     #[serde(default)]
@@ -172,10 +171,10 @@ struct IgdbGame {
 }
 
 fn discover_query(fields: &str, where_clause: &str, sort: &str) -> String {
-    format!(
-        "fields {fields}; where game_type = (0,2,4,8,9,10) & ({where_clause}); sort {sort}; limit 20;"
-    )
+    format!("fields {fields}; where {where_clause}; sort {sort}; limit 20;")
 }
+
+
 
 fn discover_games(rows: &Value) -> Vec<Value> {
     rows.as_array().cloned().unwrap_or_default()
@@ -317,7 +316,6 @@ async fn igdb_post(
 async fn igdb_search(
     auth: tauri::State<'_, IgdbAuth>,
     query: String,
-    restrict_type: Option<bool>,
     client_id: String,
     client_secret: String
 ) -> Result<Vec<IgdbHit>, String> {
@@ -326,18 +324,13 @@ async fn igdb_search(
         .map(str::trim)
         .filter(|q| !q.is_empty());
     let q = strict_query.unwrap_or(query.trim()).replace('\\', "\\\\").replace('"', "\\\"");
-    let type_filter = if restrict_type.unwrap_or(false) {
-        " & game_type = (0,2,4,8,9,10)"
-    } else {
-        ""
-    };
     let body = if strict_query.is_some() {
         format!(
-            "fields name,first_release_date,cover.image_id,involved_companies.developer,involved_companies.company.name; where version_parent = null & name = \"{q}\"{type_filter}; limit 50;"
+            "fields name,first_release_date,cover.image_id,involved_companies.developer,involved_companies.company.name; where version_parent = null & name = \"{q}\"; limit 50;"
         )
     } else {
         format!(
-            "search \"{q}\"; fields name,first_release_date,cover.image_id,involved_companies.developer,involved_companies.company.name; where version_parent = null{type_filter}; limit 8;"
+            "search \"{q}\"; fields name,first_release_date,cover.image_id,involved_companies.developer,involved_companies.company.name; where version_parent = null; limit 8;"
         )
     };
     let rows = igdb_post(&auth, "games", body, &client_id, &client_secret).await?;
@@ -446,19 +439,10 @@ async fn igdb_details(
         themes: names(&g["themes"]),
         player_perspectives: names(&g["player_perspectives"]),
         storyline: g["storyline"].as_str().map(String::from),
-        similar_games: g["similar_games"]
-            .as_array()
-            .cloned()
-            .unwrap_or_default()
-            .into_iter()
-            .map(
-                |game|
-                    json!({
+        similar_games: g["similar_games"].as_array().cloned().unwrap_or_default().into_iter().map(|game| json!({
             "id": game["id"], "name": game["name"],
             "cover": game["cover"]["image_id"].as_str().map(|i| img(i, "cover_big"))
-        })
-            )
-            .collect(),
+        })).collect(),
     })
 }
 
@@ -531,93 +515,35 @@ async fn igdb_discover(
     client_id: String,
     client_secret: String
 ) -> Result<Value, String> {
-    let now = std::time::SystemTime
-        ::now()
+    let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map_err(|error| error.to_string())?
         .as_secs() as i64;
-    let fields =
-        "name,summary,first_release_date,rating,rating_count,total_rating,total_rating_count,hypes,follows,cover.image_id";
-    let genre_filter = preferred_genres
-        .iter()
-        .take(3)
-        .filter_map(|genre| {
-            let value = genre.trim().replace('\\', "\\\\").replace('"', "\\\"");
-            (!value.is_empty()).then(|| format!("genres.name = \"{value}\""))
-        })
-        .collect::<Vec<_>>()
-        .join(" | ");
+    let fields = "name,summary,first_release_date,rating,rating_count,total_rating,total_rating_count,hypes,follows,cover.image_id";
+    let genre_filter = preferred_genres.iter().take(3).filter_map(|genre| {
+        let value = genre.trim().replace('\\', "\\\\").replace('"', "\\\"");
+        (!value.is_empty()).then(|| format!("genres.name = \"{value}\""))
+    }).collect::<Vec<_>>().join(" | ");
     let for_you_where = if genre_filter.is_empty() {
         "rating != null & rating_count > 25".to_string()
     } else {
         format!("({genre_filter}) & rating != null")
     };
     let queries = [
-        (
-            "popular",
-            discover_query(fields, "total_rating_count != null", "total_rating_count desc"),
-        ),
+        ("popular", discover_query(fields, "total_rating_count != null", "total_rating_count desc")),
         ("forYou", discover_query(fields, &for_you_where, "total_rating desc")),
-        (
-            "latest",
-            discover_query(
-                fields,
-                &format!("first_release_date <= {now}"),
-                "first_release_date desc"
-            ),
-        ),
-        (
-            "upcoming",
-            discover_query(
-                fields,
-                &format!("first_release_date > {now}"),
-                "first_release_date asc"
-            ),
-        ),
-        (
-            "topRated",
-            discover_query(
-                fields,
-                "total_rating != null & total_rating_count > 1500",
-                "total_rating desc"
-            ),
-        ),
-        (
-            "anticipated",
-            discover_query(
-                fields,
-                &format!("first_release_date > {now} & hypes != null"),
-                "hypes desc"
-            ),
-        ),
-        (
-            "hiddenGems",
-            discover_query(
-                fields,
-                "total_rating != null & total_rating_count > 10 & total_rating_count < 500",
-                "total_rating desc"
-            ),
-        ),
-        (
-            "indie",
-            discover_query(
-                fields,
-                "involved_companies.company != null & genres != null",
-                "total_rating desc"
-            ),
-        ),
-        (
-            "story",
-            discover_query(fields, "storyline != null & themes != null", "total_rating desc"),
-        ),
+        ("latest", discover_query(fields, &format!("first_release_date <= {now}"), "first_release_date desc")),
+        ("upcoming", discover_query(fields, &format!("first_release_date > {now}"), "first_release_date asc")),
+        ("topRated", discover_query(fields, "total_rating != null & total_rating_count > 1500", "total_rating desc")),
+        ("anticipated", discover_query(fields, &format!("first_release_date > {now} & hypes != null"), "hypes desc")),
+        ("hiddenGems", discover_query(fields, "total_rating != null & total_rating_count > 10 & total_rating_count < 500", "total_rating desc")),
+        ("indie", discover_query(fields, "involved_companies.company != null & genres != null", "total_rating desc")),
+        ("story", discover_query(fields, "storyline != null & themes != null", "total_rating desc")),
     ];
     let mut result = serde_json::Map::new();
     for (name, query) in queries {
         let rows = igdb_post(&auth, "games", query, &client_id, &client_secret).await?;
-        result.insert(
-            name.to_string(),
-            Value::Array(discover_games(&rows).iter().map(discover_item).collect())
-        );
+        result.insert(name.to_string(), Value::Array(discover_games(&rows).iter().map(discover_item).collect()));
     }
 
     Ok(Value::Object(result))
@@ -633,49 +559,31 @@ async fn igdb_discover_feed(
     client_id: String,
     client_secret: String
 ) -> Result<Value, String> {
-    let now = std::time::SystemTime
-        ::now()
+    let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map_err(|error| error.to_string())?
         .as_secs() as i64;
-    let genres = preferred_genres
-        .iter()
-        .take(3)
-        .filter_map(|genre| {
-            let value = genre.trim().replace('\\', "\\\\").replace('"', "\\\"");
-            (!value.is_empty()).then(|| format!("genres.name = \"{value}\""))
-        })
-        .collect::<Vec<_>>()
-        .join(" | ");
-    let for_you = if genres.is_empty() {
-        "total_rating != null".to_string()
-    } else {
-        format!("({genres}) & total_rating != null")
-    };
+    let genres = preferred_genres.iter().take(3).filter_map(|genre| {
+        let value = genre.trim().replace('\\', "\\\\").replace('"', "\\\"");
+        (!value.is_empty()).then(|| format!("genres.name = \"{value}\""))
+    }).collect::<Vec<_>>().join(" | ");
+    let for_you = if genres.is_empty() { "total_rating != null".to_string() } else { format!("({genres}) & total_rating != null") };
     let (where_clause, sort): (String, &str) = match feed.as_str() {
         "popular" => ("total_rating_count != null".into(), "total_rating_count desc"),
         "forYou" => (for_you, "total_rating desc"),
         "latest" => (format!("first_release_date <= {now}"), "first_release_date desc"),
         "upcoming" => (format!("first_release_date > {now}"), "first_release_date asc"),
-        "topRated" =>
-            ("total_rating != null & total_rating_count > 1500".into(), "total_rating desc"),
+        "topRated" => ("total_rating != null & total_rating_count > 1500".into(), "total_rating desc"),
         "anticipated" => (format!("first_release_date > {now} & hypes != null"), "hypes desc"),
-        "hiddenGems" =>
-            (
-                "total_rating != null & total_rating_count > 10 & total_rating_count < 500".into(),
-                "total_rating desc",
-            ),
-        "indie" =>
-            ("involved_companies.company != null & genres != null".into(), "total_rating desc"),
+        "hiddenGems" => ("total_rating != null & total_rating_count > 10 & total_rating_count < 500".into(), "total_rating desc"),
+        "indie" => ("involved_companies.company != null & genres != null".into(), "total_rating desc"),
         "story" => ("storyline != null & themes != null".into(), "total_rating desc"),
-        _ => {
-            return Err("Unknown discovery feed.".into());
-        }
+        _ => return Err("Unknown discovery feed.".into()),
     };
     let safe_offset = offset.clamp(0, 90);
     let safe_limit = limit.clamp(1, 30);
     let body = format!(
-        "fields name,summary,first_release_date,total_rating,total_rating_count,hypes,follows,cover.image_id; where game_type = (0,2,4,8,9,10) & ({where_clause}); sort {sort}; limit {safe_limit}; offset {safe_offset};"
+        "fields name,summary,first_release_date,total_rating,total_rating_count,hypes,follows,cover.image_id; where {where_clause}; sort {sort}; limit {safe_limit}; offset {safe_offset};"
     );
     let rows = igdb_post(&auth, "games", body, &client_id, &client_secret).await?;
     Ok(Value::Array(discover_games(&rows).iter().map(discover_item).collect()))
