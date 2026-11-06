@@ -242,7 +242,7 @@ export const TROPHIES: Trophy[] = [
 ];
 
 export function evaluate(games: Game[], cheat: Override): TrophyState[] {
-  const c: Ctx = { all: games, done: games.filter((g) => g.status === "Completed") };
+  const c: Ctx = { all: games, done: games.filter((g) => ["Completed", "Retired"].includes(g.status)) };
   const calc = (t: Trophy, value: number, tiers = t.tiers): TrophyState => {
     const list = tiers.map((x) => ({ ...x, unlocked: cheat[x.id] ?? (x.val ? x.val(c) : value) >= x.at })); return { trophy: t, value, tiers: list, top: [...list].reverse().find((x) => x.unlocked) };
   };

@@ -42,8 +42,8 @@ export const index = (games: Game[]): R[] => games.map((g) => {
     platform: p ? (p === "PC" ? PC : p) : "Unknown", // platform = where it was played (emulated or not)
     fr: g.franchises ?? [], dev: g.developer?.trim() || undefined, rating: g.rating || undefined,
     len: g.timeAvgSeconds ? g.timeAvgSeconds / 3600 : undefined, // IGDB average time to complete, in hours
-    done: g.status === "Completed", played: !OFF.includes(g.status), at: f ?? s ?? (Date.parse(g.createdAt) || 0),
-  };
+    done: ["Completed", "Retired"].includes(g.status), played: !OFF.includes(g.status), at: f ?? s ?? (Date.parse(g.createdAt) || 0),
+    };
 });
 
 export const yearsOf = (games: Game[]) => [...new Set(games.flatMap((g) => { const t = [ts(g.startedAt), ts(g.finishedAt)].filter(isNum); return (t.length ? t : [Date.parse(g.createdAt)]).filter((x) => !Number.isNaN(x)).map((x) => new Date(x).getUTCFullYear()); }))].sort((a, b) => b - a);
