@@ -46,7 +46,7 @@ import {
   type View,
 } from "./domain/game";
 import "./style.css";
-import { Empty, formatDate, GameMini, Header, MasteryProgress, StarRating, Stat } from "./components/shared";
+import { Empty, formatDate, GameMini, Header, TrophyToggle, StarRating, Stat } from "./components/shared";
 import { AppLayout } from "./components/layout";
 import { Dashboard } from "./features/dashboard";
 import { AddGame } from "./features/library-components";
@@ -890,10 +890,9 @@ function Details({
             <div><span>Playtime</span><strong>{formatPlaytime(played)}</strong></div>
             <div><span>Started</span><strong>{game.startedAt ? formatDate(game.startedAt) : "—"}</strong></div>
             <div><span>Completed</span><strong>{game.finishedAt ? formatDate(game.finishedAt) : "—"}</strong></div>
-            {span && <div style={{ gridColumn: "span 2" }}><span>Time to finish</span><strong>{span}</strong></div>}
+            {span && <div className="journey-grid-ttf"><div><span>Time to finish</span><strong>{span}</strong></div><TrophyToggle value={game.platinumed} readOnly /></div>}
           </div>
           <StarRating value={game.rating} readOnly size={16} />
-          <div style={{ marginTop: 12 }}><MasteryProgress value={game.mastery} readOnly /></div>
         </section>
       </div>
       <MediaSection game={game} save={saveGame} igdbMedia={{ images: game.igdbImages ?? [], videos: game.igdbVideos ?? [] }} series={game.igdbId ? { igdbId: game.igdbId, creds: igdb } : undefined} onOpenGame={onOpenGame} />

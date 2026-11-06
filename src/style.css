@@ -2395,329 +2395,115 @@ nav {
     font-size: 10px;
 }
 
-.detail-stat-mastery {
+.detail-stat-platinumed {
     margin-top: 6px;
 }
 
-.mastery-mini-badge {
+.platinumed-mini-badge {
     display: inline-flex;
     align-items: center;
     gap: 5px;
     padding: 3px 8px;
     border-radius: 20px;
-    background: rgba(164, 149, 255, 0.12);
-    border: 1px solid rgba(164, 149, 255, 0.25);
-    color: var(--accent);
+    background: rgba(255, 202, 40, 0.12);
+    border: 1px solid rgba(255, 202, 40, 0.3);
+    color: #ffca28;
     font-size: 10px;
-}
-
-.mastery-mini-badge strong {
-    font-size: 11px !important;
-    margin: 0 !important;
-    display: inline !important;
-}
-
-.mastery-mini-badge small {
-    display: inline !important;
-    margin-left: 2px;
 }
 
 /* ═══════════════════════════════════════════════════════════
-   MASTERY PROGRESS UI
+   TROPHY TOGGLE
 ═══════════════════════════════════════════════════════════ */
 
-.mastery-card {
-    margin-top: 18px;
-    padding: 16px 18px;
-    background: rgba(14, 16, 28, 0.6);
-    border: 1px solid var(--line-soft);
-    border-radius: 16px;
+.journey-grid-ttf {
+    grid-column: span 2;
     display: flex;
-    flex-direction: column;
-    gap: 14px;
-    position: relative;
-    overflow: hidden;
-    transition: border-color .25s, box-shadow .25s, background .25s;
+    align-items: stretch;
+    gap: 10px;
 }
 
-.mastery-card::before {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 2px;
-    background: var(--tier-accent, var(--line-soft));
-    transition: background .3s;
+.journey-grid-ttf > div {
+    flex: 1;
 }
 
-.mastery-header {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
+.journey-grid-ttf > .trophy-toggle span {
+    display: none;
 }
 
-.mastery-info {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-}
-
-.mastery-title {
-    font-size: 10px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--muted);
-}
-
-.mastery-tier-badge {
+/* Icon-only compact trophy button — sits beside "Time to finish" */
+.trophy-toggle {
     display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 4px 10px;
-    border-radius: 20px;
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.02em;
-    background: var(--tier-badge-bg, rgba(255, 255, 255, 0.05));
-    border: 1px solid var(--tier-badge-border, rgba(255, 255, 255, 0.1));
-    color: var(--tier-color, var(--text));
-    box-shadow: 0 2px 10px var(--tier-glow, transparent);
-    transition: all .25s ease;
-}
-
-.mastery-tier-badge small {
-    font-weight: 500;
-    opacity: 0.8;
-}
-
-.mastery-value-box {
-    display: flex;
-    align-items: baseline;
-    gap: 2px;
-    font-family: 'DM Mono', monospace, sans-serif;
-}
-
-.mastery-percentage {
-    font-size: 26px;
-    font-weight: 800;
-    color: var(--tier-color, var(--text));
-    line-height: 1;
-    text-shadow: 0 0 16px var(--tier-glow, transparent);
-    transition: color .2s;
-}
-
-.mastery-unit {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--muted);
-}
-
-/* Track & Slider */
-.mastery-track-wrapper {
-    position: relative;
-    height: 14px;
-    display: flex;
-    align-items: center;
-}
-
-.mastery-track-bg {
-    position: absolute;
-    inset: 0;
-    border-radius: 10px;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    overflow: hidden;
-}
-
-.mastery-track-fill {
-    height: 100%;
-    border-radius: 9px;
-    background: var(--tier-gradient, linear-gradient(90deg, var(--accent), var(--accent-strong)));
-    box-shadow: 0 0 14px var(--tier-glow, rgba(164, 149, 255, 0.4));
-    position: relative;
-    transition: width .15s ease-out;
-}
-
-.mastery-fill-shimmer {
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.28) 50%, transparent 100%);
-    background-size: 200% 100%;
-    animation: mastery-shimmer 2.4s infinite linear;
-    pointer-events: none;
-}
-
-@keyframes mastery-shimmer {
-    0% {
-        background-position: -200% 0;
-    }
-
-    100% {
-        background-position: 200% 0;
-    }
-}
-
-.mastery-indicator-pin {
-    position: absolute;
-    top: 50%;
-    width: 6px;
-    height: 18px;
-    margin-left: -3px;
-    transform: translateY(-50%);
-    background: #ffffff;
-    border-radius: 3px;
-    box-shadow: 0 0 10px rgba(255, 255, 255, 0.9);
-    pointer-events: none;
-    transition: left .15s ease-out;
-}
-
-.mastery-native-slider {
-    position: absolute;
-    inset: -6px 0;
-    width: 100%;
-    height: 26px;
-    opacity: 0;
-    cursor: pointer;
-    margin: 0;
-    z-index: 5;
-}
-
-/* Controls */
-.mastery-controls {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    flex-wrap: wrap;
-    margin-top: 2px;
-}
-
-.mastery-presets {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
-.mastery-preset-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
-    padding: 4px 9px;
-    font-size: 11px;
-    font-weight: 600;
-    border-radius: 8px;
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid var(--line-soft);
-    color: var(--muted);
-    cursor: pointer;
-    transition: all .15s ease;
-}
-
-.mastery-preset-btn:hover {
-    background: rgba(255, 255, 255, 0.09);
-    color: var(--text);
-    border-color: rgba(255, 255, 255, 0.15);
-}
-
-.mastery-preset-btn.active {
-    background: var(--tier-badge-bg, rgba(164, 149, 255, 0.2));
-    border-color: var(--tier-accent, var(--accent));
-    color: var(--tier-color, #ffffff);
-    box-shadow: 0 0 12px var(--tier-glow, rgba(164, 149, 255, 0.3));
-}
-
-.mastery-steppers {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-}
-
-.mastery-step-btn {
-    width: 26px;
-    height: 26px;
-    display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 7px;
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid var(--line-soft);
-    color: var(--muted);
+    flex-shrink: 0;
+    width: 48px;
+    padding: 0;
+    border-radius: 11px;
+    background: transparent;
+    border: 0;
+    color: var(--dim);
     cursor: pointer;
-    transition: all .15s ease;
+    transition: border-color .2s ease, color .2s ease, box-shadow .2s ease;
+    position: relative;
 }
 
-.mastery-step-btn:hover:not(:disabled) {
-    background: rgba(255, 255, 255, 0.12);
-    color: var(--text);
-    border-color: var(--line);
+.trophy-toggle span {
+    display: none;
 }
 
-.mastery-step-btn:disabled {
-    opacity: 0.3;
-    cursor: not-allowed;
+
+
+.trophy-toggle:hover:not(:disabled) {
+    border-color: rgba(255, 202, 40, 0.4);
+    color: rgba(255, 202, 40, 0.75);
 }
 
-/* Tier Color Systems */
-.mastery-card.tier-grandmaster {
-    --tier-color: #5eedb0;
-    --tier-accent: #3ddc97;
-    --tier-gradient: linear-gradient(90deg, #4ee1a0, #67d8e6);
-    --tier-glow: rgba(78, 225, 160, 0.45);
-    --tier-badge-bg: rgba(78, 225, 160, 0.14);
-    --tier-badge-border: rgba(78, 225, 160, 0.35);
-    border-color: rgba(78, 225, 160, 0.28);
-    box-shadow: 0 6px 28px rgba(78, 225, 160, 0.12);
+.trophy-toggle.active {
+    border-color: rgba(255, 202, 40, 0.5);
+    color: #ffca28;
+    box-shadow: inset 0 0 14px rgba(255, 202, 40, 0.1);
 }
 
-.mastery-card.tier-platinum {
-    --tier-color: #c499ff;
-    --tier-accent: #9b8cff;
-    --tier-gradient: linear-gradient(90deg, #9b8cff, #f08ab5);
-    --tier-glow: rgba(155, 140, 255, 0.4);
-    --tier-badge-bg: rgba(155, 140, 255, 0.14);
-    --tier-badge-border: rgba(155, 140, 255, 0.32);
-    border-color: rgba(155, 140, 255, 0.22);
+/* Glowing icon when active */
+.trophy-toggle.active svg {
+    filter: drop-shadow(0 0 6px rgba(255, 202, 40, 0.9)) drop-shadow(0 0 14px rgba(255, 202, 40, 0.5));
 }
 
-.mastery-card.tier-gold {
-    --tier-color: #ffd166;
-    --tier-accent: #f39c12;
-    --tier-gradient: linear-gradient(90deg, #f39c12, #f1c40f);
-    --tier-glow: rgba(243, 156, 18, 0.4);
-    --tier-badge-bg: rgba(241, 196, 15, 0.13);
-    --tier-badge-border: rgba(241, 196, 15, 0.3);
-    border-color: rgba(241, 196, 15, 0.2);
+.trophy-toggle svg {
+    width: 24px;
+    height: 24px;
+    flex-shrink: 0;
+    transition: filter .2s ease;
 }
 
-.mastery-card.tier-silver {
-    --tier-color: #70d6ff;
-    --tier-accent: #00b4d8;
-    --tier-gradient: linear-gradient(90deg, #00b4d8, #5dade2);
-    --tier-glow: rgba(0, 180, 216, 0.35);
-    --tier-badge-bg: rgba(0, 180, 216, 0.12);
-    --tier-badge-border: rgba(0, 180, 216, 0.28);
-    border-color: rgba(0, 180, 216, 0.18);
+.trophy-toggle:disabled {
+    cursor: default;
+    opacity: 1;
 }
 
-.mastery-card.tier-bronze {
-    --tier-color: #f0a07a;
-    --tier-accent: #d35400;
-    --tier-gradient: linear-gradient(90deg, #d35400, #e67e22);
-    --tier-glow: rgba(211, 84, 0, 0.32);
-    --tier-badge-bg: rgba(211, 84, 0, 0.12);
-    --tier-badge-border: rgba(211, 84, 0, 0.26);
-    border-color: rgba(211, 84, 0, 0.16);
+/* In the add-game form column 3, trophy toggle is full-width with label */
+.add-col .trophy-toggle {
+    width: 32%;
+    padding: 10px 14px;
+    gap: 8px;
+    margin-top: 18px;
+    background: rgba(255, 255, 255, 0.04);
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 600;
 }
 
-.mastery-card.tier-none {
-    --tier-color: var(--dim);
-    --tier-accent: var(--line-soft);
-    --tier-gradient: linear-gradient(90deg, #44475a, #6272a4);
-    --tier-glow: transparent;
-    --tier-badge-bg: rgba(255, 255, 255, 0.04);
-    --tier-badge-border: rgba(255, 255, 255, 0.08);
+.add-col .trophy-toggle span {
+    display: inline;
+}
+
+.add-col .trophy-toggle:hover:not(:disabled) {
+    background: rgba(255, 202, 40, 0.08);
+}
+
+.add-col .trophy-toggle.active {
+    background: rgba(255, 202, 40, 0.12);
+    box-shadow: 0 0 18px rgba(255, 202, 40, 0.18);
 }
 
 

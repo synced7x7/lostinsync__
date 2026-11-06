@@ -3,7 +3,7 @@ import { ChevronRight, Gamepad2, Heart, Plus, X } from "lucide-react";
 import { formatCount, formatHours, formatPlaytime, STATUSES, validateGame, type Game, type Status } from "../domain/game";
 import { hasTauri, igdbDetails, igdbImages, igdbSearch, type IgdbCreds, type IgdbDebugImage, type IgdbGame, type IgdbHit } from "../data/igdb";
 import { createPortal } from "react-dom";
-import { DateField, MasteryProgress, PlatformPicker, StarRating, type SaveGame } from "../components/shared";
+import { DateField, TrophyToggle, PlatformPicker, StarRating, type SaveGame } from "../components/shared";
 import { ALL_PLATFORMS, emulatedOn, PC } from "../data/platform";
 
 const now = () => new Date().toISOString();
@@ -26,7 +26,7 @@ export function AddGame({ onClose, onAdd, igdb, initial }: { onClose: () => void
   const [genre, setGenre] = useState(initial?.genre ?? "");
   const [status, setStatus] = useState<Status>(initial?.status ?? "Completed");
   const [rating, setRating] = useState(initial?.rating ?? 0);
-  const [mastery, setMastery] = useState(initial?.mastery ?? 0);
+  const [platinumed, setPlatinumed] = useState(initial?.platinumed ?? false);
   const [notes, setNotes] = useState(initial?.notes ?? "");
   const [startedAt, setStartedAt] = useState(initial?.startedAt ?? "");
   const [finishedAt, setFinishedAt] = useState(initial?.finishedAt ?? "");
@@ -122,7 +122,7 @@ export function AddGame({ onClose, onAdd, igdb, initial }: { onClose: () => void
       status,
       notes: notes.trim(),
       rating: rating || undefined,
-      mastery: mastery || undefined,
+      platinumed: platinumed || undefined,
       favorite: initial?.favorite ?? false,
       cover,
       backgroundCover,
@@ -228,7 +228,7 @@ export function AddGame({ onClose, onAdd, igdb, initial }: { onClose: () => void
               </select>
             </label>
             <StarRating value={rating || undefined} onChange={(r) => setRating(r ?? 0)} size={16} />
-            <MasteryProgress value={mastery} onChange={setMastery} />
+          <TrophyToggle value={platinumed} onChange={setPlatinumed} /> 
           </div>
         </div>
 

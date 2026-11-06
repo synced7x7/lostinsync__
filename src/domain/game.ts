@@ -5,7 +5,7 @@ export type Status = typeof STATUSES[number];
 export type View = "dashboard" | "library" | "discover" | "details" | "journey" | "trophies" | "stats"| "settings";
 export type Game = {
   id: string; title: string; platform: string; genre: string; tags: string[];
-  status: Status; notes: string; rating?: number; mastery?: number; favorite: boolean;
+  status: Status; notes: string; rating?: number; platinumed?: boolean; favorite: boolean;
   cover?: string; backgroundCover?: string; totalSeconds: number; activeSince?: string; createdAt: string; startedAt?: string; finishedAt?: string;
   developer?: string; releaseDate?: string; description?: string;
   genres?: string[]; platforms?: string[]; igdbId?: number;

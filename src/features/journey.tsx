@@ -616,7 +616,7 @@ export function JourneyView({
           <ul>
             <li><Clock3 size={15} />{formatPlaytime(picked.game.totalSeconds)}</li>
             <li><CalendarDays size={15} />{fmt(picked.start)} – {picked.end ? fmt(picked.end) : "now"}</li>
-            {picked.game.mastery != null && <li><Trophy size={15} />{picked.game.mastery}% mastery</li>}
+            {picked.game.platinumed && <li><Trophy size={15} /> Platinumed</li>}
           </ul>
           <button className="jn-open" onClick={() => openGame(picked.game.id)}>View Details <ArrowRight size={14} /></button>
         </aside>

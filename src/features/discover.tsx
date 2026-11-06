@@ -41,7 +41,7 @@ export function DiscoverView({ data }: { data: AppData }) {
 
   const runSearch = async () => {
     if (!search.trim()) return;
-    try { setError(""); setSearchResults(await igdbSearch(search, credentials)); } catch (reason) { setError(reason instanceof Error ? reason.message : "Search failed."); }
+    try { setError(""); setSearchResults(await igdbSearch(search, credentials, true)); } catch (reason) { setError(reason instanceof Error ? reason.message : "Search failed."); }
   };
   const openGame = (id: number) => navigate(`/details?igdb=${id}`);
   if (!credentials.clientId || !credentials.clientSecret) return <><Header eyebrow="IGDB DISCOVERY" title="Discover" /><div className="discover-empty glass"><Compass size={34} /><h2>Connect IGDB to discover your next game</h2><p>Add your Twitch Client ID and Client Secret in Settings to unlock live recommendations, releases, ratings, and search.</p></div></>;

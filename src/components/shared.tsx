@@ -1,18 +1,11 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import {
-  Award,
   CalendarDays,
   Check,
   ChevronRight,
-  CircleDashed,
-  Crown,
-  Flame,
   Gamepad2,
-  Minus,
-  Plus,
-  Shield,
   Star,
-  Zap,
+  Trophy,
   X,
 } from "lucide-react";
 import { formatPlaytime } from "../domain/game";
@@ -221,132 +214,30 @@ export function StarRating({
   );
 }
 
-const PRESETS = [
-  { label: "0%", value: 0 },
-  { label: "25%", value: 25 },
-  { label: "50%", value: 50 },
-  { label: "75%", value: 75 },
-  { label: "100%", value: 100, isCrown: true },
-];
 
-export function MasteryProgress({
+
+export function TrophyToggle({
   value,
   onChange,
   readOnly = false,
 }: {
-  value?: number;
-  onChange?: (val: number) => void;
+  value?: boolean;
+  onChange?: (val: boolean) => void;
   readOnly?: boolean;
 }) {
-  const current = Math.min(100, Math.max(0, value ?? 0));
-
-  const getTier = (v: number) => {
-    if (v >= 100) return { label: "Grandmaster", rank: "100% Completed", color: "grandmaster", icon: Crown };
-    if (v >= 75) return { label: "Master", rank: "Platinum Tier", color: "platinum", icon: Flame };
-    if (v >= 50) return { label: "Expert", rank: "Gold Tier", color: "gold", icon: Award };
-    if (v >= 25) return { label: "Adept", rank: "Silver Tier", color: "silver", icon: Zap };
-    if (v > 0) return { label: "Novice", rank: "Bronze Tier", color: "bronze", icon: Shield };
-    return { label: "Unstarted", rank: "0% Progress", color: "none", icon: CircleDashed };
-  };
-
-  const tier = getTier(current);
-  const TierIcon = tier.icon;
-
-  const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (readOnly || !onChange) return;
-    onChange(Number(e.target.value));
-  };
-
-  const handleStep = (delta: number) => {
-    if (readOnly || !onChange) return;
-    const next = Math.min(100, Math.max(0, current + delta));
-    onChange(next);
-  };
-
+  const active = value === true;
   return (
-    <div className={`mastery-card tier-${tier.color}`}>
-      <div className="mastery-header">
-        <div className="mastery-info">
-          <span className="mastery-title">Mastery Progress</span>
-          <div className="mastery-tier-badge">
-            <TierIcon size={13} />
-            <span>{tier.label}</span>
-            <small>· {tier.rank}</small>
-          </div>
-        </div>
-        <div className="mastery-value-box">
-          <strong className="mastery-percentage">{current}</strong>
-          <span className="mastery-unit">%</span>
-        </div>
-      </div>
-
-      <div className="mastery-track-wrapper">
-        <div className="mastery-track-bg">
-          <div
-            className="mastery-track-fill"
-            style={{ width: `${current}%` }}
-          >
-            <div className="mastery-fill-glow" />
-            <div className="mastery-fill-shimmer" />
-          </div>
-          {current > 0 && current < 100 && (
-            <div
-              className="mastery-indicator-pin"
-              style={{ left: `${current}%` }}
-            />
-          )}
-        </div>
-        {!readOnly && (
-          <input
-            type="range"
-            min="0"
-            max="100"
-            value={current}
-            onChange={handleSliderChange}
-            className="mastery-native-slider"
-            aria-label="Mastery progress slider"
-          />
-        )}
-      </div>
-
-      {!readOnly && (
-        <div className="mastery-controls">
-          <div className="mastery-presets">
-            {PRESETS.map((p) => (
-              <button
-                key={p.value}
-                type="button"
-                className={`mastery-preset-btn ${current === p.value ? "active" : ""}`}
-                onClick={() => onChange?.(p.value)}
-              >
-                {p.isCrown ? <Crown size={11} /> : null}
-                {p.label}
-              </button>
-            ))}
-          </div>
-          <div className="mastery-steppers">
-            <button
-              type="button"
-              className="mastery-step-btn"
-              onClick={() => handleStep(-5)}
-              title="Decrease 5%"
-              disabled={current <= 0}
-            >
-              <Minus size={13} />
-            </button>
-            <button
-              type="button"
-              className="mastery-step-btn"
-              onClick={() => handleStep(5)}
-              title="Increase 5%"
-              disabled={current >= 100}
-            >
-              <Plus size={13} />
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
+    <button
+      type="button"
+      className={`trophy-toggle${active ? " active" : ""}`}
+      onClick={() => !readOnly && onChange?.(!active)}
+      disabled={readOnly}
+      title={active ? "100% Completed — click to unmark" : "Mark as 100% Completed"}
+      aria-label={active ? "Platinum achieved" : "Mark platinum"}
+    >
+      <Trophy size={16} />
+      <span>{active ? "100% Mastered" : "100% Mastery"}</span>
+    </button>
   );
 }
 
