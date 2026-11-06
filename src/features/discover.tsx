@@ -5,11 +5,11 @@ import { Header } from "../components/shared";
 import { igdbDiscoverCached, igdbDiscoverFeedCached, igdbImagesCached, igdbSearch, type IgdbCreds, type IgdbDiscover, type IgdbDiscoverGame, type IgdbFeed, type IgdbGame, type IgdbHit, type IgdbDebugImage } from "../data/igdb";
 import type { AppData } from "../domain/game";
 import type { Game } from "../domain/game";
-import { AddGame } from "./library-components";
-import { MediaSection } from "./media";
-import { StarRating } from "../components/shared";
-import { SeriesButton } from "./series";
-import { CollectionActions } from "./overview";
+// import { AddGame } from "./library-components";
+// import { MediaSection } from "./media";
+// import { StarRating } from "../components/shared";
+// import { SeriesButton } from "./series";
+// import { CollectionActions } from "./overview";
 import "./discover.css";
 
 const sections: { key: IgdbFeed; title: string; tone: string }[] = [
@@ -20,7 +20,7 @@ const sections: { key: IgdbFeed; title: string; tone: string }[] = [
   { key: "hiddenGems", title: "Hidden Gems", tone: "violet" }, { key: "indie", title: "Indie Spotlight", tone: "cyan" },
   { key: "story", title: "Story-Driven Adventures", tone: "rose" },
 ];
-const dateLabel = (timestamp?: number) => timestamp ? new Date(timestamp * 1000).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "Release date unknown";
+// const dateLabel = (timestamp?: number) => timestamp ? new Date(timestamp * 1000).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "Release date unknown";
 
 export function DiscoverView({ data }: { data: AppData }) {
   const credentials: IgdbCreds = { clientId: data.settings.igdbClientId ?? "", clientSecret: data.settings.igdbClientSecret ?? "" };
