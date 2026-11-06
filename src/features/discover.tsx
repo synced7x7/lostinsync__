@@ -270,7 +270,7 @@ export function DiscoverGameDetails({ igdbId, game, close, openGame, credentials
     };
   }, [shell, savedGame, images]);
 
-  const tags = [...shell.themes, ...shell.playerPerspectives];
+  // const tags = [...shell.themes, ...shell.playerPerspectives];
   return (
     <DetailsView
       game={view} data={data} update={update} igdb={credentials} onOpenGame={openGame}
@@ -278,15 +278,9 @@ export function DiscoverGameDetails({ igdbId, game, close, openGame, credentials
       saveGame={(next) => (savedGame ? onSave(next) : onAdd(next))}
       deleteGame={(g) => savedGame && onDelete(g)}
       extra={<>
-        {tags.length > 0 && (
-          <section className="glass detail-panel">
-            <p className="eyebrow">THEMES &amp; PERSPECTIVES</p>
-            <div className="igdb-chips">{tags.map((t) => <span className="pill" key={t}>{t}</span>)}</div>
-          </section>
-        )}
         {!ready && <><div className="detail-skeleton" /><FeedSkeleton title="Similar Games" tone="violet" /></>}
         {shell.similarGames.length > 0 && (
-          <section className="discover-section">
+          <section className="discover-section" style={{ marginTop: "24px" }}>
             <div className="discover-section-heading"><h2>Similar Games</h2></div>
             <SimilarShelf games={shell.similarGames} onOpen={openGame} />
           </section>
@@ -306,5 +300,6 @@ function draftFromIgdb(game: IgdbGame): Game {
     igdbRatingCount: game.ratingCount, timeAvgSeconds: game.timeAvg, timeMainSeconds: game.timeMain, timeFullSeconds: game.timeFull,
     screenshots: game.screenshots, videos: game.videos.map((video) => ({ id: video.videoId, name: video.name })),
     gameType: game.gameType, gameStatus: game.gameStatus, franchises: game.franchises,
+    themes: game.themes, playerPerspectives: game.playerPerspectives,
   };
 }

@@ -148,6 +148,8 @@ export function AddGame({ onClose, onAdd, igdb, initial }: { onClose: () => void
       gameType: picked?.gameType ?? initial?.gameType,
       gameStatus: picked?.gameStatus ?? initial?.gameStatus,
       franchises: picked?.franchises ?? initial?.franchises,
+      themes: picked?.themes ?? initial?.themes,
+      playerPerspectives: picked?.playerPerspectives ?? initial?.playerPerspectives,
     });
   };
 

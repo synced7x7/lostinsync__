@@ -76,7 +76,7 @@ export function MediaSection({ game, save, igdbMedia, igdbLoading, igdbError, se
     setLink(""); setErr(""); setAdding(false);
   };
 
-  const addFiles = async (files: FileList | null) => {
+  const addFiles = async (files: FileList | null) => {  
     if (!files?.length) return;
     try {
       const urls = await Promise.all([...files].map(toDataUrl));
@@ -99,7 +99,6 @@ export function MediaSection({ game, save, igdbMedia, igdbLoading, igdbError, se
     <section className="glass detail-panel media-panel">
       <div className="about-head">
         <div><p className="eyebrow">GALLERY</p><h2>Trailer &amp; screenshots</h2></div>
-        {series && <SeriesButton igdbId={series.igdbId} creds={series.creds} onOpenGame={onOpenGame} />}
         <div className="media-actions">
           <button className="text-button" disabled={vids.length >= MAX_VIDEOS} title={vids.length >= MAX_VIDEOS ? "Limit reached: remove one first" : undefined} onClick={() => setAdding(!adding)}><Link2 size={14} /> Add trailer</button>
           <button className="text-button" onClick={() => fileRef.current?.click()}><ImagePlus size={14} /> Add screenshots</button>

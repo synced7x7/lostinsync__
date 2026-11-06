@@ -849,6 +849,12 @@ function Details({
             {genreList.length > 0 && (
               <div><span className="plat-label">Genres</span><div className="igdb-chips">{genreList.map((x) => <span className="pill" key={x}>{x}</span>)}</div></div>
             )}
+            {(game.themes?.length ?? 0) > 0 && (
+              <div><span className="plat-label">Themes</span><div className="igdb-chips">{game.themes!.map((x) => <span className="pill" key={x}>{x}</span>)}</div></div>
+            )}
+            {(game.playerPerspectives?.length ?? 0) > 0 && (
+              <div><span className="plat-label">Perspectives</span><div className="igdb-chips">{game.playerPerspectives!.map((x) => <span className="pill" key={x}>{x}</span>)}</div></div>
+            )}
             {(game.platforms?.length ?? 0) > 0 && (
               <div><span className="plat-label">Released on</span><div className="igdb-chips">{game.platforms!.map((x) => <span className="pill plain" key={x}>{x}</span>)}</div></div>
             )}
