@@ -26,6 +26,7 @@ import {
   ArrowUp,
   Building2,
   CalendarDays,
+  Star,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { createAppRepository } from "./data/repository";
@@ -62,6 +63,17 @@ import { igdbDetailsCached, type IgdbGame } from "./data/igdb";
 
 
 const repo = createAppRepository();
+
+const GAME_OF_THE_YEAR_WINNERS = [
+  "Clair Obscur: Expedition 33", "Astro Bot", "Baldur's Gate 3", "Elden Ring",
+  "It Takes Two", "The Last of Us Part II", "Sekiro: Shadows Die Twice",
+  "God of War", "The Legend of Zelda: Breath of the Wild", "Overwatch",
+  "The Witcher 3: Wild Hunt", "Dragon Age: Inquisition", "Grand Theft Auto V",
+  "The Walking Dead", "The Elder Scrolls V: Skyrim", "Red Dead Redemption",
+  "Uncharted 2: Among Thieves", "Grand Theft Auto IV", "BioShock",
+  "The Elder Scrolls IV: Oblivion", "Resident Evil 4", "Grand Theft Auto: San Andreas",
+  "Madden NFL 2004",
+] as const;
 
 function App() {
   const [data, setData] = useState<AppData>(defaultData);
@@ -758,6 +770,9 @@ function Details({
   const genreList = game.genres?.length ? game.genres : game.genre ? game.genre.split(",").map((s) => s.trim()).filter(Boolean) : [];
   const playedOn = game.playedPlatforms ?? (game.platform ? [game.platform] : []);
   const emulated = game.emulatedOn ?? [];
+  const normalizedGameType = game.gameType?.trim().toLowerCase().replace(/[\s-]+/g, "_");
+  const isGameOfTheYearWinner = normalizedGameType === "main_game"
+    && GAME_OF_THE_YEAR_WINNERS.includes(game.title as typeof GAME_OF_THE_YEAR_WINNERS[number]);
   return (
     <>
       <button className="back-button" onClick={goBack}>← {backLabel ?? "Back to library"}</button>      <div className="detail-hero glass" style={game.backgroundCover ? { backgroundImage: `linear-gradient(90deg, rgba(10,9,22,.95) 0%, rgba(12,13,27,.82) 48%, rgba(10,13,23,.68) 100%), url(${game.backgroundCover})` } : undefined}>
@@ -805,6 +820,9 @@ function Details({
                 </p>
               )}
             </div>
+          )}
+          {isGameOfTheYearWinner && (
+            <div className="goty-badge"><Star size={15} fill="currentColor" /><span>Game of the Year</span></div>
           )}
         </div>
       </div>

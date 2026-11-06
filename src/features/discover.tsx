@@ -265,6 +265,11 @@ export function DiscoverGameDetails({ igdbId, game, close, openGame, credentials
     const base = savedGame ?? { ...draftFromIgdb(shell), screenshots: [], videos: [] };
     return {
       ...base,
+      gameType: ready ? shell.gameType ?? base.gameType : base.gameType,
+      gameStatus: ready ? shell.gameStatus ?? base.gameStatus : base.gameStatus,
+      franchises: ready ? shell.franchises ?? base.franchises : base.franchises,
+      themes: ready ? shell.themes ?? base.themes : base.themes,
+      playerPerspectives: ready ? shell.playerPerspectives ?? base.playerPerspectives : base.playerPerspectives,
       igdbImages: base.igdbImages?.length ? base.igdbImages : images,
       igdbVideos: base.igdbVideos?.length ? base.igdbVideos : shell.videos.map((v) => ({ id: v.videoId, name: v.name })),
     };
