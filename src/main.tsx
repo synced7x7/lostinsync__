@@ -1,4 +1,4 @@
-import { StrictMode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { StrictMode, useCallback, useEffect, useMemo, useRef, useState, lazy, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, useLocation, useNavigate } from "react-router-dom";
 import {
@@ -80,6 +80,8 @@ function App() {
   const [error, setError] = useState("");
   const dataRef = useRef(data);
   const journeyPreferencesDirty = useRef(false);
+  const StatsView = lazy(() => import("./features/stats").then((m) => ({ default: m.StatsView })));
+
   dataRef.current = data;
   useEffect(() => {
     const root = document.documentElement;
@@ -240,6 +242,7 @@ function App() {
         />
       )}{" "}
       {view === "trophies" && <TrophiesView data={data} />}{" "}
+      {view === "stats" && <Suspense fallback={null}><StatsView data={data} /></Suspense>}
       {view === "details" && routeDiscoverId && (
         <DiscoverGameDetails
           game={discoverGame}
@@ -618,7 +621,7 @@ function PS4ShelfView({
                     : {}}
                 >
                   <div className="ps4-card-art" style={game.cover ? { backgroundImage: `url(${game.cover})` } : undefined}>
-                    {!game.cover && <div className="grid-card-fallback"><Gamepad2 size={28} style={{marginTop: 8}} />  <span style={{fontSize: "12px"}}>{game.title}</span></div>}
+                    {!game.cover && <div className="grid-card-fallback"><Gamepad2 size={28} style={{ marginTop: 8 }} />  <span style={{ fontSize: "12px" }}>{game.title}</span></div>}
                   </div>
                   {isFocused && <div className="ps4-card-focus-ring" />}
                 </motion.button>
