@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Camera, Check, FolderPlus, PenLine, Plus, Sparkles, X } from "lucide-react";
 import type { AppData, Collection, Game } from "../domain/game";
+import { seedGame } from "./discover";
 import "./overview.css";
 
 export function ProfileSection({ data, update }: { data: AppData; update: (data: AppData) => void }) {
@@ -160,7 +161,7 @@ function CollectionDetail({ collection, data, update, openDiscover, close }: { c
             <p className="collection-description">{collection.description || "No description yet."}</p>
             <div className="collection-items">
               {collection.items.length ? collection.items.map((item) => (
-                <button type="button" className="collection-detail-item" key={item.igdbId} onDoubleClick={() => openDiscover(item.igdbId)} title="Double-click to open details">
+                <button type="button" className="collection-detail-item" key={item.igdbId} onDoubleClick={() => { seedGame({ id: item.igdbId, name: item.name, cover: item.cover }); openDiscover(item.igdbId); }}>
                   <img src={hq(item.cover)} alt="" loading="lazy" decoding="async" draggable={false} />
                   <span>{item.name}</span>
                 </button>

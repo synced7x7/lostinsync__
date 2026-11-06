@@ -256,6 +256,7 @@ function App() {
           onAdd={addGame}
           onSave={saveGame}
           onDelete={deleteGame}
+          igdbId={routeDiscoverId}
           DetailsView={Details}
         />
       )}{" "}
