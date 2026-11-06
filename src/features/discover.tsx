@@ -13,6 +13,7 @@ import { CollectionActions } from "./overview";
 import "./discover.css";
 
 const sections: { key: IgdbFeed; title: string; tone: string }[] = [
+  { key: "trending", title: "Trending Now", tone: "rose" },
   { key: "forYou", title: "For You", tone: "violet" }, { key: "popular", title: "Most Popular", tone: "cyan" },
   { key: "topRated", title: "Top Rated", tone: "gold" }, { key: "latest", title: "Latest Releases", tone: "rose" },
   { key: "upcoming", title: "Upcoming", tone: "blue" }, { key: "anticipated", title: "Most Anticipated", tone: "green" },

@@ -28,7 +28,7 @@ export type IgdbDiscoverGame = {
 export type IgdbDiscover = {
   popular: IgdbDiscoverGame[]; forYou: IgdbDiscoverGame[]; latest: IgdbDiscoverGame[];
   upcoming: IgdbDiscoverGame[]; topRated: IgdbDiscoverGame[]; anticipated: IgdbDiscoverGame[];
-  hiddenGems: IgdbDiscoverGame[]; indie: IgdbDiscoverGame[]; story: IgdbDiscoverGame[];
+  hiddenGems: IgdbDiscoverGame[]; indie: IgdbDiscoverGame[]; story: IgdbDiscoverGame[];  trending: IgdbDiscoverGame[];
 };
 
 export type IgdbFeed = keyof IgdbDiscover;
