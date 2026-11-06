@@ -42,6 +42,10 @@
 .discover-shot-grid img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 9px; background: var(--panel-strong); }
 .discover-card.skeleton { pointer-events: none }
 .discover-card.skeleton .discover-card-art { border-color: transparent; background: linear-gradient(100deg, rgba(255,255,255,.04) 30%, rgba(255,255,255,.12) 50%, rgba(255,255,255,.04) 70%) 0 0 / 200% 100%; animation: discoverShimmer 1.4s linear infinite }
+.discover-card-art.empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 16px; text-align: center; color: #c9c0ff }
+.discover-card-fallback { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; font-size: 13px; font-weight: 600; line-height: 1.3; color: var(--text) }
+
+
 @keyframes discoverShimmer { to { background-position: -200% 0 } }
 
 

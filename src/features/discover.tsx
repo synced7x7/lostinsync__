@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Building2, CalendarDays, ChevronLeft, Compass, Heart, PenLine, Plus, Search, Trash2 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Header } from "../components/shared";
-import { igdbDiscoverFeedCached, igdbImagesCached, igdbSearch, type IgdbCreds, type IgdbDiscoverGame, type IgdbFeed, type IgdbGame, type IgdbHit, type IgdbDebugImage } from "../data/igdb";
+import { igdbDetailsCached, igdbDiscoverFeedCached, igdbImagesCached, igdbSearch, type IgdbCreds, type IgdbDiscoverGame, type IgdbFeed, type IgdbGame, type IgdbHit, type IgdbDebugImage } from "../data/igdb";
 import type { AppData } from "../domain/game";
 import type { Game } from "../domain/game";
 // import { AddGame } from "./library-components";
@@ -57,21 +57,13 @@ export function DiscoverView({ data }: { data: AppData }) {
     void Promise.all([worker(), worker(), worker()]); // 3 at a time, in section order (stays under IGDB's rate limit)
     return () => { stale = true; };
   }, [credentials.clientId, credentials.clientSecret, genres.join("|")]);
+    useEffect(() => { prefetchCreds = credentials; }, [credentials.clientId, credentials.clientSecret]);
 
   const runSearch = async () => {
     if (!search.trim()) return;
     try { setError(""); setSearchResults(await igdbSearch(search, credentials)); } catch (reason) { setError(reason instanceof Error ? reason.message : "Search failed."); }
   };
-  function FeedSkeleton({ title, tone }: { title: string; tone: string }) {
-    return (
-      <section className="discover-section">
-        <div className="discover-section-heading"><div><h2>{title}</h2><span className={`discover-tone ${tone}`} /></div></div>
-        <div className="discover-row">
-          {Array.from({ length: 8 }, (_, i) => <div className="discover-card skeleton" key={i}><div className="discover-card-art" /></div>)}
-        </div>
-      </section>
-    );
-  }
+  
   const openGame = (id: number) => navigate(`/details?igdb=${id}`);
   if (!credentials.clientId || !credentials.clientSecret) return <><Header eyebrow="IGDB DISCOVERY" title="Discover" /><div className="discover-empty glass"><Compass size={34} /><h2>Connect IGDB to discover your next game</h2><p>Add your Twitch Client ID and Client Secret in Settings to unlock live recommendations, releases, ratings, and search.</p></div></>;
   if (feed) return <FeedPage feed={feed} credentials={credentials} genres={genres} openGame={openGame} goBack={() => navigate("/discover")} />;
@@ -88,7 +80,17 @@ export function DiscoverView({ data }: { data: AppData }) {
     </div>
   );
 }
-
+function FeedSkeleton({ title, tone }: { title: string; tone: string }) {
+    return (
+      <section className="discover-section">
+        <div className="discover-section-heading"><div><h2>{title}</h2><span className={`discover-tone ${tone}`} /></div></div>
+        <div className="discover-row">
+          {Array.from({ length: 8 }, (_, i) => <div className="discover-card skeleton" key={i}><div className="discover-card-art" /></div>)}
+        </div>
+      </section>
+    );
+  }
+  
 function FeedSection({ section, games, openGame, onViewAll }: { section: typeof sections[number]; games: IgdbDiscoverGame[]; openGame: (id: number) => void; onViewAll: () => void }) {
   return <section className="discover-section"><div className="discover-section-heading"><div><p className="eyebrow">{section.key === "forYou" ? "BASED ON YOUR LIBRARY" : "LIVE FROM IGDB"}</p><h2>{section.title}</h2></div><span className={`discover-tone ${section.tone}`} /><button className="discover-view-all" onClick={onViewAll}>View all</button></div><SimilarShelf games={games} onOpen={openGame} /></section>;
 }
@@ -147,8 +149,34 @@ function FeedPage({ feed, credentials, genres, openGame, goBack }: { feed: IgdbF
   return <div className="discover-page"><button className="back-button" onClick={goBack}><ChevronLeft size={16} /> Back to Discover</button><Header eyebrow="IGDB DISCOVERY" title={section.title} /><div className="discover-grid">{games.map((game) => <DiscoverCard game={game} key={game.id} onDoubleClick={() => openGame(game.id)} />)}</div><div ref={sentinel} className="discover-loading">{loading ? "Loading more games..." : done ? "You have reached the end of this feed." : ""}</div></div>;
 }
 
+let prefetchCreds: IgdbCreds | undefined;
+export const prefetchGame = (id: number) => {
+  if (!prefetchCreds?.clientId || !prefetchCreds?.clientSecret) return;
+  void igdbDetailsCached(id, prefetchCreds).catch(() => {});
+  void igdbImagesCached(id, prefetchCreds).catch(() => {});
+};
+
 function DiscoverCard({ game, onDoubleClick }: { game: IgdbDiscoverGame; onDoubleClick: () => void }) {
-  return <button className="discover-card" onDoubleClick={onDoubleClick} title="Double-click to open details"><div className="discover-card-art">{game.cover ? <img src={game.cover} alt={game.name} /> : <Compass size={28} />}</div></button>;
+  const timer = useRef<number | undefined>(undefined);
+  return (
+    <button
+      className="discover-card"
+      onDoubleClick={onDoubleClick}
+      onClick={() => prefetchGame(game.id)} // first click of a double-click starts loading
+      onMouseEnter={() => { timer.current = window.setTimeout(() => prefetchGame(game.id), 250); }}
+      onMouseLeave={() => window.clearTimeout(timer.current)}
+      title="Double-click to open details"
+    >
+      <div className={`discover-card-art${game.cover ? "" : " empty"}`}>
+        {game.cover ? <img src={game.cover} alt={game.name} /> : (
+          <>
+            <Compass size={28} />
+            <span className="discover-card-fallback">{game.name}</span>
+          </>
+        )}
+      </div>
+    </button>
+  );
 }
 
 type DetailsViewProps = {

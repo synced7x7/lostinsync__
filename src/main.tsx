@@ -914,6 +914,7 @@ function Details({
           onAdd={(g) => { saveGame(g); setEditing(false); }}
         />
       )}
+      {extra}
     </>
   );
 }
