@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Building2, CalendarDays, ChevronLeft, Compass, Heart, PenLine, Plus, Search, Trash2 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Header } from "../components/shared";
-import { igdbDiscoverCached, igdbDiscoverFeedCached, igdbImagesCached, igdbSearch, type IgdbCreds, type IgdbDiscover, type IgdbDiscoverGame, type IgdbFeed, type IgdbGame, type IgdbHit, type IgdbDebugImage } from "../data/igdb";
+import { igdbDiscoverFeedCached, igdbImagesCached, igdbSearch, type IgdbCreds, type IgdbDiscoverGame, type IgdbFeed, type IgdbGame, type IgdbHit, type IgdbDebugImage } from "../data/igdb";
 import type { AppData } from "../domain/game";
 import type { Game } from "../domain/game";
 // import { AddGame } from "./library-components";
@@ -14,10 +14,11 @@ import "./discover.css";
 
 const sections: { key: IgdbFeed; title: string; tone: string }[] = [
   { key: "trending", title: "Trending Now", tone: "rose" },
+  { key: "anticipated", title: "Most Anticipated", tone: "green" },
   { key: "forYou", title: "For You", tone: "violet" }, { key: "popular", title: "Most Popular", tone: "cyan" },
   { key: "topRated", title: "Top Rated", tone: "gold" }, { key: "latest", title: "Latest Releases", tone: "rose" },
-  { key: "upcoming", title: "Upcoming", tone: "blue" }, { key: "anticipated", title: "Most Anticipated", tone: "green" },
   { key: "hiddenGems", title: "Hidden Gems", tone: "violet" }, { key: "indie", title: "Indie Spotlight", tone: "cyan" },
+   { key: "upcoming", title: "Upcoming", tone: "blue" },
   { key: "story", title: "Story-Driven Adventures", tone: "rose" },
 ];
 // const dateLabel = (timestamp?: number) => timestamp ? new Date(timestamp * 1000).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "Release date unknown";
@@ -27,23 +28,50 @@ export function DiscoverView({ data }: { data: AppData }) {
   const location = useLocation();
   const navigate = useNavigate();
   const feed = new URLSearchParams(location.search).get("feed") as IgdbFeed | null;
-  const [feeds, setFeeds] = useState<IgdbDiscover>();
+  const [feeds, setFeeds] = useState<Partial<Record<IgdbFeed, IgdbDiscoverGame[]>>>({});
   const [search, setSearch] = useState("");
   const [searchResults, setSearchResults] = useState<IgdbHit[]>([]);
-  const [busy, setBusy] = useState(false);
+
   const [error, setError] = useState("");
   const genres = useMemo(() => [...new Set(data.games.flatMap((game) => game.genres ?? [game.genre]).filter(Boolean))], [data.games]);
 
   useEffect(() => {
     if (!credentials.clientId || !credentials.clientSecret) return;
-    setBusy(true);
-    void igdbDiscoverCached(genres, credentials).then(setFeeds).catch((reason: unknown) => setError(reason instanceof Error ? reason.message : "Could not load discovery feeds.")).finally(() => setBusy(false));
+    let stale = false;
+    setFeeds({});
+    setError("");
+    const queue = [...sections];
+    const worker = async () => {
+      for (let s = queue.shift(); s; s = queue.shift()) {
+        try {
+          const games = await igdbDiscoverFeedCached(s.key, genres, 0, 20, credentials);
+          if (!stale) setFeeds((f) => ({ ...f, [s.key]: games }));
+        } catch (reason) {
+          if (!stale) {
+            setFeeds((f) => ({ ...f, [s.key]: [] }));
+            setError(reason instanceof Error ? reason.message : "Could not load some discovery feeds.");
+          }
+        }
+      }
+    };
+    void Promise.all([worker(), worker(), worker()]); // 3 at a time, in section order (stays under IGDB's rate limit)
+    return () => { stale = true; };
   }, [credentials.clientId, credentials.clientSecret, genres.join("|")]);
 
   const runSearch = async () => {
     if (!search.trim()) return;
     try { setError(""); setSearchResults(await igdbSearch(search, credentials)); } catch (reason) { setError(reason instanceof Error ? reason.message : "Search failed."); }
   };
+  function FeedSkeleton({ title, tone }: { title: string; tone: string }) {
+    return (
+      <section className="discover-section">
+        <div className="discover-section-heading"><div><h2>{title}</h2><span className={`discover-tone ${tone}`} /></div></div>
+        <div className="discover-row">
+          {Array.from({ length: 8 }, (_, i) => <div className="discover-card skeleton" key={i}><div className="discover-card-art" /></div>)}
+        </div>
+      </section>
+    );
+  }
   const openGame = (id: number) => navigate(`/details?igdb=${id}`);
   if (!credentials.clientId || !credentials.clientSecret) return <><Header eyebrow="IGDB DISCOVERY" title="Discover" /><div className="discover-empty glass"><Compass size={34} /><h2>Connect IGDB to discover your next game</h2><p>Add your Twitch Client ID and Client Secret in Settings to unlock live recommendations, releases, ratings, and search.</p></div></>;
   if (feed) return <FeedPage feed={feed} credentials={credentials} genres={genres} openGame={openGame} goBack={() => navigate("/discover")} />;
@@ -52,8 +80,11 @@ export function DiscoverView({ data }: { data: AppData }) {
       <Header eyebrow="IGDB DISCOVERY" title="Discover" />
       {error && <div className="discover-error">{error}</div>}
       <section className="discover-search glass"><div><p className="eyebrow">SEARCH THE DATABASE</p></div><div className="discover-search-row"><input value={search} onChange={(event) => setSearch(event.target.value)} onKeyDown={(event) => event.key === "Enter" && void runSearch()} placeholder='Try "Hades" or "/ Hades" for an exact match' /><button className="button primary" onClick={() => void runSearch()}><Search size={16} /> Search</button></div>{searchResults.length > 0 && <div className="discover-results">{searchResults.map((game) => <button key={game.id} className="discover-result" onDoubleClick={() => openGame(game.id)} title="Double-click to open"><img src={game.cover} alt="" /><span><strong>{game.name}</strong></span></button>)}</div>}</section>
-      {busy && !feeds && <div className="discover-loading">Curating your feeds...</div>}
-      {feeds && sections.map((item) => <FeedSection key={item.key} section={item} games={feeds[item.key]} openGame={openGame} onViewAll={() => navigate(`/discover?feed=${item.key}`)} />)}
+      {sections.map((item) => {
+        const games = feeds[item.key];
+        if (!games) return <FeedSkeleton key={item.key} title={item.title} tone={item.tone} />;
+        return games.length ? <FeedSection key={item.key} section={item} games={games} openGame={openGame} onViewAll={() => navigate(`/discover?feed=${item.key}`)} /> : null;
+      })}
     </div>
   );
 }

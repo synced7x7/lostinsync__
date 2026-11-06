@@ -719,14 +719,9 @@ async fn igdb_discover_feed(
         "topRated" =>
             ("total_rating != null & total_rating_count > 1500".into(), "total_rating desc"),
         "anticipated" => (format!("first_release_date > {now} & hypes != null"), "hypes desc"),
-        "hiddenGems" =>
-            (
-                "total_rating != null & total_rating_count > 10 & total_rating_count < 500".into(),
-                "total_rating desc",
-            ),
-        "indie" =>
-            ("involved_companies.company != null & genres != null".into(), "total_rating desc"),
-        "story" => ("storyline != null & themes != null".into(), "total_rating desc"),
+        "hiddenGems" => ("total_rating != null & total_rating_count > 10 & total_rating_count < 500 & game_type = 0".into(), "total_rating desc"),
+        "indie" => ("involved_companies.company != null & genres != null & game_type = 0".into(), "total_rating desc"),
+        "story" => ("storyline != null & themes != null & game_type = 0".into(), "total_rating desc"),
         _ => {
             return Err("Unknown discovery feed.".into());
         }

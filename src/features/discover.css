@@ -40,4 +40,9 @@
 .discover-video { padding: 10px 13px; border-radius: 9px; color: var(--text); background: rgba(164,149,255,.12); text-decoration: none; font-size: 12px; }
 .discover-shot-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
 .discover-shot-grid img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 9px; background: var(--panel-strong); }
+.discover-card.skeleton { pointer-events: none }
+.discover-card.skeleton .discover-card-art { border-color: transparent; background: linear-gradient(100deg, rgba(255,255,255,.04) 30%, rgba(255,255,255,.12) 50%, rgba(255,255,255,.04) 70%) 0 0 / 200% 100%; animation: discoverShimmer 1.4s linear infinite }
+@keyframes discoverShimmer { to { background-position: -200% 0 } }
+
+
 @media (max-width: 650px) { .discover-search-row { flex-direction: column; }.discover-detail { flex-direction: column; }.discover-detail-art { flex-basis: 240px; }.discover-card { flex-basis: 150px; }.discover-card-art { height: 205px; } }
