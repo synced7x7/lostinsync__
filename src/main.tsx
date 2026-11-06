@@ -807,11 +807,6 @@ function Details({
             </div>
           )}
         </div>
-        <div className="detail-stat">
-          <span>Verified time</span>
-          <strong>{formatPlaytime(game.totalSeconds)}</strong>
-          <small>{game.rating ? `${game.rating}/10 rating` : "Not rated yet"}</small>
-        </div>
       </div>
 
       <div className="detail-grid">
