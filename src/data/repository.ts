@@ -1,13 +1,18 @@
 import type { AppData, Game } from "../domain/game";
 import { defaultData } from "../domain/game";
 const KEY = "lost-in-sync.data";
+const normalizeStatuses = (data: AppData): AppData => ({
+  ...data,
+  games: data.games.map((game) => (game.status as string) === "Retired" ? { ...game, status: "Completed" } : game),
+  settings: { ...data.settings, libraryFilter: (data.settings.libraryFilter as string) === "Played" ? "All" : data.settings.libraryFilter },
+});
 export interface AppRepository { load(): Promise<AppData>; save(data: AppData): Promise<void>; }
 export class LocalAppRepository implements AppRepository {
   async load(): Promise<AppData> {
     try {
       const saved = JSON.parse(localStorage.getItem(KEY) ?? "{}") as Partial<AppData>;
       const { activities: _activities, journal: _journal, lastOpenedGameId: _lastOpenedGameId, ...savedWithoutLegacyState } = saved as Partial<AppData> & { activities?: unknown; journal?: unknown; lastOpenedGameId?: unknown };
-      return { ...defaultData, ...savedWithoutLegacyState, settings: { ...defaultData.settings, ...saved.settings } } as AppData;
+      return normalizeStatuses({ ...defaultData, ...savedWithoutLegacyState, settings: { ...defaultData.settings, ...saved.settings } } as AppData);
     }
     catch { throw new Error("Saved library data could not be read."); }
   }
@@ -31,12 +36,12 @@ export class TauriAppRepository implements AppRepository {
       const loaded = await invoke<AppData | null>("load_app_data");
       if (!loaded) return defaultData;
       const { activities: _activities, journal: _journal, lastOpenedGameId: _lastOpenedGameId, ...loadedWithoutLegacyState } = loaded as AppData & { activities?: unknown; journal?: unknown; lastOpenedGameId?: unknown };
-      return {
+      return normalizeStatuses({
         ...defaultData,
         ...loadedWithoutLegacyState,
         profile: { ...defaultData.profile, ...loaded.profile },
         settings: { ...defaultData.settings, ...loaded.settings },
-      };
+      });
     } catch {
       return defaultData;
     }

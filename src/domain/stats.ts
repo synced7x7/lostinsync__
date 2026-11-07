@@ -42,7 +42,7 @@ export const index = (games: Game[]): R[] => games.map((g) => {
     platform: p ? (p === "PC" ? PC : p) : "Unknown", // platform = where it was played (emulated or not)
     fr: g.franchises ?? [], dev: g.developer?.trim() || undefined, rating: g.rating || undefined,
     len: g.timeAvgSeconds ? g.timeAvgSeconds / 3600 : undefined, // IGDB average time to complete, in hours
-    done: ["Completed", "Retired"].includes(g.status), played: !OFF.includes(g.status), at: f ?? s ?? (Date.parse(g.createdAt) || 0),
+    done: g.status === "Completed", played: !OFF.includes(g.status), at: f ?? s ?? (Date.parse(g.createdAt) || 0),
     };
 });
 

@@ -35,7 +35,7 @@ const unique = <T>(a: T[]) => [...new Set(a)];
 const localToday = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 const positive = (v?: number | null) => (v && v > 0 ? Math.min(10, Math.round(v)) : undefined);
 
-const STATUS_MAP: Record<string, Status> = { completed: "Completed", retired: "Retired", shelved: "Shelved", abandoned: "Abandoned" };
+const STATUS_MAP: Record<string, Status> = { completed: "Completed", retired: "Completed", shelved: "Shelved", abandoned: "Abandoned" };
 
 const startOf = (p: BlPlay) =>
   dateOnly(p.start_date) ?? (p.play_dates ?? []).map((d) => dateOnly(d.start_date)).filter((d): d is string => !!d).sort()[0];

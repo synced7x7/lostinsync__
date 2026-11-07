@@ -1,6 +1,6 @@
 import type { IgdbDebugImage } from "../data/igdb";
 
-export const STATUSES = ["Backlog", "Wishlist", "Playing", "Completed", "Retired", "Shelved", "Abandoned", "On hold"] as const;
+export const STATUSES = ["Backlog", "Wishlist", "Playing", "Completed", "Shelved", "Abandoned", "On hold"] as const;
 export type Status = typeof STATUSES[number];
 export type View = "dashboard" | "library" | "discover" | "details" | "journey" | "trophies" | "stats"| "settings";
 export type Game = {
@@ -32,7 +32,7 @@ export type AppSettings = {
   gridSize: GridSize;
   librarySort: LibrarySort;
   librarySortDirection: SortDirection;
-  libraryFilter: Status | "Played" | "All";
+  libraryFilter: Status | "All";
   libraryGenre: string;
   libraryFavoritesOnly: boolean;
   journeyRange?: "all" | "month" | number;
