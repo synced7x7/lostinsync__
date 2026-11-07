@@ -60,6 +60,8 @@ import { TrophiesView } from "./features/trophies";
 import { DiscoverView } from "./features/discover";
 import { DiscoverGameDetails } from "./features/discover";
 import { igdbDetailsCached, type IgdbGame } from "./data/igdb";
+import { useLayoutEffect } from "react"; // add useLayoutEffect to your existing react import instead if you have one
+import { GAME_TYPES, UNSET_TYPE, matchesGameType } from "./domain/gametype";
 
 
 const repo = createAppRepository();
@@ -177,13 +179,18 @@ function App() {
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
   }, []);
+  const [journeyRange, setJourneyRange] = useState<"all" | "month" | number>(new Date().getFullYear());
+  useEffect(() => {
+    // leaving Journey for another tab resets it; opening a game from Journey and coming back keeps your choice
+    if (view !== "journey" && view !== "details") setJourneyRange(new Date().getFullYear());
+  }, [view]);
   const updateJourneyPreferences = (preferences: { range: "all" | "month" | number; zoom: number; fit: boolean }) => {
+    setJourneyRange(preferences.range);
     journeyPreferencesDirty.current = true;
     setData((current) => ({
       ...current,
       settings: {
         ...current.settings,
-        journeyRange: preferences.range,
         journeyZoom: preferences.zoom,
         journeyFit: preferences.fit,
       },
@@ -213,7 +220,6 @@ function App() {
     });
   };
   const deleteGame = (game: Game) => {
-    if (!window.confirm(`Delete "${game.title}" from your library?`)) return;
     update({
       ...data,
       games: data.games.filter((item) => item.id !== game.id),
@@ -249,7 +255,7 @@ function App() {
         <JourneyView
           games={data.games}
           openGame={openGame}
-          preferences={{ range: data.settings.journeyRange ?? "all", zoom: data.settings.journeyZoom ?? 1, fit: data.settings.journeyFit ?? false }}
+          preferences={{ range: journeyRange, zoom: data.settings.journeyZoom ?? 1, fit: data.settings.journeyFit ?? false }}
           onPreferencesChange={updateJourneyPreferences}
         />
       )}{" "}
@@ -338,6 +344,7 @@ function LibraryView({
   const sort = data.settings.librarySort ?? "recent";
   const sortDirection = data.settings.librarySortDirection ?? "desc";
   const favoritesOnly = data.settings.libraryFavoritesOnly ?? false;
+  const typeFilter = data.settings.libraryGameType ?? "All";
 
   const updateSettings = (partial: Partial<AppSettings>) => {
     update({
@@ -348,9 +355,9 @@ function LibraryView({
 
   const games = useMemo(
     () => data.games
-      .filter((g) => (filter === "All" || g.status === filter) && (!favoritesOnly || g.favorite) && g.title.toLowerCase().includes(query.toLowerCase()))
+      .filter((g) => (filter === "All" || g.status === filter) && matchesGameType(g.gameType, typeFilter) && (!favoritesOnly || g.favorite) && g.title.toLowerCase().includes(query.toLowerCase()))
       .sort((a, b) => compareGames(a, b, sort, sortDirection)),
-    [data.games, filter, favoritesOnly, query, sort, sortDirection]
+    [data.games, filter, typeFilter, favoritesOnly, query, sort, sortDirection]
   );
   const sortOptions: { value: LibrarySort; label: string }[] = [
     { value: "recent", label: "When added" },
@@ -375,6 +382,15 @@ function LibraryView({
       </button>
     </>
   );
+
+  const typeControl = (
+    <select value={typeFilter} onChange={(e) => updateSettings({ libraryGameType: e.target.value })} title="Filter by game type" aria-label="Filter by game type">
+      <option value="All">All types</option>
+      {GAME_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+      <option value={UNSET_TYPE}>Type not set</option>
+    </select>
+  );
+
   const fullscreenActions = fullscreen && (
     <div className="ps4-fullscreen-actions">
       <button className="icon-btn glass" onClick={() => setShowFullscreenFilters((open) => !open)} title="Show library filters">
@@ -393,6 +409,7 @@ function LibraryView({
             <option value="All">All statuses</option>
             {STATUSES.map((s) => <option key={s}>{s}</option>)}
           </select>
+          {typeControl}
           {sortControl}
           <button className={favoritesOnly ? "icon-btn active" : "icon-btn"} onClick={() => updateSettings({ libraryFavoritesOnly: !favoritesOnly })} title="Favorite games only" aria-label="Favorite games only">
             <Heart size={16} fill={favoritesOnly ? "currentColor" : "none"} />
@@ -420,8 +437,9 @@ function LibraryView({
         <div className="toolbar-actions">
           <select value={filter} onChange={(e) => updateSettings({ libraryFilter: e.target.value as Status | "All" })}>
             <option value="All">All statuses</option>
-             {STATUSES.map((s) => <option key={s}>{s}</option>)}
+            {STATUSES.map((s) => <option key={s}>{s}</option>)}
           </select>
+          {typeControl}
           {sortControl}
           <button className={favoritesOnly ? "icon-btn active" : "icon-btn"} onClick={() => updateSettings({ libraryFavoritesOnly: !favoritesOnly })} title="Favorite games only" aria-label="Favorite games only">
             <Heart size={16} fill={favoritesOnly ? "currentColor" : "none"} />
@@ -650,6 +668,9 @@ function PS4ShelfView({
   );
 }
 
+// Session-only memory of the catalog grid. Lives in memory, never saved, gone when the app closes.
+const gridSession = { scrollY: 0, visible: 40 };
+
 function GridLibraryView({
   games, openGame, saveGame, gridSize, setGridSize,
 }: {
@@ -659,7 +680,24 @@ function GridLibraryView({
   gridSize: GridSize;
   setGridSize: (size: GridSize) => void;
 }) {
-  const [visibleCount, setVisibleCount] = useState(40);
+  const [visibleCount, setVisibleCount] = useState(() => Math.max(40, gridSession.visible));
+  useLayoutEffect(() => {
+    const y = gridSession.scrollY;
+    if (!y) return;
+    gridSession.scrollY = 0; // use it once
+    let tries = 0, raf = 0;
+    const restore = () => {
+      window.scrollTo({ top: y, left: 0, behavior: "auto" });
+      if (Math.abs(window.scrollY - y) > 2 && tries++ < 20) raf = requestAnimationFrame(restore); // wait for covers/layout to settle
+    };
+    restore();
+    return () => cancelAnimationFrame(raf);
+  }, []);
+  const open = (id: string) => {
+    gridSession.scrollY = window.scrollY;
+    gridSession.visible = visibleCount;
+    openGame(id);
+  };
   const sentinelRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const el = sentinelRef.current;
@@ -687,7 +725,7 @@ function GridLibraryView({
       </div>
       <div className={`grid-lib ${sizeClass[gridSize]}`}>
         {visible.map((game) => (
-          <GridCard key={game.id} game={game} gridSize={gridSize} onOpen={() => openGame(game.id)} onSave={saveGame} />
+          <GridCard key={game.id} game={game} gridSize={gridSize} onOpen={() => open(game.id)} onSave={saveGame} />
         ))}
       </div>
       <div ref={sentinelRef} style={{ height: 1 }} />

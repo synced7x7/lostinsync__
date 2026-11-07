@@ -10,6 +10,11 @@ const PRIORITY = [
   "Nintendo Switch", "Nintendo Switch 2", "Steam Deck", "Android", "iOS", "Mac", "Linux",
 ];
 
+export const GAME_TYPES = [
+  "Main Game", "DLC", "Expansion", "Bundle", "Standalone Expansion", "Mod", "Episode",
+  "Season", "Remake", "Remaster", "Expanded Game", "Port", "Fork", "Pack", "Update",
+] as const;
+
 export const PC = "PC (Microsoft Windows)";
 export const ALL_PLATFORMS: string[] = [
   ...PRIORITY,

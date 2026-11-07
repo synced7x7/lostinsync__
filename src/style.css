@@ -349,7 +349,9 @@ nav {
 
 .sidebar-bottom small {
     display: block;
-    margin-top: 12px
+    margin-top: 14px;
+    font-size: small;
+    font-style: italic;
 }
 
 .offline {

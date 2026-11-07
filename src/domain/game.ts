@@ -41,6 +41,7 @@ export type AppSettings = {
   igdbClientId?: string;
   igdbClientSecret?: string;
   lastIgdbSyncAt?: string;
+  libraryGameType?: string;
 };
 export type CollectionItem = { igdbId: number; name: string; cover?: string };
 export type Collection = { id: string; name: string; description?: string; items: CollectionItem[] };

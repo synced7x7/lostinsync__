@@ -149,11 +149,8 @@ function Sidebar({
         <div className="sidebar-bottom">
           <div className="offline">
             <span title="Local-first workspace"></span>
-            {isOpen && (
-              <span className="sidebar-bottom-text">Local-first workspace</span>
-            )}
           </div>
-          {isOpen && <small>v0.1.0 · Everything stays yours</small>}
+          {isOpen && <small>v0.1.0 · Genesis Crypt</small>}
         </div>
       </aside>
       {!isOpen && (

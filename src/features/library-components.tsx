@@ -4,7 +4,7 @@ import { formatCount, formatHours, formatPlaytime, STATUSES, validateGame, type 
 import { hasTauri, igdbDetails, igdbImages, igdbSearch, type IgdbCreds, type IgdbDebugImage, type IgdbGame, type IgdbHit } from "../data/igdb";
 import { createPortal } from "react-dom";
 import { DateField, TrophyToggle, PlatformPicker, StarRating, type SaveGame } from "../components/shared";
-import { ALL_PLATFORMS, emulatedOn, PC } from "../data/platform";
+import { ALL_PLATFORMS, emulatedOn, PC, GAME_TYPES } from "../data/platform";
 
 const now = () => new Date().toISOString();
 
@@ -38,6 +38,8 @@ export function AddGame({ onClose, onAdd, igdb, initial }: { onClose: () => void
   const [releaseDate, setReleaseDate] = useState(initial?.releaseDate ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
   const [error, setError] = useState("");
+  const [gameType, setGameType] = useState(initial?.gameType ?? "");
+
 
   const [hits, setHits] = useState<IgdbHit[]>([]);
   const [open, setOpen] = useState(false);
@@ -68,6 +70,7 @@ export function AddGame({ onClose, onAdd, igdb, initial }: { onClose: () => void
       setPickedImages(images);
       setPickedVideos(g.videos.slice(0, 3).map((video) => ({ id: video.videoId, name: video.name })));
       setPicked(g);
+      if (g.gameType) setGameType(g.gameType);
       setTitle(g.name);
       setDeveloper(g.developer ?? "");
       setReleaseDate(g.releaseTs ? new Date(g.releaseTs * 1000).toISOString().slice(0, 10) : "");
@@ -145,7 +148,7 @@ export function AddGame({ onClose, onAdd, igdb, initial }: { onClose: () => void
       videos: initial?.videos,
       igdbImages: pickedImages,
       igdbVideos: pickedVideos,
-      gameType: picked?.gameType ?? initial?.gameType,
+      gameType: gameType || undefined,
       gameStatus: picked?.gameStatus ?? initial?.gameStatus,
       franchises: picked?.franchises ?? initial?.franchises,
       themes: picked?.themes ?? initial?.themes,
@@ -225,6 +228,13 @@ export function AddGame({ onClose, onAdd, igdb, initial }: { onClose: () => void
               <label>Hours played<input type="number" min="0" value={hours} onChange={(e) => setHours(e.target.value)} /></label>
               <label>Minutes played<input type="number" min="0" max="59" value={minutes} onChange={(e) => setMinutes(e.target.value)} /></label>
             </div>
+            <label>Game type
+              <select value={gameType} onChange={(e) => setGameType(e.target.value)}>
+                <option value="">Not set</option>
+                {gameType && !GAME_TYPES.includes(gameType as (typeof GAME_TYPES)[number]) && <option value={gameType}>{gameType}</option>}
+                {GAME_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </label>
             <label>Status
               <select value={status} onChange={(e) => setStatus(e.target.value as Status)}>
                 {STATUSES.map((item) => <option key={item}>{item}</option>)}
