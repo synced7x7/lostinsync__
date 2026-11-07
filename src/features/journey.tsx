@@ -374,6 +374,11 @@ export function JourneyView({
   const [zoomInput, setZoomInput] = useState(() => String(Math.round(clampZoom(preferences.zoom) * 100)));
   const [lod, setLod] = useState(() => clampZoom(preferences.zoom) < LOD_Z);
   const [vis, setVis] = useState({ a: 0, b: 0 });
+  // Progressive timeline rendering
+  const BATCH_SIZE = 80;
+
+  const [loadedFrom, setLoadedFrom] = useState(0);
+  const loadedFromRef = useRef(0);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const spacerRef = useRef<HTMLDivElement>(null);
@@ -565,6 +570,14 @@ export function JourneyView({
   }, [base, range]);
   const Lref = useRef(L);
   Lref.current = L;
+  // Initially render the newest batch of games
+  useLayoutEffect(() => {
+    const total = L?.branches.length ?? 0;
+    const start = Math.max(0, total - BATCH_SIZE);
+
+    loadedFromRef.current = start;
+    setLoadedFrom(start);
+  }, [L]);
 
   /* ── 6. viewport layer: transform + culling window, updated imperatively ── */
   const sync = useCallback(() => {
@@ -574,6 +587,20 @@ export function JourneyView({
     w.style.transform = `translate3d(${-el.scrollLeft}px, ${TOP - el.scrollTop}px, 0) scale(${z})`;
     const step = Math.max(300, 300 / z);
     const left = el.scrollLeft / z, right = (el.scrollLeft + el.clientWidth) / z;
+    // Load older games when approaching the oldest currently rendered branch
+    const currentL = Lref.current;
+    const firstLoaded = currentL?.branches[loadedFromRef.current];
+
+    if (
+      firstLoaded &&
+      loadedFromRef.current > 0 &&
+      left <= firstLoaded.e0 + step * 2
+    ) {
+      const nextStart = Math.max(0, loadedFromRef.current - BATCH_SIZE);
+
+      loadedFromRef.current = nextStart;
+      setLoadedFrom(nextStart);
+    }
     const a = Math.floor((left - 2 * step) / step) * step;
     const b = Math.ceil((right + 2 * step) / step) * step;
     const v = visRef.current;
@@ -776,7 +803,18 @@ export function JourneyView({
   };
 
   /* ── 1. culling: only what overlaps the visible x-range (+ margin) ── */
-  const vb = useMemo(() => (L ? L.branches.filter((b) => b.e1 >= vis.a && b.e0 <= vis.b) : []), [L, vis]);
+  const vb = useMemo(
+    () =>
+      L
+        ? L.branches.filter(
+          (b, index) =>
+            index >= loadedFrom &&
+            b.e1 >= vis.a &&
+            b.e0 <= vis.b
+        )
+        : [],
+    [L, vis, loadedFrom]
+  );
   const vt = useMemo(() => (L ? L.ticks.filter((k) => k.x >= vis.a - 60 && k.x <= vis.b + 60) : []), [L, vis]);
 
   const pickedGame = pickId ? gameById.get(pickId) : undefined;
