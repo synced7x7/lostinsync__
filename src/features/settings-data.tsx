@@ -201,7 +201,7 @@ function BackloggdSection({ data, update }: Props) {
       <div className="notice info" role="note">
         <Info size={15} />
         <span>
-          Games already in your library with the same IGDB id are skipped. Games you added by hand without picking them from IGDB can't be detected, so <strong>delete your library first</strong> (above) to avoid duplicate entries.
+          Games already in your library with the same IGDB id are skipped. Games you added by hand without picking them from IGDB can't be detected, so <strong>delete your library first</strong> to avoid duplicate entries.
         </span>
       </div>
       {!canRun && <p className="hint">{hasTauri ? "Add your IGDB Client ID and Secret above to enable importing." : "Importing works in the desktop app only."}</p>}
