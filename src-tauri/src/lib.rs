@@ -133,6 +133,7 @@ struct IgdbHit {
     release_ts: Option<i64>,
     developer: Option<String>,
     cover: Option<String>,
+    game_type: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -370,7 +371,13 @@ async fn igdb_search(
     let id_query = query
         .strip_prefix("& ")
         .map(str::trim)
-        .filter(|value| value.parse::<i64>().ok().filter(|id| *id > 0).is_some());
+        .filter(|value|
+            value
+                .parse::<i64>()
+                .ok()
+                .filter(|id| *id > 0)
+                .is_some()
+        );
     let strict_query = query
         .strip_prefix("/ ")
         .map(str::trim)
@@ -378,15 +385,15 @@ async fn igdb_search(
     let q = strict_query.unwrap_or(query.trim()).replace('\\', "\\\\").replace('"', "\\\"");
     let body = if let Some(id) = id_query {
         format!(
-            "fields name,first_release_date,cover.image_id,involved_companies.developer,involved_companies.company.name; where id = {id}; limit 1;"
+            "fields name,first_release_date,game_type.type,cover.image_id,involved_companies.developer,involved_companies.company.name; where id = {id}; limit 1;"
         )
     } else if strict_query.is_some() {
         format!(
-            "fields name,first_release_date,cover.image_id,involved_companies.developer,involved_companies.company.name; where version_parent = null & name = \"{q}\"; limit 50;"
+            "fields name,first_release_date,game_type.type,cover.image_id,involved_companies.developer,involved_companies.company.name; where version_parent = null & name = \"{q}\"; limit 50;"
         )
     } else {
         format!(
-            "search \"{q}\"; fields name,first_release_date,cover.image_id,involved_companies.developer,involved_companies.company.name; where version_parent = null; limit 8;"
+            "search \"{q}\"; fields name,first_release_date,game_type.type,cover.image_id,involved_companies.developer,involved_companies.company.name; where version_parent = null; limit 8;"
         )
     };
     let rows = igdb_post(&auth, "games", body, &client_id, &client_secret).await?;
@@ -395,21 +402,22 @@ async fn igdb_search(
             .as_array()
             .map(|a| {
                 a.iter()
-                    .filter(|g|
+                    .filter(|g| (
                         if id_query.is_some() {
                             g["id"].as_i64().is_some()
                         } else {
                             strict_query
-                            .map(|strict| g["name"].as_str() == Some(strict))
-                            .unwrap_or(true)
+                                .map(|strict| g["name"].as_str() == Some(strict))
+                                .unwrap_or(true)
                         }
-                    )
+                    ))
                     .map(|g| IgdbHit {
                         id: g["id"].as_i64().unwrap_or(0),
                         name: g["name"].as_str().unwrap_or("").to_string(),
                         release_ts: g["first_release_date"].as_i64(),
                         developer: developer_of(g),
                         cover: g["cover"]["image_id"].as_str().map(|i| img(i, "cover_small")),
+                        game_type: g["game_type"]["type"].as_str().map(String::from),
                     })
                     .collect()
             })
@@ -992,7 +1000,9 @@ async fn igdb_import_batch(
     for g in rows.as_array().cloned().unwrap_or_default() {
         let id = match g["id"].as_i64() {
             Some(v) => v,
-            None => continue,
+            None => {
+                continue;
+            }
         };
         let t = ttb
             .as_array()

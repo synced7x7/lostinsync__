@@ -199,7 +199,7 @@ export function AddGame({ onClose, onAdd, igdb, initial }: { onClose: () => void
                   {hits.map((h) => (
                     <button type="button" key={h.id} className="igdb-hit" onClick={() => pick(h)}>
                       <div className="igdb-hit-art" style={h.cover ? { backgroundImage: `url(${h.cover})` } : undefined} />
-                      <div><strong>{h.name}</strong><span>{[h.developer, h.releaseTs && new Date(h.releaseTs * 1000).getUTCFullYear()].filter(Boolean).join(" · ")}</span></div>
+                      <div><strong>{h.name}</strong><span>{[h.gameType, h.releaseTs && new Date(h.releaseTs * 1000).getUTCFullYear()].filter(Boolean).join(" · ")}</span></div>
                     </button>
                   ))}
                 </div>

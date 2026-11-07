@@ -23,8 +23,8 @@ const sections: { key: IgdbFeed; title: string; tone: string }[] = [
 let prefetchCreds: IgdbCreds | undefined;
 export const prefetchGame = (id: number) => {
   if (!prefetchCreds?.clientId || !prefetchCreds?.clientSecret) return;
-  void igdbDetailsCached(id, prefetchCreds).catch(() => {});
-  void igdbImagesCached(id, prefetchCreds).catch(() => {});
+  void igdbDetailsCached(id, prefetchCreds).catch(() => { });
+  void igdbImagesCached(id, prefetchCreds).catch(() => { });
 };
 
 // What we already know about a game from a card / search result / collection item,
@@ -113,7 +113,10 @@ export function DiscoverView({ data }: { data: AppData }) {
                 onClick={() => { seedGame(game); prefetchGame(game.id); }}
                 onDoubleClick={() => { seedGame(game); openGame(game.id); }}>
                 <img src={game.cover} alt="" />
-                <span><strong>{game.name}</strong></span>
+                <span>
+                  <strong>{game.name}</strong>
+                  <small>{game.gameType ?? "Unknown"} · {game.releaseTs ? new Date(game.releaseTs * 1000).getFullYear() : "TBA"}</small>
+                </span>
               </button>
             ))}
           </div>
@@ -257,7 +260,7 @@ export function DiscoverGameDetails({ igdbId, game, close, openGame, credentials
   useEffect(() => {
     let stale = false;
     setImages([]);
-    void igdbImagesCached(igdbId, credentials).then((i) => !stale && setImages(i)).catch(() => {});
+    void igdbImagesCached(igdbId, credentials).then((i) => !stale && setImages(i)).catch(() => { });
     return () => { stale = true; };
   }, [igdbId, credentials.clientId, credentials.clientSecret]);
 

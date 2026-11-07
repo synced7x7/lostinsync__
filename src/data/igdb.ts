@@ -1,9 +1,9 @@
 export type IgdbCreds = { clientId: string; clientSecret: string };
-export type IgdbHit = { id: number; name: string; releaseTs?: number; developer?: string; cover?: string };
+export type IgdbHit = { id: number; name: string; releaseTs?: number; developer?: string; cover?: string; gameType?: string };
 export type IgdbGame = {
   id: number; name: string; developer?: string; releaseTs?: number; description?: string;
   genres: string[]; platforms: string[]; rating?: number; ratingCount?: number;
-  timeAvg?: number; timeMain?: number; timeFull?: number; cover?: string; background?: string;   
+  timeAvg?: number; timeMain?: number; timeFull?: number; cover?: string; background?: string;
   videos: { videoId: string; name?: string }[]; screenshots: string[];
   gameType?: string; gameStatus?: string; franchises?: string[];
   themes: string[]; playerPerspectives: string[]; storyline?: string;
@@ -28,7 +28,7 @@ export type IgdbDiscoverGame = {
 export type IgdbDiscover = {
   popular: IgdbDiscoverGame[]; forYou: IgdbDiscoverGame[]; latest: IgdbDiscoverGame[];
   upcoming: IgdbDiscoverGame[]; topRated: IgdbDiscoverGame[]; anticipated: IgdbDiscoverGame[];
-  hiddenGems: IgdbDiscoverGame[]; indie: IgdbDiscoverGame[]; story: IgdbDiscoverGame[];  trending: IgdbDiscoverGame[];
+  hiddenGems: IgdbDiscoverGame[]; indie: IgdbDiscoverGame[]; story: IgdbDiscoverGame[]; trending: IgdbDiscoverGame[];
 };
 
 export type IgdbFeed = keyof IgdbDiscover;
