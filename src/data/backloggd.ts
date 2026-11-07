@@ -1,6 +1,6 @@
 import type { Game, Status } from "../domain/game";
 import { emulatedOn } from "./platform";
-import { igdbImportBatch, igdbPlatforms, type IgdbCreds, type IgdbDebugImage, type IgdbGame, type IgdbImport } from "./igdb";
+import { igdbImportBatch, igdbPlatforms, igdbSearch, type IgdbCreds, type IgdbDebugImage, type IgdbGame, type IgdbImport } from "./igdb";
 
 type BlPlayDate = { start_date?: string | null; finish_date?: string | null; tags?: string[] | null };
 type BlPlay = {
@@ -19,6 +19,7 @@ export type ImportReport = {
   total: number; imported: number; cancelled: boolean;
   duplicates: { id: number; name: string }[];
   notFound: { id: number; name: string }[];
+  strictSearched: { id: number; name: string; igdbId: number }[];
   nameMismatch: { id: number; backloggd: string; igdb: string }[];
   unknownPlatforms: { name: string; platformId: number }[];
   unknownStatuses: { name: string; status: string }[];
@@ -52,7 +53,7 @@ function ordered(list: BlPlay[]) {
 }
 
 export const emptyReport = (total: number): ImportReport => ({
-  total, imported: 0, cancelled: false, duplicates: [], notFound: [], nameMismatch: [], unknownPlatforms: [], unknownStatuses: [], dateFixes: [], failures: [],
+  total, imported: 0, cancelled: false, duplicates: [], notFound: [], strictSearched: [], nameMismatch: [], unknownPlatforms: [], unknownStatuses: [], dateFixes: [], failures: [],
 });
 
 export function mapEntry(e: BlEntry, ig: IgdbGame, images: IgdbDebugImage[], platformNames: Map<number, string>, report: ImportReport): Game {
@@ -177,7 +178,20 @@ export async function importBackloggd(
       continue;
     }
     for (const { id, e } of chunk) {
-      const hit = found.get(id);
+      let hit = found.get(id);
+      if (!hit) {
+        try {
+          const strictHits = await withRetry(() => igdbSearch(`/ ${e.name}`, creds));
+          const strict = strictHits.find((candidate) => candidate.name === e.name);
+          if (strict) {
+            const fallback = await withRetry(() => igdbImportBatch([strict.id], creds));
+            hit = fallback[0];
+            if (hit) report.strictSearched.push({ id, name: e.name, igdbId: strict.id });
+          }
+        } catch (err) {
+          report.failures.push({ name: e.name, error: `Strict search failed: ${String(err)}` });
+        }
+      }
       if (!hit) { report.notFound.push({ id, name: e.name }); continue; }
       try {
         if (norm(e.name) !== norm(hit.game.name)) report.nameMismatch.push({ id, backloggd: e.name, igdb: hit.game.name });
@@ -194,6 +208,7 @@ export function reportSections(r: ImportReport): { title: string; items: string[
   return [
     { title: "Skipped, already in your library", items: r.duplicates.map((x) => `${x.name} (IGDB ${x.id})`) },
     { title: "Not found on IGDB", items: r.notFound.map((x) => `${x.name} (IGDB ${x.id})`) },
+    { title: "Recovered by strict search", items: r.strictSearched.map((x) => `${x.name} (Backloggd IGDB ${x.id} → matched IGDB ${x.igdbId})`) },
     { title: "Name differs from IGDB (imported anyway)", items: r.nameMismatch.map((x) => `Backloggd: "${x.backloggd}" → IGDB: "${x.igdb}"`) },
     { title: "Unknown platform ids", items: r.unknownPlatforms.map((x) => `${x.name}: platform id ${x.platformId}`) },
     { title: "Unknown statuses (set to Backlog)", items: r.unknownStatuses.map((x) => `${x.name}: "${x.status}"`) },

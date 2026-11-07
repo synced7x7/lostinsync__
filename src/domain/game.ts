@@ -32,7 +32,7 @@ export type AppSettings = {
   gridSize: GridSize;
   librarySort: LibrarySort;
   librarySortDirection: SortDirection;
-  libraryFilter: Status | "All";
+  libraryFilter: Status | "Played" | "All";
   libraryGenre: string;
   libraryFavoritesOnly: boolean;
   journeyRange?: "all" | "month" | number;

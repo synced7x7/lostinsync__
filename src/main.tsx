@@ -348,7 +348,7 @@ function LibraryView({
 
   const games = useMemo(
     () => data.games
-      .filter((g) => (filter === "All" || g.status === filter) && (!favoritesOnly || g.favorite) && g.title.toLowerCase().includes(query.toLowerCase()))
+      .filter((g) => (filter === "All" || (filter === "Played" ? g.status === "Completed" || g.status === "Retired" : g.status === filter)) && (!favoritesOnly || g.favorite) && g.title.toLowerCase().includes(query.toLowerCase()))
       .sort((a, b) => compareGames(a, b, sort, sortDirection)),
     [data.games, filter, favoritesOnly, query, sort, sortDirection]
   );
@@ -391,6 +391,7 @@ function LibraryView({
           </div>
           <select value={filter} onChange={(e) => updateSettings({ libraryFilter: e.target.value as Status | "All" })}>
             <option value="All">All statuses</option>
+            <option value="Played">Played</option>
             {STATUSES.map((s) => <option key={s}>{s}</option>)}
           </select>
           {sortControl}
@@ -420,7 +421,8 @@ function LibraryView({
         <div className="toolbar-actions">
           <select value={filter} onChange={(e) => updateSettings({ libraryFilter: e.target.value as Status | "All" })}>
             <option value="All">All statuses</option>
-            {STATUSES.map((s) => <option key={s}>{s}</option>)}
+             <option value="Played">Played</option>
+             {STATUSES.map((s) => <option key={s}>{s}</option>)}
           </select>
           {sortControl}
           <button className={favoritesOnly ? "icon-btn active" : "icon-btn"} onClick={() => updateSettings({ libraryFavoritesOnly: !favoritesOnly })} title="Favorite games only" aria-label="Favorite games only">
