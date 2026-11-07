@@ -109,6 +109,8 @@ export function Dashboard({
     [data.games]
   );
 
+  const wishlistgames = useMemo(() => data.games.filter((g) => g.status === "Wishlist").slice(0,7), [data.games]);
+
   const year = String(new Date().getFullYear());
   const playedThisYear = data.games.filter((g) => [g.startedAt, g.finishedAt].some((d) => d?.startsWith(year))).length;
   const completed = data.games.filter((g) => g.status === "Completed").length;
@@ -205,6 +207,29 @@ export function Dashboard({
           </div>
         ) : <p className="muted">Games you start will show up here.</p>}
       </section>
+
+      <section className="section">
+        <div className="section-title">
+          <div><p className="eyebrow" style={{ marginTop: "15px" }}>Wishlist</p></div>
+          <button className="text-button" onClick={openLibrary}>View all <ChevronRight size={14} /></button>
+        </div>
+        {wishlistgames.length ? (
+          <div className="recent-row">
+            {wishlistgames.map((g) => (
+              <button key={g.id} className="recent-card" onClick={() => openGame(g.id)}>
+                <div className="recent-art" style={g.cover ? { backgroundImage: `url(${g.cover})` } : undefined}>
+                  {!g.cover && <Gamepad2 size={26} />}
+                  {g.favorite && <Heart size={13} fill="currentColor" className="recent-heart" />}
+                </div>
+                <strong>{g.title}</strong>
+              </button>
+            ))}
+          </div>
+        ) : <p className="muted">No games on your wishlist.</p>}
+      </section>
+
+
+
 
       {slot !== null && (
         <Picker

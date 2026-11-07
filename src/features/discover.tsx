@@ -298,7 +298,7 @@ export function DiscoverGameDetails({ igdbId, game, close, openGame, credentials
 function draftFromIgdb(game: IgdbGame): Game {
   return {
     id: crypto.randomUUID(), title: game.name, platform: game.platforms[0] ?? "", genre: game.genres.join(", "),
-    tags: [], status: "Backlog", notes: "", favorite: false, cover: game.cover, backgroundCover: game.background,
+    tags: [], status: "Completed", notes: "", favorite: false, cover: game.cover, backgroundCover: game.background,
     totalSeconds: 0, createdAt: new Date().toISOString(), developer: game.developer,
     releaseDate: game.releaseTs ? new Date(game.releaseTs * 1000).toISOString().slice(0, 10) : undefined,
     description: game.description, genres: game.genres, platforms: game.platforms, igdbId: game.id, igdbRating: game.rating,
