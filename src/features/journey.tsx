@@ -355,7 +355,17 @@ export function JourneyView({
   preferences: JourneyPreferences;
   onPreferencesChange: (preferences: JourneyPreferences) => void;
 }) {
-  const [range, setRange] = useState<Range>(preferences.range);
+  const [range, setRange] = useState<Range>(() => {
+    if (preferences.range !== "all") return preferences.range;
+    // compute latest year from games with valid start dates
+    const starts = games
+      .filter((g) => g.status === "Completed" || g.status === "Playing")
+      .map((g) => Date.parse(g.startedAt ?? ""))
+      .filter((t) => !Number.isNaN(t));
+    if (!starts.length) return "all";
+    const latest = new Date(Math.max(...starts)).getUTCFullYear();
+    return latest;
+  });
   const [menu, setMenu] = useState(false);
   const [fit, setFit] = useState(preferences.fit);
   const [pickId, setPickId] = useState<string>();
@@ -584,7 +594,6 @@ export function JourneyView({
     const el = scrollRef.current;
     if (!el) return;
     sizeSpacer();
-    const latest = L.branches.reduce((a, b) => (b.x2 > a.x2 ? b : a), L.branches[0]);
     el.scrollLeft = el.scrollWidth;
     el.scrollTop = Math.max(0, L.T * zoomRef.current + TOP - el.clientHeight / 2);
     visRef.current = { a: NaN, b: NaN };
@@ -595,9 +604,13 @@ export function JourneyView({
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    const ro = new ResizeObserver(() => { sizeSpacer(); sync(); });
+    let raf = 0;
+    const ro = new ResizeObserver(() => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => { sizeSpacer(); sync(); });
+    });
     ro.observe(el);
-    return () => ro.disconnect();
+    return () => { cancelAnimationFrame(raf); ro.disconnect(); };
   }, [!!L, fit, sizeSpacer, sync]);
 
   // one container class dims the whole base layer; the focused game is redrawn on top
