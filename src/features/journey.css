@@ -122,8 +122,10 @@ body:has(.sidebar.closed) .jn-screen { --jn-left: 92px }
 /* scroll + canvas */
 .jn-scroll {
     position: absolute;
-    inset: 0;
-    padding: 70px 0 0 var(--jn-left);
+    top: 0;
+    bottom: 0;
+    left: var(--jn-left);
+    right: 0;
     overflow: auto;
     cursor: grab;
     user-select: none;
@@ -298,19 +300,6 @@ body:has(.sidebar.closed) .jn-screen { --jn-left: 92px }
 
 .jn-ov-track { position: relative; height: 100% }
 
-.jn-ov-line {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    border-left: 1px dashed rgba(255, 255, 255, .06)
-}
-
-.jn-ov-today {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    border-left: 1px dashed rgba(245, 138, 178, .7)
-}
 
 .jn-ov-bar {
     position: absolute;
@@ -354,33 +343,30 @@ body:has(.sidebar.closed) .jn-screen { --jn-left: 92px }
 }
 
 
-.jn-canvas {
-    position: relative;
-    transform-origin: 0 0;
-    will-change: transform
-}
 
-.jn-svg { position: absolute; inset: 0; overflow: visible }
+
+.jn-svg {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 1px;
+    height: 1px;
+    overflow: visible
+}
 
 .jn-year { stroke: rgba(255, 255, 255, .07); stroke-dasharray: 2 8 }
 .jn-year-label { fill: rgba(255, 255, 255, .35); font: 11px 'DM Mono', monospace }
 
 .jn-trunk-glow { fill: none; stroke: rgba(155, 140, 255, .22); stroke-width: 9 }
 .jn-glow { fill: none; stroke-width: 10; opacity: .16 }
-.jn-line { fill: none; stroke-width: 3; stroke-linecap: round; filter: drop-shadow(0 0 5px currentColor) }
-.jn-line.active { stroke-dasharray: 12 8; animation: jn-flow 2s linear infinite }
-.jn-line.abandoned { stroke-dasharray: 6 9; opacity: .85 }
 
-.jn-dot { filter: drop-shadow(0 0 7px currentColor); stroke: rgba(255, 255, 255, .8); stroke-width: 1.5 }
-.jn-dot.pulse { animation: jn-pulse 1.8s ease-in-out infinite }
+
+.jn-dot { stroke: rgba(255, 255, 255, .8); stroke-width: 1.5 }
 
 .jn-start-ring { fill: rgba(155, 140, 255, .18); stroke: rgba(155, 140, 255, .5) }
 .jn-start { fill: #fff; filter: drop-shadow(0 0 10px #9b8cff) }
 .jn-end { fill: #f0c674; filter: drop-shadow(0 0 8px #f0c674) }
 .jn-end-label { fill: var(--muted); font: 10px 'DM Mono', monospace; letter-spacing: .12em }
-
-.dim { opacity: .16; transition: opacity .25s }
-.jn-svg g, .jn-node { transition: opacity .25s }
 
 /* game nodes: zero-size anchor on the line, children positioned around it */
 .jn-node {
@@ -403,7 +389,7 @@ body:has(.sidebar.closed) .jn-screen { --jn-left: 92px }
     height: 86px;
     border-radius: 10px;
     border: 2px solid var(--c);
-    background: linear-gradient(145deg, #3b2b61, #1d5964) center / cover;
+    background: linear-gradient(145deg, #3b2b61, #1d5964);
     box-shadow: 0 0 20px color-mix(in srgb, var(--c) 55%, transparent), 0 12px 26px rgba(0, 0, 0, .55);
     transition: transform .2s
 }
@@ -425,7 +411,6 @@ body:has(.sidebar.closed) .jn-screen { --jn-left: 92px }
 }
 
 .jn-label.top { bottom: 54px }
-.jn-label.bot { top: 54px; flex-direction: row; gap: 6px }
 
 .jn-label strong { font-size: 14px; text-shadow: 0 2px 10px rgba(0, 0, 0, .8) }
 
@@ -445,18 +430,8 @@ body:has(.sidebar.closed) .jn-screen { --jn-left: 92px }
     box-shadow: 0 0 8px var(--c)
 }
 
-.jn-label.bot {
-    padding: 4px 10px;
-    border-radius: 8px;
-    border: 1px solid rgba(255, 255, 255, .14);
-    background: rgba(12, 14, 30, .75);
-    backdrop-filter: blur(8px);
-    font-size: 10px;
-    color: var(--muted)
-}
 
-.jn-label.bot em { font-style: normal }
-.jn-label.bot b { color: var(--c); font-weight: 400 }
+
 
 /* detail card */
 .jn-detail {
@@ -567,10 +542,6 @@ body:has(.sidebar.closed) .jn-screen { --jn-left: 92px }
     stroke-linecap: round
 }
 
-.jn-strand.abandoned {
-    stroke-dasharray: 6 8;
-    opacity: .8
-}
 
 .jn-pt {
     fill: #e8e4ff;
@@ -580,19 +551,13 @@ body:has(.sidebar.closed) .jn-screen { --jn-left: 92px }
     stroke-width: 3px
 }
 
-.jn-pt.sub {
-    fill: var(--dim);
-    font-size: 8px;
-    letter-spacing: .14em
-}
 
 
-.jn-stage { position: relative }
+
 
 /* hide vertical bar, themed horizontal bar */
 .jn-scroll::-webkit-scrollbar { width: 0; height: 8px }
-.jn-scroll::-webkit-scrollbar-track { background: transparent; margin-left: var(--jn-left) }
-
+.jn-scroll::-webkit-scrollbar-track { background: transparent }
 .jn-scroll::-webkit-scrollbar-thumb {
     border-radius: 8px;
     background: linear-gradient(90deg, rgba(164, 149, 255, .55), rgba(103, 216, 230, .45))
@@ -627,12 +592,124 @@ body:has(.sidebar.closed) .jn-screen { --jn-left: 92px }
     box-shadow: inset 0 0 0 1px rgba(155, 140, 255, .65)
 }
 
-@keyframes jn-flow { to { stroke-dashoffset: -40 } }
-@keyframes jn-pulse { 50% { r: 9; opacity: .75 } }
+/* ── viewport layer ── */
+.jn-spacer { position: relative }
+
+.jn-sticky {
+    position: sticky;
+    top: 0;
+    left: 0;
+    overflow: hidden;
+    contain: strict
+}
+
+.jn-world {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 0;
+    height: 0;
+    transform-origin: 0 0;
+    will-change: transform
+}
+
+.jn-base { position: absolute; left: 0; top: 0; transition: opacity .2s }
+.jn-world.hov .jn-base { opacity: .16 }
+.jn-hot, .jn-marks { position: absolute; left: 0; top: 0; pointer-events: none }
+
+/* glow without filters: a translucent halo circle */
+.jn-halo { opacity: .22 }
+
+.jn-halo.pulse {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: jn-halo 1.8s ease-in-out infinite
+}
+
+@keyframes jn-halo {
+    0%, 100% { opacity: .22; transform: scale(1) }
+    50% { opacity: .5; transform: scale(1.5) }
+}
+
+/* covers are <img> now */
+.jn-cover img,
+.jn-ov-cover img {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
+    border-radius: inherit
+}
+
+.jn-node.hot { pointer-events: none }
+
+/* far zoom: node becomes a small clickable dot */
+.jn-pip {
+    position: absolute;
+    left: -6px;
+    top: -6px;
+    width: 12px;
+    height: 12px;
+    box-sizing: border-box;
+    border-radius: 50%;
+    background: var(--c);
+    border: 2px solid #fff
+}
+
+.jn-node.lod::before {
+    content: "";
+    position: absolute;
+    left: -14px;
+    top: -14px;
+    width: 28px;
+    height: 28px
+}
+
+/* ── fit mode: virtualized rows, grid drawn once ── */
+.jn-ov-wrap { position: relative; flex: 1; min-height: 0 }
+
+.jn-ov-grid {
+    position: absolute;
+    inset: 0;
+    padding: 0 17px 0 271px;
+    pointer-events: none
+}
+
+.jn-ov-gin { position: relative; height: 100% }
+
+.jn-ov-gin i {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    border-left: 1px dashed rgba(255, 255, 255, .06)
+}
+
+.jn-ov-gin i.today { border-left-color: rgba(245, 138, 178, .7) }
+
+.jn-ov-wrap .jn-ov-body { position: absolute; inset: 0; display: block }
+.jn-ov-inner { position: relative }
+
+.jn-ov-row {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 56px;
+    min-height: 0;
+    max-height: none;
+    flex: none;
+    background: rgba(12, 14, 30, .72);
+    backdrop-filter: none
+}
+
+.jn-ov-body:has(.jn-ov-row:hover) .jn-ov-row:not(:hover) { opacity: .35 }
+
+@media (max-width: 750px) {
+    .jn-ov-grid { padding-left: 151px }
+}
+
 
 @media (max-width: 750px) {
     .jn-screen { --jn-left: 80px }
     .jn-top { flex-direction: column; align-items: flex-start; gap: 12px }
-    .jn-legend { flex-wrap: wrap; gap: 10px; border-radius: 14px; right: 12px }
     .jn-detail { width: auto; left: 12px; right: 12px; bottom: 96px }
 }
