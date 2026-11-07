@@ -279,6 +279,8 @@ const FitView = memo(function FitView({
     return () => ro.disconnect();
   }, [calc]);
 
+  useLayoutEffect(() => { if (bodyRef.current) bodyRef.current.scrollTop = 0; calc(); }, [base, calc]);
+
   const span = Math.max(base.last - base.min, DAY);
   const pct = (t: number) => clamp(((base.cs(t) - base.min) / span) * 100, 100);
   const rows = base.sorted.slice(win.first, win.first + win.count);
@@ -315,7 +317,7 @@ const FitView = memo(function FitView({
                 <div
                   key={r.id}
                   className={`jn-ov-row${pickId === r.id ? " on" : ""}`}
-                  style={{ top: (win.first + k) * PITCH, ...cssVar(r.color) }}
+                  style={{ top: (win.first + k) * PITCH, height: ROW, ...cssVar(r.color) }}
                   onClick={(e) => { e.stopPropagation(); onPick(r.id); }}
                   onDoubleClick={() => onOpen(r.id)}
                   title="Click for details · double-click to open"
@@ -682,6 +684,7 @@ export function JourneyView({
       if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) { raf = 0; return; }
       el.scrollLeft += dx * 0.18;
       el.scrollTop += dy * 0.18;
+      sync();
       raf = requestAnimationFrame(tick);
     };
     const kick = () => { if (!raf) raf = requestAnimationFrame(tick); };

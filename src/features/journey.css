@@ -122,10 +122,7 @@ body:has(.sidebar.closed) .jn-screen { --jn-left: 92px }
 /* scroll + canvas */
 .jn-scroll {
     position: absolute;
-    top: 0;
-    bottom: 0;
-    left: var(--jn-left);
-    right: 0;
+    inset: 0;
     overflow: auto;
     cursor: grab;
     user-select: none;
