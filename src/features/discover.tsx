@@ -103,7 +103,7 @@ export function DiscoverView({ data }: { data: AppData }) {
       <section className="discover-search glass">
         <div><p className="eyebrow">SEARCH THE DATABASE</p></div>
         <div className="discover-search-row">
-          <input value={search} onChange={(event) => setSearch(event.target.value)} onKeyDown={(event) => event.key === "Enter" && void runSearch()} placeholder='Try "Hades" or "/ Hades" for an exact match' />
+          <input value={search} onChange={(event) => setSearch(event.target.value)} onKeyDown={(event) => event.key === "Enter" && void runSearch()} placeholder='Try "Hades", "/ Hades", or "& 12345" for an IGDB ID' />
           <button className="button primary" onClick={() => void runSearch()}><Search size={16} /> Search</button>
         </div>
         {searchResults.length > 0 && (

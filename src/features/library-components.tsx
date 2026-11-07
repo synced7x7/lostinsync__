@@ -186,7 +186,7 @@ export function AddGame({ onClose, onAdd, igdb, initial }: { onClose: () => void
                 autoFocus
                 value={title}
                 onChange={(e) => { setTitle(e.target.value); setPicked(undefined); setOpen(true); }}
-                placeholder={canSearch ? "Search IGDB or type a title…" : "What are you playing?"}
+                placeholder={canSearch ? "Search IGDB, type a title, or use & 12345…" : "What are you playing?"}
               />
               {!searching && <span className="igdb-hint">Write "/(space)&lt;title&gt;" for strict search (exact & case match)</span>}
               {searching && <span className="igdb-hint">Searching IGDB…</span>}

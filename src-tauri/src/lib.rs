@@ -367,12 +367,20 @@ async fn igdb_search(
     client_id: String,
     client_secret: String
 ) -> Result<Vec<IgdbHit>, String> {
+    let id_query = query
+        .strip_prefix("& ")
+        .map(str::trim)
+        .filter(|value| value.parse::<i64>().ok().filter(|id| *id > 0).is_some());
     let strict_query = query
         .strip_prefix("/ ")
         .map(str::trim)
         .filter(|q| !q.is_empty());
     let q = strict_query.unwrap_or(query.trim()).replace('\\', "\\\\").replace('"', "\\\"");
-    let body = if strict_query.is_some() {
+    let body = if let Some(id) = id_query {
+        format!(
+            "fields name,first_release_date,cover.image_id,involved_companies.developer,involved_companies.company.name; where id = {id}; limit 1;"
+        )
+    } else if strict_query.is_some() {
         format!(
             "fields name,first_release_date,cover.image_id,involved_companies.developer,involved_companies.company.name; where version_parent = null & name = \"{q}\"; limit 50;"
         )
@@ -388,9 +396,13 @@ async fn igdb_search(
             .map(|a| {
                 a.iter()
                     .filter(|g|
-                        strict_query
+                        if id_query.is_some() {
+                            g["id"].as_i64().is_some()
+                        } else {
+                            strict_query
                             .map(|strict| g["name"].as_str() == Some(strict))
                             .unwrap_or(true)
+                        }
                     )
                     .map(|g| IgdbHit {
                         id: g["id"].as_i64().unwrap_or(0),
