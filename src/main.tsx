@@ -1,4 +1,4 @@
-import { StrictMode, useCallback, useEffect, useMemo, useRef, useState, lazy, Suspense } from "react";
+import React, { StrictMode, useCallback, useEffect, useMemo, useRef, useState, lazy, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, useLocation, useNavigate } from "react-router-dom";
 import {
@@ -179,11 +179,12 @@ function App() {
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
   }, []);
-  const [journeyRange, setJourneyRange] = useState<"all" | "month" | number>(new Date().getFullYear());
+  const [journeyRange, setJourneyRange] = useState<"all" | "month" | number>(() => data.settings.journeyRange ?? "all");
   useEffect(() => {
-    // leaving Journey for another tab resets it; opening a game from Journey and coming back keeps your choice
-    if (view !== "journey" && view !== "details") setJourneyRange(new Date().getFullYear());
-  }, [view]);
+    if (data.settings.journeyRange) {
+      setJourneyRange(data.settings.journeyRange);
+    }
+  }, [data.settings.journeyRange]);
   const updateJourneyPreferences = (preferences: { range: "all" | "month" | number; zoom: number; fit: boolean }) => {
     setJourneyRange(preferences.range);
     journeyPreferencesDirty.current = true;
@@ -191,6 +192,7 @@ function App() {
       ...current,
       settings: {
         ...current.settings,
+        journeyRange: preferences.range,
         journeyZoom: preferences.zoom,
         journeyFit: preferences.fit,
       },
@@ -977,10 +979,49 @@ function Details({
   );
 }
 
+class GlobalErrorBoundary extends React.Component<{ children: React.ReactNode }, { error: Error | null }> {
+  state: { error: Error | null } = { error: null };
+  static getDerivedStateFromError(error: Error) { return { error }; }
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    console.error("GlobalErrorBoundary caught:", error, info);
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{ position: "fixed", inset: 0, background: "#0b0c16", color: "#ff6b6b", zIndex: 999999, padding: 32, overflow: "auto", fontFamily: "monospace" }}>
+          <h2>Application Crash Caught by ErrorBoundary:</h2>
+          <pre style={{ whiteSpace: "pre-wrap", color: "#f8f9fa", background: "#1a1b26", padding: 16, borderRadius: 8 }}>{this.state.error.stack || this.state.error.message}</pre>
+          <button style={{ marginTop: 16, padding: "8px 16px", cursor: "pointer" }} onClick={() => window.location.href = "/"}>Reload to Dashboard</button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+if (typeof window !== "undefined") {
+  const showBanner = (title: string, msg: string) => {
+    const el = document.createElement("div");
+    el.style.cssText = "position:fixed;top:0;left:0;right:0;background:#991b1b;color:#fef2f2;z-index:9999999;padding:12px 20px;font-family:monospace;font-size:12px;box-shadow:0 4px 12px rgba(0,0,0,0.5);";
+    el.innerHTML = `<strong>${title}:</strong> ${msg} <button style="margin-left:12px;cursor:pointer;background:#ef4444;border:none;color:white;padding:2px 8px;border-radius:4px;" onclick="this.parentElement.remove()">Dismiss</button>`;
+    document.body.appendChild(el);
+  };
+  window.addEventListener("error", (e) => {
+    console.error("Window Error:", e.error || e.message);
+    showBanner("Global Error", String(e.error?.stack || e.error?.message || e.message));
+  });
+  window.addEventListener("unhandledrejection", (e) => {
+    console.error("Unhandled Rejection:", e.reason);
+    showBanner("Unhandled Promise Rejection", String(e.reason?.stack || e.reason?.message || e.reason));
+  });
+}
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <BrowserRouter>
-      <App />
-    </BrowserRouter>
+    <GlobalErrorBoundary>
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>
+    </GlobalErrorBoundary>
   </StrictMode>
 );
