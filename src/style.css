@@ -3483,7 +3483,14 @@ textarea::-webkit-scrollbar-thumb:hover {
     background: rgba(164, 149, 255, .75) padding-box
 }
 
+.wishlist-modal::-webkit-scrollbar {
+  display: none;
+}
 
+.wishlist-modal {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
 
 
 

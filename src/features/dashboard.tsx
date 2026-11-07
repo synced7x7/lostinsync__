@@ -109,12 +109,14 @@ export function Dashboard({
     [data.games]
   );
 
-  const wishlistgames = useMemo(() => data.games.filter((g) => g.status === "Wishlist").slice(0,7), [data.games]);
+  const wishlistgames = useMemo(() => data.games.filter((g) => g.status === "Wishlist"), [data.games]);
 
   const year = String(new Date().getFullYear());
   const playedThisYear = data.games.filter((g) => [g.startedAt, g.finishedAt].some((d) => d?.startsWith(year))).length;
   const completed = data.games.filter((g) => g.status === "Completed").length;
   const wishlist = data.games.filter((g) => g.status === "Wishlist").length;
+  const [showWishlistAll, setShowWishlistAll] = useState(false);
+
 
   return (
     <>
@@ -211,7 +213,7 @@ export function Dashboard({
       <section className="section">
         <div className="section-title">
           <div><p className="eyebrow" style={{ marginTop: "15px" }}>Wishlist</p></div>
-          <button className="text-button" onClick={openLibrary}>View all <ChevronRight size={14} /></button>
+          <button className="text-button" onClick={() => setShowWishlistAll(true)}>View all <ChevronRight size={14} /></button>
         </div>
         {wishlistgames.length ? (
           <div className="recent-row">
@@ -223,7 +225,7 @@ export function Dashboard({
                 </div>
                 <strong>{g.title}</strong>
               </button>
-            ))}
+            )).slice(0,7)}
           </div>
         ) : <p className="muted">No games on your wishlist.</p>}
       </section>
@@ -243,6 +245,27 @@ export function Dashboard({
             setSlot(null);
           }}
         />
+      )}
+
+      {showWishlistAll && (
+        <div className="modal-backdrop" onClick={() => setShowWishlistAll(false)}>
+          <div className="modal glass wishlist-modal" onClick={(e) => e.stopPropagation()} style={{ width: "min(700px, 90vw)", maxHeight: "80vh", overflowY: "auto", padding: "24px" }}>
+            <div className="modal-head">
+              <h2>Wishlist</h2> <p className="eyebrow" style={{ marginRight: "70%" }}>{wishlistgames.length} {wishlistgames.length === 1 ? "game" : "games"}</p>
+              <button className="icon-btn" onClick={() => setShowWishlistAll(false)}><X size={18} /></button>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: "14px" }}>
+              {wishlistgames.map((g) => (
+                <button key={g.id} className="recent-card" onClick={() => { setShowWishlistAll(false); openGame(g.id); }}>
+                  <div className="recent-art" style={g.cover ? { backgroundImage: `url(${g.cover})` } : undefined}>
+                    {!g.cover && <Gamepad2 size={26} />}
+                  </div>
+                  <strong>{g.title}</strong>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
       )}
       <CollectionShowcase data={data} update={update} openGame={openGame} openDiscover={openDiscoverGame} />
     </>
