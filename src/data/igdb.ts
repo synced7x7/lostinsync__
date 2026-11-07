@@ -7,7 +7,7 @@ export type IgdbGame = {
   videos: { videoId: string; name?: string }[]; screenshots: string[];
   gameType?: string; gameStatus?: string; franchises?: string[];
   themes: string[]; playerPerspectives: string[]; storyline?: string;
-  similarGames: { id: number; name: string; cover?: string }[];
+  similarGames: { id: number; name: string; cover?: string }[]; updatedAt?: number; createdAt?: number; firstReleaseDate?: number;
 };
 export type IgdbDebugImage = {
   category: "cover" | "artwork" | "screenshot";
@@ -109,4 +109,28 @@ export type SeriesData = {
 export async function igdbSeries(id: number, c: IgdbCreds) {
   const { invoke } = await import("@tauri-apps/api/core");
   return invoke<SeriesData>("igdb_series", { id, clientId: c.clientId, clientSecret: c.clientSecret });
+}
+
+
+
+export type IgdbImport = { game: IgdbGame; images: IgdbDebugImage[] };
+
+export async function igdbPlatforms(c: IgdbCreds) {
+  const { invoke } = await import("@tauri-apps/api/core");
+  const rows = await invoke<[number, string][]>("igdb_platforms", { clientId: c.clientId, clientSecret: c.clientSecret });
+  return new Map<number, string>(rows);
+}
+export async function igdbImportBatch(ids: number[], c: IgdbCreds) {
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<IgdbImport[]>("igdb_import_batch", { ids, clientId: c.clientId, clientSecret: c.clientSecret });
+}
+/** For the upcoming sync: [id, updated_at] per game. */
+export async function igdbSyncCheck(ids: number[], c: IgdbCreds) {
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<[number, number | null][]>("igdb_sync_check", { ids, clientId: c.clientId, clientSecret: c.clientSecret });
+}
+/** Opens the OS "Save as" dialog. Resolves to the saved path, or null if cancelled. */
+export async function saveTextFile(defaultName: string, contents: string, filterName: string, ext: string) {
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<string | null>("save_text_file", { defaultName, contents, filterName, ext });
 }

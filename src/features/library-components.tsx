@@ -150,6 +150,7 @@ export function AddGame({ onClose, onAdd, igdb, initial }: { onClose: () => void
       franchises: picked?.franchises ?? initial?.franchises,
       themes: picked?.themes ?? initial?.themes,
       playerPerspectives: picked?.playerPerspectives ?? initial?.playerPerspectives,
+      igdbUpdatedAt: picked?.updatedAt ?? initial?.igdbUpdatedAt,
     });
   };
 
@@ -230,7 +231,7 @@ export function AddGame({ onClose, onAdd, igdb, initial }: { onClose: () => void
               </select>
             </label>
             <StarRating value={rating || undefined} onChange={(r) => setRating(r ?? 0)} size={16} />
-          <TrophyToggle value={platinumed} onChange={setPlatinumed} /> 
+            <TrophyToggle value={platinumed} onChange={setPlatinumed} />
           </div>
         </div>
 

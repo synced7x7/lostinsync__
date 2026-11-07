@@ -168,6 +168,7 @@ struct IgdbGame {
     player_perspectives: Vec<String>,
     storyline: Option<String>,
     similar_games: Vec<Value>,
+    updated_at: Option<i64>,
 }
 
 fn discover_query(fields: &str, where_clause: &str, sort: &str) -> String {
@@ -412,7 +413,7 @@ async fn igdb_details(
     client_secret: String
 ) -> Result<IgdbGame, String> {
     let body = format!(
-        "fields name,summary,storyline,first_release_date,game_type.type,game_status.status,franchises.name,genres.name,themes.name,player_perspectives.name,platforms.name,total_rating,total_rating_count,cover.image_id,screenshots.image_id,videos.video_id,videos.name,similar_games.name,similar_games.cover.image_id,involved_companies.developer,involved_companies.company.name; where id = {id};"
+        "fields name,updated_at,summary,storyline,first_release_date,game_type.type,game_status.status,franchises.name,genres.name,themes.name,player_perspectives.name,platforms.name,total_rating,total_rating_count,cover.image_id,screenshots.image_id,videos.video_id,videos.name,similar_games.name,similar_games.cover.image_id,involved_companies.developer,involved_companies.company.name; where id = {id};"
     );
     let rows = igdb_post(&auth, "games", body, &client_id, &client_secret).await?;
     let g = rows.get(0).ok_or("Game not found on IGDB.")?;
@@ -499,6 +500,7 @@ async fn igdb_details(
         })
             )
             .collect(),
+        updated_at: g["updated_at"].as_i64(),
     })
 }
 
@@ -719,9 +721,18 @@ async fn igdb_discover_feed(
         "topRated" =>
             ("total_rating != null & total_rating_count > 1500".into(), "total_rating desc"),
         "anticipated" => (format!("first_release_date > {now} & hypes != null"), "hypes desc"),
-        "hiddenGems" => ("total_rating != null & total_rating_count > 10 & total_rating_count < 500 & game_type = 0".into(), "total_rating desc"),
-        "indie" => ("involved_companies.company != null & genres != null & game_type = 0".into(), "total_rating desc"),
-        "story" => ("storyline != null & themes != null & game_type = 0".into(), "total_rating desc"),
+        "hiddenGems" =>
+            (
+                "total_rating != null & total_rating_count > 10 & total_rating_count < 500 & game_type = 0".into(),
+                "total_rating desc",
+            ),
+        "indie" =>
+            (
+                "involved_companies.company != null & genres != null & game_type = 0".into(),
+                "total_rating desc",
+            ),
+        "story" =>
+            ("storyline != null & themes != null & game_type = 0".into(), "total_rating desc"),
         _ => {
             return Err("Unknown discovery feed.".into());
         }
@@ -873,10 +884,212 @@ async fn igdb_series(
     Ok(json!({ "collections": cols, "relations": relations, "games": games }))
 }
 
+#[tauri::command]
+async fn igdb_platforms(
+    auth: tauri::State<'_, IgdbAuth>,
+    client_id: String,
+    client_secret: String
+) -> Result<Vec<(i64, String)>, String> {
+    let mut out: Vec<(i64, String)> = Vec::new();
+    let mut offset = 0;
+    loop {
+        let rows = igdb_post(
+            &auth,
+            "platforms",
+            format!("fields id,name; limit 500; offset {offset};"),
+            &client_id,
+            &client_secret
+        ).await?;
+        let list = rows.as_array().cloned().unwrap_or_default();
+        let n = list.len();
+        out.extend(
+            list.iter().filter_map(|p| Some((p["id"].as_i64()?, p["name"].as_str()?.to_string())))
+        );
+        if n < 500 {
+            break;
+        }
+        offset += 500;
+    }
+    Ok(out)
+}
+
+/// Cheap check for sync: returns (id, updated_at) for up to thousands of ids, 500 per request.
+#[tauri::command]
+async fn igdb_sync_check(
+    auth: tauri::State<'_, IgdbAuth>,
+    ids: Vec<i64>,
+    client_id: String,
+    client_secret: String
+) -> Result<Vec<(i64, Option<i64>)>, String> {
+    let mut out = Vec::new();
+    for chunk in ids.chunks(500) {
+        let rows = igdb_post(
+            &auth,
+            "games",
+            format!("fields id,updated_at; where id = ({}); limit 500;", idlist(chunk)),
+            &client_id,
+            &client_secret
+        ).await?;
+        for r in rows.as_array().cloned().unwrap_or_default() {
+            if let Some(id) = r["id"].as_i64() {
+                out.push((id, r["updated_at"].as_i64()));
+            }
+        }
+    }
+    Ok(out)
+}
+
+/// Everything the Add flow fetches (details + images + time to beat), for many games in ~3 requests.
+#[tauri::command]
+async fn igdb_import_batch(
+    auth: tauri::State<'_, IgdbAuth>,
+    ids: Vec<i64>,
+    client_id: String,
+    client_secret: String
+) -> Result<Vec<Value>, String> {
+    if ids.is_empty() {
+        return Ok(vec![]);
+    }
+    let list = idlist(&ids);
+    let n = ids.len();
+    let rows = igdb_post(
+        &auth,
+        "games",
+        format!(
+            "fields name,summary,first_release_date,updated_at,game_type.type,game_status.status,franchises.name,genres.name,themes.name,player_perspectives.name,platforms.name,total_rating,total_rating_count,cover.image_id,cover.image_type,cover.width,cover.height,screenshots.image_id,screenshots.width,screenshots.height,videos.video_id,videos.name,artworks.image_id,artworks.image_type,artworks.width,artworks.height,involved_companies.developer,involved_companies.company.name; where id = ({list}); limit {n};"
+        ),
+        &client_id,
+        &client_secret
+    ).await?;
+    let ttb = igdb_post(
+        &auth,
+        "game_time_to_beats",
+        format!("fields game_id,hastily,normally,completely; where game_id = ({list}); limit {n};"),
+        &client_id,
+        &client_secret
+    ).await.unwrap_or(Value::Null);
+    let image_types = igdb_post(
+        &auth,
+        "image_types",
+        "fields id,name; limit 100;".to_string(),
+        &client_id,
+        &client_secret
+    ).await?;
+
+    let mut out = Vec::new();
+    for g in rows.as_array().cloned().unwrap_or_default() {
+        let id = match g["id"].as_i64() {
+            Some(v) => v,
+            None => continue,
+        };
+        let t = ttb
+            .as_array()
+            .and_then(|a| a.iter().find(|x| x["game_id"].as_i64() == Some(id)))
+            .cloned()
+            .unwrap_or(Value::Null);
+        let background_id = preferred_artwork_id(&g["artworks"], &image_types)
+            .or_else(|| first_image_id(&g["artworks"]))
+            .or_else(|| g["screenshots"][0]["image_id"].as_str());
+
+        let mut images: Vec<Value> = Vec::new();
+        {
+            let mut push = |category: &str, v: &Value| {
+                if let Some(image_id) = v["image_id"].as_str() {
+                    images.push(
+                        json!({
+                        "category": category,
+                        "imageId": image_id,
+                        "imageType": image_type_name(&v["image_type"], &image_types),
+                        "url": img(image_id, if category == "cover" { "cover_big" } else { "720p" }),
+                        "width": v["width"],
+                        "height": v["height"],
+                    })
+                    );
+                }
+            };
+            push("cover", &g["cover"]);
+            for a in g["artworks"].as_array().into_iter().flatten().take(100) {
+                push("artwork", a);
+            }
+            for s in g["screenshots"].as_array().into_iter().flatten().take(100) {
+                push("screenshot", s);
+            }
+        }
+        let videos: Vec<IgdbVideo> = g["videos"]
+            .as_array()
+            .map(|a| {
+                a.iter()
+                    .filter_map(|v| {
+                        Some(IgdbVideo {
+                            video_id: v["video_id"].as_str()?.to_string(),
+                            name: v["name"].as_str().map(String::from),
+                        })
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        let game = IgdbGame {
+            id,
+            name: g["name"].as_str().unwrap_or("").to_string(),
+            developer: developer_of(&g),
+            release_ts: g["first_release_date"].as_i64(),
+            description: g["summary"].as_str().map(String::from),
+            genres: names(&g["genres"]),
+            platforms: names(&g["platforms"]),
+            rating: g["total_rating"].as_f64().map(|r| r.round() as i64),
+            rating_count: g["total_rating_count"].as_i64(),
+            time_avg: t["normally"].as_i64(),
+            time_main: t["hastily"].as_i64(),
+            time_full: t["completely"].as_i64(),
+            cover: g["cover"]["image_id"].as_str().map(|i| img(i, "cover_big")),
+            background: background_id.map(|i| img(i, "720p")),
+            videos,
+            screenshots: vec![],
+            game_type: g["game_type"]["type"].as_str().map(String::from),
+            game_status: g["game_status"]["status"].as_str().map(String::from),
+            franchises: names(&g["franchises"]),
+            themes: names(&g["themes"]),
+            player_perspectives: names(&g["player_perspectives"]),
+            storyline: None,
+            similar_games: vec![],
+            updated_at: g["updated_at"].as_i64(),
+        };
+        out.push(json!({ "game": game, "images": images }));
+    }
+    Ok(out)
+}
+
+/// Native "Save as…" dialog + write. Returns the chosen path, or None if the user cancelled.
+#[tauri::command]
+async fn save_text_file(
+    app: tauri::AppHandle,
+    default_name: String,
+    contents: String,
+    filter_name: String,
+    ext: String
+) -> Result<Option<String>, String> {
+    use tauri_plugin_dialog::DialogExt;
+    let dialog = app
+        .dialog()
+        .file()
+        .set_file_name(&default_name)
+        .add_filter(&filter_name, &[ext.as_str()]);
+    let picked = tauri::async_runtime
+        ::spawn_blocking(move || dialog.blocking_save_file()).await
+        .map_err(|e| e.to_string())?;
+    let Some(file) = picked else {
+        return Ok(None);
+    };
+    let path = file.into_path().map_err(|e| e.to_string())?;
+    std::fs::write(&path, contents).map_err(|e| e.to_string())?;
+    Ok(Some(path.to_string_lossy().to_string()))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder
         ::default()
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let path = app.path().app_data_dir()?.join("lost-in-sync.sqlite");
             std::fs::create_dir_all(path.parent().expect("database path has a parent"))?;
@@ -898,7 +1111,11 @@ pub fn run() {
                 igdb_images,
                 igdb_series,
                 igdb_discover,
-                igdb_discover_feed
+                igdb_discover_feed,
+                igdb_platforms,
+                igdb_sync_check,
+                igdb_import_batch,
+                save_text_file
             ]
         )
         .run(tauri::generate_context!())

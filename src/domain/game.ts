@@ -15,7 +15,9 @@ export type Game = {
   screenshots?: string[]; videos?: { id: string; name?: string }[];
   igdbImages?: IgdbDebugImage[]; igdbVideos?: { id: string; name?: string }[];
   gameType?: string; gameStatus?: string; franchises?: string[];
-  themes?: string[]; playerPerspectives?: string[];
+  themes?: string[]; playerPerspectives?: string[]; 
+  igdbUpdatedAt?: number; backloggdId?: string; 
+
 };
 export type Profile = { displayName: string; bio: string; accent: string; picture?: string; topFive?: string[] };export type GridSize = "sm" | "md" | "lg";
 export type LibraryLayout = "ps4" | "catalog";
