@@ -233,34 +233,49 @@ body:has(.sidebar.closed) .jn-screen { --jn-left: 92px }
 }
 
 .jn-ov-body {
-    flex: 1;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
     overflow-y: auto;
-    scrollbar-width: none
+    overflow-x: hidden;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(164, 149, 255, .55) rgba(255, 255, 255, .04);
+    scrollbar-gutter: stable;
 }
 
-.jn-ov-body::-webkit-scrollbar { display: none }
+.jn-ov-body::-webkit-scrollbar {
+    display: block;
+    width: 8px;
+}
+
+.jn-ov-body::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, .04);
+    border-radius: 8px;
+}
+
+
+.jn-ov-body::-webkit-scrollbar-thumb {
+    background: linear-gradient(
+        180deg,
+        rgba(164, 149, 255, .65),
+        rgba(103, 216, 230, .5)
+    );
+    border-radius: 8px;
+}
+
+.jn-ov-body::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #a495ff, #67d8e6);
+}
+
 
 .jn-ov-row {
-    flex: 1 1 0;
-    min-height: 40px;
-    max-height: 66px;
-    align-items: center;
-    border-radius: 14px;
-    border-color: rgba(255, 255, 255, .07);
-    background: rgba(12, 14, 30, .5);
-    backdrop-filter: blur(10px);
-    cursor: pointer;
-    transition: opacity .2s, border-color .2s, background .2s
+    opacity: 1;
+    transition: border-color .2s, background .2s, box-shadow .2s;
 }
 
 .jn-ov-row:hover,
 .jn-ov-row.on {
+    opacity: 1;
     border-color: color-mix(in srgb, var(--c) 60%, transparent);
-    background: rgba(20, 23, 48, .7)
+    background: rgba(20, 23, 48, .7);
+    box-shadow: 0 0 18px color-mix(in srgb, var(--c) 12%, transparent);
 }
 
 .jn-ov-name {
@@ -698,7 +713,7 @@ body:has(.sidebar.closed) .jn-screen { --jn-left: 92px }
     backdrop-filter: none
 }
 
-.jn-ov-body:has(.jn-ov-row:hover) .jn-ov-row:not(:hover) { opacity: .35 }
+
 
 @media (max-width: 750px) {
     .jn-ov-grid { padding-left: 151px }
