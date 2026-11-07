@@ -2,7 +2,7 @@ import type { IgdbDebugImage } from "../data/igdb";
 
 export const STATUSES = ["Backlog", "Wishlist", "Playing", "Completed", "Shelved", "Abandoned", "On hold"] as const;
 export type Status = typeof STATUSES[number];
-export type View = "dashboard" | "library" | "discover" | "details" | "journey" | "trophies" | "stats"| "settings";
+export type View = "dashboard" | "library" | "discover" | "details" | "journey" | "trophies" | "stats" | "settings";
 export type Game = {
   id: string; title: string; platform: string; genre: string; tags: string[];
   status: Status; notes: string; rating?: number; platinumed?: boolean; favorite: boolean;
@@ -15,11 +15,11 @@ export type Game = {
   screenshots?: string[]; videos?: { id: string; name?: string }[];
   igdbImages?: IgdbDebugImage[]; igdbVideos?: { id: string; name?: string }[];
   gameType?: string; gameStatus?: string; franchises?: string[];
-  themes?: string[]; playerPerspectives?: string[]; 
-  igdbUpdatedAt?: number; backloggdId?: string; 
+  themes?: string[]; playerPerspectives?: string[];
+  igdbUpdatedAt?: number; backloggdId?: string;
 
 };
-export type Profile = { displayName: string; bio: string; accent: string; picture?: string; topFive?: string[] };export type GridSize = "sm" | "md" | "lg";
+export type Profile = { displayName: string; bio: string; accent: string; picture?: string; topFive?: string[] }; export type GridSize = "sm" | "md" | "lg";
 export type LibraryLayout = "ps4" | "catalog";
 export type LibrarySort = "recent" | "completion" | "playtime" | "rating" | "igdbRating" | "title" | "releaseDate" | "avgTime" | "mainTime" | "fullTime";
 export type SortDirection = "asc" | "desc";
@@ -40,6 +40,7 @@ export type AppSettings = {
   journeyFit?: boolean;
   igdbClientId?: string;
   igdbClientSecret?: string;
+  lastIgdbSyncAt?: string;
 };
 export type CollectionItem = { igdbId: number; name: string; cover?: string };
 export type Collection = { id: string; name: string; description?: string; items: CollectionItem[] };
@@ -49,9 +50,9 @@ export function validateGame(title: string): string | null {
   return null;
 }
 export function formatPlaytime(seconds: number): string | null {
-  const hours = Math.floor(seconds / 3600); 
+  const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
-  if (hours ==0 && minutes == 0) return null;
+  if (hours == 0 && minutes == 0) return null;
   return hours ? `${hours}h ${minutes}m` : `${minutes}m`;
 }
 export const defaultData: AppData = {

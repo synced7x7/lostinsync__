@@ -3,6 +3,8 @@ import { AlertTriangle, Check, FileSpreadsheet, Info, Trash2, Upload, Download, 
 import { hasTauri, saveTextFile, type IgdbCreds } from "../data/igdb";
 import { importBackloggd, reportSections, reportToText, type BlEntry, type ImportProgress, type ImportReport } from "../data/backloggd";
 import type { AppData } from "../domain/game";
+import { RefreshCw } from "lucide-react";
+import { applyPatches, syncReportSections, syncReportToText, syncWithIgdb, type SyncProgress, type SyncReport } from "../data/sync";
 
 type Notice = { kind: "success" | "error" | "info"; text: string };
 type Props = { data: AppData; update: (data: AppData) => void };
@@ -49,6 +51,7 @@ export function DataSection({ data, update }: Props) {
     <>
       <StorageSection data={data} update={update} />
       <DeleteSection data={data} update={update} />
+      <SyncSection data={data} update={update} />
       <BackloggdSection data={data} update={update} />
     </>
   );
@@ -251,6 +254,103 @@ function BackloggdSection({ data, update }: Props) {
           <div className="detail-actions">
             <button className="button soft" onClick={() => {
               void navigator.clipboard.writeText(reportToText(phase.report))
+                .then(() => setNotice({ kind: "success", text: "Report copied to the clipboard." }))
+                .catch(() => setNotice({ kind: "error", text: "Could not copy the report." }));
+            }}>Copy report</button>
+          </div>
+        </div>
+      )}
+      <NoticeBar notice={notice} onClose={() => setNotice(undefined)} />
+    </section>
+  );
+}
+
+
+type SyncPhase = { kind: "idle" } | { kind: "running"; progress: SyncProgress } | { kind: "done"; report: SyncReport };
+
+function SyncSection({ data, update }: Props) {
+  const [phase, setPhase] = useState<SyncPhase>({ kind: "idle" });
+  const [notice, setNotice] = useState<Notice>();
+  const abort = useRef<AbortController | null>(null);
+  const latest = useRef(data);
+  latest.current = data;
+  const creds: IgdbCreds = { clientId: data.settings.igdbClientId ?? "", clientSecret: data.settings.igdbClientSecret ?? "" };
+  const canRun = hasTauri && !!creds.clientId && !!creds.clientSecret;
+  const linked = data.games.filter((g) => typeof g.igdbId === "number").length;
+  const last = data.settings.lastIgdbSyncAt;
+
+  const run = async () => {
+    const ctrl = new AbortController();
+    abort.current = ctrl;
+    setNotice(undefined);
+    setPhase({ kind: "running", progress: { phase: "checking", done: 0, total: linked } });
+    try {
+      const { patches, report } = await syncWithIgdb(latest.current.games, creds, (progress) => setPhase({ kind: "running", progress }), ctrl.signal);
+      const cur = latest.current; // merge into the freshest library, in case it changed while syncing
+      update({
+        ...cur,
+        games: patches.size ? applyPatches(cur.games, patches) : cur.games,
+        settings: report.cancelled ? cur.settings : { ...cur.settings, lastIgdbSyncAt: new Date().toISOString() },
+      });
+      setPhase({ kind: "done", report });
+      setNotice({
+        kind: report.failures.length ? "info" : "success",
+        text: `${report.cancelled ? "Sync cancelled. " : "Sync complete. "}${report.updated.length} updated, ${report.refreshed.length} refreshed with no visible changes, ${report.upToDate} already up to date (skipped). No games were deleted.`,
+      });
+    } catch (e) {
+      setPhase({ kind: "idle" });
+      setNotice({ kind: "error", text: `Sync failed: ${e instanceof Error ? e.message : String(e)}. Nothing was changed.` });
+    }
+  };
+
+  const pct = phase.kind === "running" && phase.progress.total ? Math.round((phase.progress.done / phase.progress.total) * 100) : 0;
+
+  return (
+    <section className="glass settings-panel">
+      <p className="eyebrow">KEEP DATA FRESH</p><h2>IGDB sync</h2>
+      <p className="muted">Compares every game's IGDB id and last-update stamp with IGDB. Games that changed there get their IGDB data refreshed (details, release info, ratings, time to beat, images, trailers). Unchanged games are skipped.</p>
+      <div className="notice info" role="note">
+        <Info size={15} />
+        <span>Your own data is never touched: status, rating, notes, dates, playtime, favorites, tags, played platforms, custom covers and screenshots. No game is ever deleted. Games missing from IGDB are kept and listed in the report.</span>
+      </div>
+      <p className="hint">{linked} of {data.games.length} games are linked to IGDB. {last ? `Last sync: ${new Date(last).toLocaleString()}.` : "Never synced."}</p>
+      {!canRun && <p className="hint">{hasTauri ? "Add your IGDB Client ID and Secret above to enable syncing." : "Syncing works in the desktop app only."}</p>}
+
+      {phase.kind !== "running" && (
+        <div className="detail-actions">
+          <button className="button soft" disabled={!canRun || !linked} onClick={() => void run()}><RefreshCw size={15} /> Sync with IGDB</button>
+        </div>
+      )}
+
+      {phase.kind === "running" && (
+        <div className="import-progress">
+          <span className="muted">
+            {phase.progress.phase === "checking" ? "Checking which games changed on IGDB…" : `Updating changed games… ${Math.min(phase.progress.done, phase.progress.total)} / ${phase.progress.total}`}
+          </span>
+          <div className="bar"><i style={{ width: `${phase.progress.phase === "checking" ? 4 : pct}%` }} /></div>
+          <div className="confirm-actions"><button className="button soft" onClick={() => abort.current?.abort()}>Cancel after this batch</button></div>
+        </div>
+      )}
+
+      {phase.kind === "done" && (
+        <div className="import-report">
+          <div className="report-chips">
+            <span className="pill success"><Check size={13} /> {phase.report.updated.length} updated</span>
+            <span className="pill">{phase.report.upToDate} up to date</span>
+            {phase.report.refreshed.length > 0 && <span className="pill">{phase.report.refreshed.length} no visible changes</span>}
+            {phase.report.notOnIgdb.length > 0 && <span className="pill">{phase.report.notOnIgdb.length} not on IGDB</span>}
+            {phase.report.notLinked.length > 0 && <span className="pill">{phase.report.notLinked.length} not linked</span>}
+            {phase.report.failures.length > 0 && <span className="pill">{phase.report.failures.length} failed</span>}
+          </div>
+          {syncReportSections(phase.report).map((s) => (
+            <details key={s.title}>
+              <summary>{s.title} ({s.items.length})</summary>
+              <ul>{s.items.map((i, k) => <li key={k}>{i}</li>)}</ul>
+            </details>
+          ))}
+          <div className="detail-actions">
+            <button className="button soft" onClick={() => {
+              void navigator.clipboard.writeText(syncReportToText(phase.report))
                 .then(() => setNotice({ kind: "success", text: "Report copied to the clipboard." }))
                 .catch(() => setNotice({ kind: "error", text: "Could not copy the report." }));
             }}>Copy report</button>

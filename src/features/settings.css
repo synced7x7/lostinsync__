@@ -9,7 +9,7 @@
     padding: 23px
 }
 
-.settings-panel:last-child { grid-column: span 2 }
+/* .settings-panel:last-child { grid-column: span 2 } */
 .settings-panel h2 { font-size: 18px; margin: 0 0 18px }
 
 .setting-row {

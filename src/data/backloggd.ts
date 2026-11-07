@@ -134,7 +134,7 @@ export function mapEntry(e: BlEntry, ig: IgdbGame, images: IgdbDebugImage[], pla
   };
 }
 
-async function withRetry<T>(fn: () => Promise<T>, tries = 4): Promise<T> {
+export async function withRetry<T>(fn: () => Promise<T>, tries = 4): Promise<T> {
   for (let i = 0; ; i++) {
     try { return await fn(); }
     catch (err) {
