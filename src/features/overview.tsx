@@ -94,7 +94,7 @@ export function ProfileSection({ data, update }: { data: AppData; update: (data:
           <RarityBadge games={data.games} />
           {pictureError && <span className="date-error">{pictureError}</span>}
         </div>
-        <div className="profile-count"><strong>{data.games.length}</strong><span>games collected</span></div>
+        <div className="profile-count"><strong>{data.games.length}</strong><span style={{ fontStyle: "italic" }}>games collected</span></div>
       </section>
     </>
   );

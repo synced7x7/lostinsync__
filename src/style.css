@@ -475,11 +475,11 @@ nav {
     align-items: center;
     justify-content: center;
     gap: 8px;
-    border-radius: 10px;
+    border-radius: 12px;
     padding: 11px 15px;
     font-size: 12px;
     font-weight: 700;
-    transition: .2s
+    transition: .2s;
 }
 
 .button:hover {
@@ -492,7 +492,7 @@ nav {
 }
 
 .button.soft {
-    background: rgba(255, 255, 255, .07);
+    background: transparent;
     border: 1px solid var(--line);
     color: #e2e0ee
 }
