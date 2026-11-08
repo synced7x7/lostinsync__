@@ -720,7 +720,7 @@ function PS4ShelfView({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.5 }}
-              style={featured.backgroundCover || featured.cover ? { backgroundImage: `url(${featured.backgroundCover ?? featured.cover})` } : undefined}
+              style={featured.backgroundCover ? { backgroundImage: `url(${featured.backgroundCover})` } : undefined}
             />
           )}
         </AnimatePresence>
@@ -736,7 +736,12 @@ function PS4ShelfView({
               transition={{ duration: 0.28, ease: "easeOut" }}
             >
               <span className="status">{featured.status}</span>
-              <h2 className="ps4-title" title={featured.title}>{featured.title.length > 30 ? `${featured.title.slice(0, 30).trimEnd()}...` : featured.title}</h2>
+              <h2
+                className={`ps4-title${featured.title.length > 30 ? " ps4-title--long" : ""}`}
+                title={featured.title}
+              >
+                {featured.title}
+              </h2>
               <p className="ps4-meta">{featured.platform}<span> · </span>{featured.genre || "Uncategorized"}<span> · </span>{formatDate(featured.releaseDate)}</p>
               <div className="ps4-actions">
                 {featured.rating && <span className="ps4-rating">{featured.rating}<small>/10</small></span>}

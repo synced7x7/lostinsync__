@@ -1223,7 +1223,9 @@ nav {
     transition: opacity .2s
 }
 
-.date-field:focus-within::before { opacity: 1 }
+.date-field:focus-within::before {
+    opacity: 1
+}
 
 .date-field input[type="text"] {
     flex: 0 0 auto;
@@ -1783,7 +1785,7 @@ nav {
 .ps4-library--fullscreen .ps4-featured-info {
     margin-top: clamp(110px, 22vh, 220px);
     padding-left: clamp(32px, 7vw, 108px);
-    max-width: 560px
+    max-width: 660px;
 }
 
 .ps4-library--fullscreen .ps4-shelves {
@@ -1901,14 +1903,25 @@ nav {
 }
 
 .ps4-title {
-    font-family: Title font;
+    font-family: "Title font";
     font-size: clamp(28px, 4.5vw, 56px);
     font-weight: 800;
     letter-spacing: -.05em;
     line-height: .96;
     margin: 22px 0 10px;
-    text-shadow: 0 2px 20px rgba(0, 0, 0, .5)
+    text-shadow: 0 2px 20px rgba(0, 0, 0, .5);
+
+    max-width: 100%;
+    overflow-wrap: anywhere;
 }
+
+.ps4-title--long {
+     font-size: clamp(28px, 4.5vw, 60px) !important;
+}
+
+
+
+
 
 
 .ps4-meta {
@@ -2093,9 +2106,17 @@ nav {
     border: 1px solid rgba(255, 255, 255, .09)
 }
 
-.grid-lib--sm { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)) }
-.grid-lib--md { grid-template-columns: repeat(auto-fill, minmax(158px, 1fr)) }
-.grid-lib--lg { grid-template-columns: repeat(auto-fill, minmax(218px, 1fr)) }
+.grid-lib--sm {
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr))
+}
+
+.grid-lib--md {
+    grid-template-columns: repeat(auto-fill, minmax(158px, 1fr))
+}
+
+.grid-lib--lg {
+    grid-template-columns: repeat(auto-fill, minmax(218px, 1fr))
+}
 
 
 /* Platform badge */
@@ -2430,11 +2451,11 @@ nav {
     gap: 10px;
 }
 
-.journey-grid-ttf > div {
+.journey-grid-ttf>div {
     flex: 1;
 }
 
-.journey-grid-ttf > .trophy-toggle span {
+.journey-grid-ttf>.trophy-toggle span {
     display: none;
 }
 
@@ -2666,7 +2687,7 @@ nav {
 
 .about-main {
     flex: 1;
-    min-width: 0; 
+    min-width: 0;
 }
 
 .about-desc {
@@ -2743,7 +2764,7 @@ nav {
 }
 
 .pill.plain {
-    
+
     color: var(--muted);
     background: rgba(255, 255, 255, .06)
 }
@@ -3226,7 +3247,7 @@ nav {
     text-transform: uppercase;
 }
 
-.detail-copy > .goty-badge {
+.detail-copy>.goty-badge {
     align-self: flex-start;
 }
 
@@ -3258,7 +3279,7 @@ nav {
     transition: background .2s, color .2s
 }
 
-.hero-tab button + button {
+.hero-tab button+button {
     border-top: 1px solid var(--line-soft)
 }
 
@@ -3490,12 +3511,12 @@ textarea::-webkit-scrollbar-thumb:hover {
 }
 
 .wishlist-modal::-webkit-scrollbar {
-  display: none;
+    display: none;
 }
 
 .wishlist-modal {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
 }
 
 
@@ -3519,5 +3540,5 @@ textarea::-webkit-scrollbar-thumb:hover {
         transform: none
     }
 
-    
+
 }
