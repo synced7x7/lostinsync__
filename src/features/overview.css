@@ -592,6 +592,10 @@
 .big-stat i:hover { color: var(--accent) }
 
 
+.collection-actions-row { display: flex; gap: 10px; margin-top: 20px }
+.collection-edit-form .collection-actions-row { margin-top: 4px }
+
+
 
 @media (max-width: 750px) {
     .stats-strip { grid-template-columns: repeat(2, 1fr); row-gap: 22px }

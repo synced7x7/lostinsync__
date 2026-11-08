@@ -63,6 +63,7 @@ import { igdbDetailsCached, type IgdbGame } from "./data/igdb";
 import { useLayoutEffect } from "react"; // add useLayoutEffect to your existing react import instead if you have one
 import { GAME_TYPES, UNSET_TYPE, matchesGameType } from "./domain/gametype";
 import { BundleContents, isBundle } from "./features/bundle";
+import { useSmoothScroll } from "./hooks/useSmoothScroll";
 
 const repo = createAppRepository();
 
@@ -894,6 +895,7 @@ function Details({
   backLabel?: string;
   extra?: React.ReactNode;
 }) {
+  useSmoothScroll();
   const [editing, setEditing] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const descRef = useRef<HTMLParagraphElement>(null);

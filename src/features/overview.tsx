@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { Camera, Check, FolderPlus, ImagePlus, PenLine, Plus, Sparkles, X } from "lucide-react";
+import { Camera, Check, FolderPlus, ImagePlus, PenLine, Plus, Sparkles, Trash2, X } from "lucide-react";
 import type { AppData, Collection, CollectionItem, Game } from "../domain/game";
 import { seedGame } from "./discover";
 import "./overview.css";
@@ -224,6 +224,11 @@ function CollectionDetail({
   const [description, setDescription] = useState(collection.description ?? "");
   const [image, setImage] = useState<string | undefined>(collection.image);
   const gameMap = useMemo(() => new Map(data.games.map((g) => [g.id, g])), [data.games]);
+  async function remove() {
+    update({ ...data, collections: (data.collections ?? []).filter((c) => c.id !== collection.id) });
+    close();
+  };
+
 
   const save = () => {
     update({
@@ -256,7 +261,10 @@ function CollectionDetail({
               <textarea value={description} onChange={(e) => setDescription(e.target.value.slice(0, 180))} maxLength={180} placeholder="Describe this collection (180 characters max)" />
               <small>{description.length}/180</small>
             </label>
-            <button className="button soft" onClick={save}><PenLine size={15} /> Save collection</button>
+            <div className="collection-actions-row">
+              <button className="button soft" onClick={save}><PenLine size={15} /> Save collection</button>
+              <button className="button stop" onClick={remove}><Trash2 size={15} /> Delete</button>
+            </div>
           </div>
         ) : (
           <>
@@ -282,7 +290,10 @@ function CollectionDetail({
                 </button>
               )) : <p className="muted">This collection is empty.</p>}
             </div>
-            <button className="button soft collection-edit-button" onClick={() => setEditing(true)}><PenLine size={15} /> Edit collection</button>
+            <div className="collection-actions-row">
+              <button className="button soft" onClick={() => setEditing(true)}><PenLine size={15} /> Edit collection</button>
+              <button className="button stop" onClick={remove}><Trash2 size={15} /> Delete collection</button>
+            </div>
           </>
         )}
       </div>
