@@ -25,8 +25,6 @@ export const navigation: { id: View; label: string; icon: typeof BookOpen }[] = 
   { id: "stats", label: "Stats", icon: BarChart3 },
   { id: "trophies", label: "Trophies", icon: Trophy },
   { id: "settings", label: "Settings", icon: Settings },
-  { id: "achievements", label: "Achievements", icon: Sparkles },
-
 ];
 
 export function AppLayout({
