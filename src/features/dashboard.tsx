@@ -166,8 +166,6 @@ export function Dashboard({
                       ><X size={12} /></button>
                       {!g.cover && <Gamepad2 size={34} className="fav-ph" />}
                       <div className="fav-info">
-                        <strong>{g.title}</strong>
-                        <small><Clock3 size={11} /> {hours(g.totalSeconds)}</small>
                       </div>
                     </div>
                   ) : (

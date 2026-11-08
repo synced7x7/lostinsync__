@@ -84,13 +84,17 @@ export function AddGame({ onClose, onAdd, igdb, initial }: { onClose: () => void
     finally { setSearching(false); }
   };
 
-  const readImage = (file: File, setter: (value: string) => void, maxDimension = 1600) => {
+  const readImage = (
+    file: File,
+    setter: (value: string) => void,
+    maxW = 1920,
+    maxH = 1080
+  ) => {
     const reader = new FileReader();
     reader.onload = () => {
       const image = new Image();
       image.onload = () => {
-        const maxDimension = 1600;
-        const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight));
+        const scale = Math.min(1, maxW / image.naturalWidth, maxH / image.naturalHeight);
         const canvas = document.createElement("canvas");
         canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
         canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
@@ -172,7 +176,7 @@ export function AddGame({ onClose, onAdd, igdb, initial }: { onClose: () => void
               {!cover && <Gamepad2 size={34} />}
             </div>
             <label className="button soft upload-btn">Small cover
-              <input type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) readImage(f, setCover, 256); }} />
+              <input type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) readImage(f, setCover, 192, 256); }}/>
             </label>
             <div className="add-bg" style={backgroundCover ? { backgroundImage: `url(${backgroundCover})` } : undefined}>
               {!backgroundCover && <span>Large cover</span>}

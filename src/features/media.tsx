@@ -29,7 +29,7 @@ const toDataUrl = (file: File) =>
     r.onload = () => {
       const img = new Image();
       img.onload = () => {
-        const s = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight));
+        const s = Math.min(1, 1920 / img.naturalWidth, 1080 / img.naturalHeight);
         const c = document.createElement("canvas");
         c.width = Math.round(img.naturalWidth * s);
         c.height = Math.round(img.naturalHeight * s);
@@ -72,11 +72,11 @@ export function MediaSection({ game, save, igdbMedia, igdbLoading, igdbError, se
     const id = ytId(link);
     if (!id) { setErr("That doesn't look like a YouTube link."); return; }
     if (vids.length >= MAX_VIDEOS) { setErr(`You can keep up to ${MAX_VIDEOS} trailers. Remove one first.`); return; }
-    if (!vids.some((v) => v.id === id))     save({ ...game, videos: [...savedVids, { id }] });
+    if (!vids.some((v) => v.id === id)) save({ ...game, videos: [...savedVids, { id }] });
     setLink(""); setErr(""); setAdding(false);
   };
 
-  const addFiles = async (files: FileList | null) => {  
+  const addFiles = async (files: FileList | null) => {
     if (!files?.length) return;
     try {
       const urls = await Promise.all([...files].map(toDataUrl));
