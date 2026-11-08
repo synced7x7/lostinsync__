@@ -621,12 +621,12 @@
 .rarity-badge {
   --rc: #9ca3af;
   display: inline-flex; align-items: center; gap: 5px; width: fit-content;
-  padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 600;
+  padding: 6px 10px; border-radius: 8px; font-size: 11px; font-weight: 700;
   color: var(--rc); border: 1px solid var(--rc);
   background: color-mix(in srgb, var(--rc) 14%, transparent);
   box-shadow: 0 0 10px color-mix(in srgb, var(--rc) 35%, transparent);
 }
-.profile-info .rarity-badge { margin-top: 3px; font-size: 10px; padding: 2px 8px }
+.profile-info .rarity-badge { margin-top: 6px; font-size: 10px; padding: 4px 9px; border-radius: 12px }
 .rarity-badge.r-mythic, .rarity-badge.r-legendary { animation: badge-glow 2.4s ease-in-out infinite }
 .rarity-badge.r-lostinsync {
   color: #fff; border-color: transparent;

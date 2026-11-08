@@ -1,31 +1,14 @@
 import { useState } from "react";
 import {
-  BookOpen,
   ChevronLeft,
   ChevronRight,
-  Gamepad2,
-  LayoutDashboard,
-  Route,
-  Settings,
   X,
-  Trophy,
-  Compass,
-  BarChart3,
-  Sparkles,
 } from "lucide-react";
-import type { AppData, Game, View } from "../domain/game";
-import { RARITY_COLOR, topBadge } from "../domain/trophies";
+import type { AppData, View } from "../domain/game";
 import logo from "../images/badges/1.1 Annual Rookie.png";
+import { RarityBadge } from "../components/rarity-badge";
+import { navigation } from "./navigation";
 
-export const navigation: { id: View; label: string; icon: typeof BookOpen }[] = [
-  { id: "dashboard", label: "Overview", icon: LayoutDashboard },
-  { id: "library", label: "Library", icon: Gamepad2 },
-  { id: "discover", label: "Discover", icon: Compass },
-  { id: "journey", label: "Game Journey", icon: Route },
-  { id: "stats", label: "Stats", icon: BarChart3 },
-  { id: "trophies", label: "Trophies", icon: Trophy },
-  { id: "settings", label: "Settings", icon: Settings },
-];
 
 export function AppLayout({
   data,
@@ -171,16 +154,3 @@ function Sidebar({
 }
 
 
-export function RarityBadge({ games }: { games: Game[] }) {
-  const top = topBadge(games);
-  const rarity = top?.rarity ?? "common";
-  return (
-    <span
-      className={`rarity-badge r-${rarity}`}
-      style={{ ["--rc" as string]: RARITY_COLOR[rarity] }}
-      title={top?.desc ?? "Complete 10% of all achievements to earn your first badge"}
-    >
-      <Sparkles size={12} /> {top?.name ?? "Unranked"}
-    </span>
-  );
-}

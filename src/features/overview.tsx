@@ -4,7 +4,7 @@ import { Camera, Check, FolderPlus, ImagePlus, PenLine, Plus, Trash2, X } from "
 import type { AppData, Collection, CollectionItem, Game } from "../domain/game";
 import { seedGame } from "./discover";
 import "./overview.css";
-import { RarityBadge } from "../components/layout"; // adjust path if layout.tsx lives elsewhere
+import { RarityBadge } from "../components/rarity-badge"; // adjust path if layout.tsx lives elsewhere
 
 export function ProfileSection({ data, update }: { data: AppData; update: (data: AppData) => void }) {
   const [editing, setEditing] = useState(false);
