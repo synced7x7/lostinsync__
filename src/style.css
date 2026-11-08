@@ -1175,6 +1175,7 @@ nav {
 }
 
 .detail-panel {
+    background:rgba(0, 0, 0, 0.2);
     padding: 22px;
     border-radius: 15px
 }
@@ -3539,6 +3540,28 @@ textarea::-webkit-scrollbar-thumb:hover {
         writing-mode: horizontal-tb;
         transform: none
     }
+
+    /* ── Scroll performance: no live blur on large/scrolling surfaces ── */
+.glass {
+    background: rgba(22, 24, 39, .92);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, .28);
+
+}
+.sidebar {
+    background: rgba(9, 10, 18, .94);
+    backdrop-filter: none;
+}
+.hero-tab { background: rgba(14, 15, 26, .78); backdrop-filter: none }
+.series-marker { backdrop-filter: none; background: rgba(14, 15, 26, .78) }
+
+/* skip rendering off-screen detail panels until scrolled near */
+.detail-panel, .detail-grid > * {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 420px;
+}
+.detail-hero { contain: layout paint }
 
 
 }

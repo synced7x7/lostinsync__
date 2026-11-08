@@ -1064,8 +1064,8 @@ function Details({
         </section>
       </div>
 
-      <section className="glass detail-panel">
-        {isBundle(game.gameType) && game.igdbId && (
+      {isBundle(game.gameType) && game.igdbId && (
+        <section className="glass detail-panel">
           <BundleContents
             igdbId={game.igdbId}
             creds={igdb}
@@ -1074,8 +1074,9 @@ function Details({
             onStore={(list) => saveGame({ ...game, bundleGames: list })}
             onOpen={onOpenGame}
           />
-        )}
-      </section>
+
+        </section>
+      )}
 
       <MediaSection game={game} save={saveGame} igdbMedia={{ images: game.igdbImages ?? [], videos: game.igdbVideos ?? [] }} series={game.igdbId ? { igdbId: game.igdbId, creds: igdb } : undefined} onOpenGame={onOpenGame} />
 

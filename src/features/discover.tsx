@@ -10,7 +10,7 @@ const sections: { key: IgdbFeed; title: string; tone: string }[] = [
   { key: "trending", title: "Trending Now", tone: "rose" },
   { key: "anticipated", title: "Most Anticipated", tone: "green" },
   { key: "forYou", title: "For You", tone: "violet" },
-  { key: "popular", title: "Most Popular", tone: "cyan" },
+  { key: "popular", title: "All Time Popular", tone: "cyan" },
   { key: "topRated", title: "Top Rated", tone: "gold" },
   { key: "latest", title: "Latest Releases", tone: "rose" },
   { key: "hiddenGems", title: "Hidden Gems", tone: "violet" },
