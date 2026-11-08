@@ -11,8 +11,11 @@ import {
   Trophy,
   Compass,
   BarChart3,
+  Sparkles,
 } from "lucide-react";
-import type { AppData, View } from "../domain/game";
+import type { AppData, Game, View } from "../domain/game";
+import { RARITY_COLOR, topBadge } from "../domain/trophies";
+import logo from "../images/badges/1.1 Annual Rookie.png";
 
 export const navigation: { id: View; label: string; icon: typeof BookOpen }[] = [
   { id: "dashboard", label: "Overview", icon: LayoutDashboard },
@@ -22,6 +25,7 @@ export const navigation: { id: View; label: string; icon: typeof BookOpen }[] = 
   { id: "stats", label: "Stats", icon: BarChart3 },
   { id: "trophies", label: "Trophies", icon: Trophy },
   { id: "settings", label: "Settings", icon: Settings },
+  { id: "achievements", label: "Achievements", icon: Sparkles },
 
 ];
 
@@ -93,12 +97,12 @@ function Sidebar({
             style={{ cursor: !isOpen ? "pointer" : "default" }}
           >
             <span className="brand-mark">
-              <Gamepad2 size={20} />
+              <img src={logo} alt="" className="brand-logo" />
             </span>
             {isOpen && (
               <span className="brand-text">
                 LOST IN SYNC
-                <small>PERSONAL GAME OS</small>
+                <small>CRYPT OF CHRONICLES</small>
               </span>
             )}
           </div>
@@ -123,7 +127,7 @@ function Sidebar({
           {isOpen && (
             <div className="profile-info">
               <strong>{data.profile.displayName}</strong>
-              <span>Offline profile</span>
+              <RarityBadge games={data.games} />
             </div>
           )}
         </div>
@@ -165,5 +169,20 @@ function Sidebar({
         </button>
       )}
     </>
+  );
+}
+
+
+export function RarityBadge({ games }: { games: Game[] }) {
+  const top = topBadge(games);
+  const rarity = top?.rarity ?? "common";
+  return (
+    <span
+      className={`rarity-badge r-${rarity}`}
+      style={{ ["--rc" as string]: RARITY_COLOR[rarity] }}
+      title={top?.desc ?? "Complete 10% of all achievements to earn your first badge"}
+    >
+      <Sparkles size={12} /> {top?.name ?? "Unranked"}
+    </span>
   );
 }

@@ -608,3 +608,65 @@
     .profile-avatar { width: 62px; height: 62px; font-size: 25px }
     .profile-count { margin-top: 24px }
 }
+
+
+@import url("https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=Cinzel:wght@500&display=swap");
+
+/* gothic brand */
+.brand-logo { width: 22px; height: 22px; object-fit: contain; filter: drop-shadow(0 0 6px rgba(164,149,255,.6)) }
+.brand-text { font-family: "Cinzel Decorative", serif; letter-spacing: .08em }
+.brand-text small { font-family: "Cinzel", serif; font-size: 8px; letter-spacing: .28em; color: #b9a8ff; opacity: .8 }
+
+/* rarity badge */
+.rarity-badge {
+  --rc: #9ca3af;
+  display: inline-flex; align-items: center; gap: 5px; width: fit-content;
+  padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 600;
+  color: var(--rc); border: 1px solid var(--rc);
+  background: color-mix(in srgb, var(--rc) 14%, transparent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--rc) 35%, transparent);
+}
+.profile-info .rarity-badge { margin-top: 3px; font-size: 10px; padding: 2px 8px }
+.rarity-badge.r-mythic, .rarity-badge.r-legendary { animation: badge-glow 2.4s ease-in-out infinite }
+.rarity-badge.r-lostinsync {
+  color: #fff; border-color: transparent;
+  background: linear-gradient(90deg, #ff3b6b, #a855f7, #38bdf8, #ff3b6b) 0 0 / 300% 100%;
+  animation: badge-flow 4s linear infinite;
+}
+@keyframes badge-glow { 50% { box-shadow: 0 0 20px var(--rc) } }
+@keyframes badge-flow { to { background-position: 300% 0 } }
+
+/* profile banner effects */
+.profile-banner { animation: banner-in .7s cubic-bezier(.2,.8,.2,1) both; border: 1px solid rgba(164,149,255,.22) }
+@keyframes banner-in { from { opacity: 0; transform: translateY(14px) scale(.98) } }
+.profile-aurora {
+  position: absolute; inset: -60%; z-index: 0; pointer-events: none;
+  background: conic-gradient(from 0deg, transparent, rgba(124,92,255,.22), transparent 30%, rgba(56,189,248,.18), transparent 60%);
+  animation: aurora-spin 14s linear infinite;
+}
+@keyframes aurora-spin { to { transform: rotate(360deg) } }
+.profile-banner:after { animation: ring-pulse 5s ease-in-out infinite }
+@keyframes ring-pulse { 50% { transform: scale(1.15); border-color: rgba(164,149,255,.4) } }
+
+.profile-avatar { position: relative; z-index: 1; animation: avatar-float 4s ease-in-out infinite }
+.profile-avatar:before {
+  content: ""; position: absolute; inset: -4px; border-radius: 50%; z-index: -1;
+  background: conic-gradient(#7c5cff, #38bdf8, #ff3b6b, #7c5cff);
+  animation: aurora-spin 5s linear infinite; filter: blur(2px);
+}
+@keyframes avatar-float { 50% { transform: translateY(-4px) } }
+
+.profile-name {
+  font-family: "Cinzel Decorative", serif; letter-spacing: .05em;
+  background: linear-gradient(90deg, #fff, #b9a8ff, #7dd3fc, #fff) 0 0 / 250% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: name-shimmer 6s linear infinite;
+}
+@keyframes name-shimmer { to { background-position: 250% 0 } }
+.profile-count strong { animation: ring-pulse 3s ease-in-out infinite }
+
+@media (prefers-reduced-motion: reduce) {
+  .profile-banner, .profile-banner:after, .profile-aurora, .profile-avatar, .profile-avatar:before,
+  .profile-name, .rarity-badge, .profile-count strong { animation: none }
+}
+

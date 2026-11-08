@@ -253,3 +253,11 @@ export function evaluate(games: Game[], cheat: Override): TrophyState[] {
   return TROPHIES.map((t) => (t.id === "final" ? finalState : base.find((s) => s.trophy === t)!));
 }
 
+
+export const RARITY_COLOR: Record<Rarity, string> = {
+  common: "#9ca3af", uncommon: "#4ade80", rare: "#38bdf8",
+  legendary: "#fbbf24", mythic: "#c084fc", lostinsync: "#ff3b6b",
+};
+
+export const topBadge = (games: Game[], cheat: Override = {}) =>
+  evaluate(games, cheat).find((s) => s.trophy.id === "final")?.top;

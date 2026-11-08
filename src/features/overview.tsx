@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { Camera, Check, FolderPlus, ImagePlus, PenLine, Plus, Sparkles, Trash2, X } from "lucide-react";
+import { Camera, Check, FolderPlus, ImagePlus, PenLine, Plus, Trash2, X } from "lucide-react";
 import type { AppData, Collection, CollectionItem, Game } from "../domain/game";
 import { seedGame } from "./discover";
 import "./overview.css";
+import { RarityBadge } from "../components/layout"; // adjust path if layout.tsx lives elsewhere
 
 export function ProfileSection({ data, update }: { data: AppData; update: (data: AppData) => void }) {
   const [editing, setEditing] = useState(false);
@@ -55,6 +56,7 @@ export function ProfileSection({ data, update }: { data: AppData; update: (data:
   return (
     <>
       <section className="profile-banner glass">
+        <i className="profile-aurora" aria-hidden="true" />
         <button
           className="profile-edit button soft"
           onClick={() => editing ? finishEditing() : setEditing(true)}
@@ -85,11 +87,11 @@ export function ProfileSection({ data, update }: { data: AppData; update: (data:
         <div className="profile-copy">
           {editing
             ? <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
-            : <h2>{data.profile.displayName}</h2>}
+            : <h2 className="profile-name">{data.profile.displayName}</h2>}
           {editing
             ? <textarea value={bio} onChange={(e) => setBio(e.target.value)} />
             : <p>{data.profile.bio}</p>}
-          <span className="pill"><Sparkles size={13} /> Local collector</span>
+          <RarityBadge games={data.games} />
           {pictureError && <span className="date-error">{pictureError}</span>}
         </div>
         <div className="profile-count"><strong>{data.games.length}</strong><span>games collected</span></div>
