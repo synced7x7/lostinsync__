@@ -1,4 +1,5 @@
-import React, { StrictMode, useCallback, useEffect, useMemo, useRef, useState, lazy, Suspense, memo } from "react";
+import React, { StrictMode, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, lazy, Suspense, memo } from "react";
+import { librarySession, libraryDefaults, prefsToSettings, type LibraryPrefs } from "./domain/library-session";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, useLocation, useNavigate } from "react-router-dom";
 import {
@@ -95,7 +96,6 @@ function App() {
   const [error, setError] = useState("");
   const dataRef = useRef(data);
   const journeyPreferencesDirty = useRef(false);
-  const StatsView = lazy(() => import("./features/stats").then((m) => ({ default: m.StatsView })));
 
   dataRef.current = data;
   useEffect(() => {
@@ -311,21 +311,31 @@ function App() {
   );
 }
 
+const StatsView = lazy(() => import("./features/stats").then((m) => ({ default: m.StatsView })));
+
+const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
+const tsCache = new Map<string, number>();
+const dp = (s?: string) => {
+  if (!s) return 0;
+  let v = tsCache.get(s);
+  if (v === undefined) { v = Date.parse(s) || 0; tsCache.set(s, v); }
+  return v;
+};
+
 function compareGames(a: Game, b: Game, sort: LibrarySort, direction: SortDirection): number {
-  const multiplier = direction === "asc" ? 1 : -1;
-  if (sort === "title") return multiplier * a.title.localeCompare(b.title);
-  const values: Record<Exclude<LibrarySort, "title">, number> = {
-    recent: Date.parse(a.createdAt) - Date.parse(b.createdAt),
-    completion: (Date.parse(a.finishedAt ?? "") || 0) - (Date.parse(b.finishedAt ?? "") || 0),
-    playtime: a.totalSeconds - b.totalSeconds,
-    rating: (a.rating ?? 0) - (b.rating ?? 0),
-    igdbRating: (a.igdbRating ?? 0) - (b.igdbRating ?? 0),
-    releaseDate: (Date.parse(a.releaseDate ?? "") || 0) - (Date.parse(b.releaseDate ?? "") || 0),
-    avgTime: (a.timeAvgSeconds ?? 0) - (b.timeAvgSeconds ?? 0),
-    mainTime: (a.timeMainSeconds ?? 0) - (b.timeMainSeconds ?? 0),
-    fullTime: (a.timeFullSeconds ?? 0) - (b.timeFullSeconds ?? 0),
-  };
-  return multiplier * values[sort];
+  const m = direction === "asc" ? 1 : -1;
+  switch (sort) {
+    case "title": return m * collator.compare(a.title, b.title);
+    case "recent": return m * (dp(a.createdAt) - dp(b.createdAt));
+    case "completion": return m * (dp(a.finishedAt) - dp(b.finishedAt));
+    case "playtime": return m * (a.totalSeconds - b.totalSeconds);
+    case "rating": return m * ((a.rating ?? 0) - (b.rating ?? 0));
+    case "igdbRating": return m * ((a.igdbRating ?? 0) - (b.igdbRating ?? 0));
+    case "releaseDate": return m * (dp(a.releaseDate) - dp(b.releaseDate));
+    case "avgTime": return m * ((a.timeAvgSeconds ?? 0) - (b.timeAvgSeconds ?? 0));
+    case "mainTime": return m * ((a.timeMainSeconds ?? 0) - (b.timeMainSeconds ?? 0));
+    case "fullTime": return m * ((a.timeFullSeconds ?? 0) - (b.timeFullSeconds ?? 0));
+  }
 }
 
 const formatSpan = (from: string, to: string) => {
@@ -362,29 +372,24 @@ function LibraryView({
   const [query, setQueryState] = useState(librarySession.query);
   const setQuery = (value: string) => { librarySession.query = value; setQueryState(value); };
   const [showAdd, setShowAdd] = useState(false);
-  const [fullscreen, setFullscreen] = useState(data.settings.libraryFullscreen ?? false);
   const [showFullscreenFilters, setShowFullscreenFilters] = useState(false);
+  const [prefs, setPrefs] = useState<LibraryPrefs>(() => (librarySession.prefs ??= libraryDefaults(data.settings)));
+  const { filter, gameType: typeFilter, favoritesOnly, sort, direction: sortDirection, layout, fullscreen, gridSize } = prefs;
+  const deferredQuery = useDeferredValue(query);
 
-  const layout = data.settings.libraryLayout ?? "ps4";
-  const filter = data.settings.libraryFilter ?? "All";
-  const sort = data.settings.librarySort ?? "recent";
-  const sortDirection = data.settings.librarySortDirection ?? "desc";
-  const favoritesOnly = data.settings.libraryFavoritesOnly ?? false;
-  const typeFilter = data.settings.libraryGameType ?? "All";
-
+  // Same name/call sites as before, but now session-only: no save, no app-wide re-render
   const updateSettings = (partial: Partial<AppSettings>) => {
-    update({
-      ...data,
-      settings: { ...data.settings, ...partial },
-    });
+    const next = libraryDefaults({ ...prefsToSettings(prefs), ...partial });
+    librarySession.prefs = next;
+    setPrefs(next);
   };
 
-  const games = useMemo(
-    () => data.games
-      .filter((g) => (filter === "All" || g.status === filter) && matchesGameType(g.gameType, typeFilter) && (!favoritesOnly || g.favorite) && g.title.toLowerCase().includes(query.toLowerCase()))
-      .sort((a, b) => compareGames(a, b, sort, sortDirection)),
-    [data.games, filter, typeFilter, favoritesOnly, query, sort, sortDirection]
-  );
+  const games = useMemo(() => {
+    const q = deferredQuery.toLowerCase();
+    return data.games
+      .filter((g) => (filter === "All" || g.status === filter) && matchesGameType(g.gameType, typeFilter) && (!favoritesOnly || g.favorite) && g.title.toLowerCase().includes(q))
+      .sort((a, b) => compareGames(a, b, sort, sortDirection));
+  }, [data.games, filter, typeFilter, favoritesOnly, deferredQuery, sort, sortDirection]);
   const sortOptions: { value: LibrarySort; label: string }[] = [
     { value: "recent", label: "When added" },
     { value: "completion", label: "Last played (Completion Time)" },
@@ -422,7 +427,7 @@ function LibraryView({
       <button className="icon-btn glass" onClick={() => setShowFullscreenFilters((open) => !open)} title="Show library filters">
         <SlidersHorizontal size={17} />
       </button>
-      <button className="icon-btn glass" onClick={() => { updateSettings({ libraryFullscreen: false }); setFullscreen(false); }} title="Exit fullscreen shelf view">
+      <button className="icon-btn glass" onClick={() => updateSettings({ libraryFullscreen: false })} title="Exit fullscreen shelf view">
         <Minimize2 size={17} />
       </button>
       {showFullscreenFilters && (
@@ -470,13 +475,13 @@ function LibraryView({
           <button className={favoritesOnly ? "icon-btn active" : "icon-btn"} onClick={() => updateSettings({ libraryFavoritesOnly: !favoritesOnly })} title="Favorite games only" aria-label="Favorite games only">
             <Heart size={16} fill={favoritesOnly ? "currentColor" : "none"} />
           </button>
-          <button className={fullscreen ? "icon-btn active" : "icon-btn"} onClick={() => { updateSettings({ libraryLayout: "ps4", libraryFullscreen: true }); setFullscreen(true); setShowFullscreenFilters(false); }} title="Fullscreen shelf view">
+          <button className={fullscreen ? "icon-btn active" : "icon-btn"} onClick={() => { updateSettings({ libraryLayout: "ps4", libraryFullscreen: true }); setShowFullscreenFilters(false); }} title="Fullscreen shelf view">
             <Maximize2 size={17} />
           </button>
           <button className={layout === "ps4" ? "icon-btn active" : "icon-btn"} onClick={() => updateSettings({ libraryLayout: "ps4" })} title="PS4 shelf view">
             <Monitor size={17} />
           </button>
-          <button className={layout === "catalog" ? "icon-btn active" : "icon-btn"} onClick={() => { updateSettings({ libraryLayout: "catalog", libraryFullscreen: false }); setFullscreen(false); }} title="Catalog grid view">
+          <button className={layout === "catalog" ? "icon-btn active" : "icon-btn"} onClick={() => updateSettings({ libraryLayout: "catalog", libraryFullscreen: false })} title="Catalog grid view">
             <LayoutGrid size={17} />
           </button>
         </div>
@@ -488,7 +493,7 @@ function LibraryView({
           ? <div className={fullscreen ? "ps4-fullscreen-shell" : undefined}>
             <PS4ShelfView fullscreen={fullscreen} games={games} featured={featured} focusedGameId={focusedGameId} onFocusedGameChange={onFocusedGameChange} openGame={openLibraryGame} saveGame={saveGame} keyboardEnabled={!showAdd} />
           </div>
-          : <GridLibraryView games={games} openGame={openLibraryGame} saveGame={saveGame} gridSize={data.settings.gridSize ?? "md"} setGridSize={(size) => updateSettings({ gridSize: size })} />
+          : <GridLibraryView games={games} openGame={openLibraryGame} saveGame={saveGame} gridSize={gridSize} setGridSize={(size) => updateSettings({ gridSize: size })} />
       }
       {showAdd && <AddGame igdb={{ clientId: data.settings.igdbClientId ?? "", clientSecret: data.settings.igdbClientSecret ?? "" }} onClose={() => setShowAdd(false)} onAdd={(game) => { addGame(game); setShowAdd(false); }} />}
     </>
@@ -779,7 +784,7 @@ function PS4ShelfView({
 // Session-only memory of the catalog grid. Lives in memory, never saved, gone when the app closes.
 const gridSession = { scrollY: 0, visible: 40 };
 // Session-only memory of the library search box. Never saved, gone when the app closes.
-const librarySession = { query: "" };
+
 
 function GridLibraryView({
   games, openGame, saveGame, gridSize, setGridSize,
@@ -803,11 +808,13 @@ function GridLibraryView({
     restore();
     return () => cancelAnimationFrame(raf);
   }, []);
-  const open = (id: string) => {
+  const visibleRef = useRef(visibleCount); visibleRef.current = visibleCount;
+  const openRef = useRef(openGame); openRef.current = openGame;
+  const open = useCallback((id: string) => {
     gridSession.scrollY = window.scrollY;
-    gridSession.visible = visibleCount;
-    openGame(id);
-  };
+    gridSession.visible = visibleRef.current;
+    openRef.current(id);
+  }, []);
   const sentinelRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const el = sentinelRef.current;
@@ -835,7 +842,7 @@ function GridLibraryView({
       </div>
       <div className={`grid-lib ${sizeClass[gridSize]}`}>
         {visible.map((game) => (
-          <GridCard key={game.id} game={game} gridSize={gridSize} onOpen={() => open(game.id)} onSave={saveGame} />
+          <GridCard key={game.id} game={game} gridSize={gridSize} onOpen={open} />
         ))}
       </div>
       <div ref={sentinelRef} style={{ height: 1 }} />
@@ -846,13 +853,13 @@ function GridLibraryView({
   );
 }
 
-function GridCard({
+const GridCard = memo(function GridCard({
   game, gridSize, onOpen, onSave,
 }: {
   game: Game;
   gridSize: GridSize;
-  onOpen: () => void;
-  onSave: (g: Game) => void;
+  onOpen: (id: string) => void;
+  onSave?: (g: Game) => void;
 }) {
   const [hovered, setHovered] = useState(false);
   return (
@@ -860,7 +867,7 @@ function GridCard({
       onHoverStart={() => setHovered(true)} onHoverEnd={() => setHovered(false)}
       animate={hovered ? { scale: 1.07, zIndex: 20 } : { scale: 1, zIndex: 1 }}
       transition={{ type: "spring", stiffness: 380, damping: 28 }}
-      onClick={onOpen}
+      onClick={() => onOpen(game.id)}
     >
       <div className="grid-card-art" style={game.cover ? { backgroundImage: `url(${game.cover})` } : undefined}>
         {!game.cover && (
@@ -878,7 +885,7 @@ function GridCard({
       <motion.div className="grid-card-glow-border" animate={hovered ? { opacity: 1 } : { opacity: 0 }} transition={{ duration: 0.18 }} />
     </motion.div>
   );
-}
+});
 
 
 function Details({
@@ -947,27 +954,21 @@ function Details({
 
           {(game.developer || game.releaseDate) && (
             <div className="hero-meta">
-              {(game.developer || game.releaseDate) && (
-                <p className="hero-credit">
-                  {(game.developer || game.releaseDate) && (
-                    <div className="hero-credit">
-                      {game.developer && (
-                        <div className="credit-item">
-                          <Building2 size={14} />
-                          <div><small>Studio</small><strong>{game.developer}</strong></div>
-                        </div>
-                      )}
-                      {game.developer && game.releaseDate && <span className="credit-sep" />}
-                      {game.releaseDate && (
-                        <div className="credit-item">
-                          <CalendarDays size={14} />
-                          <div><small>Released</small><strong>{formatDate(game.releaseDate)}</strong></div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </p>
-              )}
+              <div className="hero-credit">
+                {game.developer && (
+                  <div className="credit-item">
+                    <Building2 size={14} />
+                    <div><small>Studio</small><strong>{game.developer}</strong></div>
+                  </div>
+                )}
+                {game.developer && game.releaseDate && <span className="credit-sep" />}
+                {game.releaseDate && (
+                  <div className="credit-item">
+                    <CalendarDays size={14} />
+                    <div><small>Released</small><strong>{formatDate(game.releaseDate)}</strong></div>
+                  </div>
+                )}
+              </div>
             </div>
           )}
           {isGameOfTheYearWinner && (
@@ -993,17 +994,14 @@ function Details({
                 </>
                 : <p className="muted" style={{ marginTop: 10 }}>No description yet. Tap Edit game to add one.</p>}
             </div>
+
             {game.igdbRating != null && (
               <div className="score-box">
-                {game.igdbRating != null && (
-                  <div className="score-box">
-                    <div className="rating-ring" style={{ "--p": game.igdbRating, "--ring": ringColor } as React.CSSProperties}>
-                      <strong>{(game.igdbRating / 10).toFixed(1)}</strong>
-                    </div>
-                    <span className="score-title">IGDB SCORE</span>
-                    <small>{game.igdbRatingCount ? `Based on ${formatCount(game.igdbRatingCount)} ratings` : "Community score"}</small>
-                  </div>
-                )}
+                <div className="rating-ring" style={{ "--p": game.igdbRating, "--ring": ringColor } as React.CSSProperties}>
+                  <strong>{(game.igdbRating / 10).toFixed(1)}</strong>
+                </div>
+                <span className="score-title">IGDB SCORE</span>
+                <small>{game.igdbRatingCount ? `Based on ${formatCount(game.igdbRatingCount)} ratings` : "Community score"}</small>
               </div>
             )}
           </div>
@@ -1089,8 +1087,6 @@ function Details({
         </div>
         <PenLine size={14} />
       </section>
-
-
 
       {editing && (
         <AddGame

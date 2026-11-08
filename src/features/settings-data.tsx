@@ -5,6 +5,11 @@ import { importBackloggd, reportSections, reportToText, type BlEntry, type Impor
 import type { AppData } from "../domain/game";
 import { RefreshCw } from "lucide-react";
 import { applyPatches, syncReportSections, syncReportToText, syncWithIgdb, type SyncProgress, type SyncReport } from "../data/sync";
+import { STATUSES } from "../domain/game";
+import type { AppSettings } from "../domain/game";
+import { GAME_TYPES, UNSET_TYPE } from "../domain/gametype";
+import { SORT_OPTIONS, librarySession, libraryDefaults } from "../domain/library-session";
+import { option } from "framer-motion/m";
 
 type Notice = { kind: "success" | "error" | "info"; text: string };
 type Props = { data: AppData; update: (data: AppData) => void };
@@ -49,6 +54,7 @@ async function saveOrDownload(name: string, contents: string, mime: string, ext:
 export function DataSection({ data, update }: Props) {
   return (
     <>
+      <LibraryDefaultsSection data={data} update={update} />
       <StorageSection data={data} update={update} />
       <DeleteSection data={data} update={update} />
       <SyncSection data={data} update={update} />
@@ -143,6 +149,82 @@ function DeleteSection({ data, update }: Props) {
         </div>
       )}
       <NoticeBar notice={notice} onClose={() => setNotice(undefined)} />
+    </section>
+  );
+}
+
+function LibraryDefaultsSection({ data, update }: Props) {
+  const d = libraryDefaults(data.settings);
+  const set = (partial: Partial<AppSettings>) => {
+    librarySession.prefs = null; // Library re-seeds from these defaults on next visit
+    update({ ...data, settings: { ...data.settings, ...partial } });
+  };
+  const row = (title: string, hint: string, control: React.ReactNode) => (
+    <div className="setting-row"><div><strong>{title}</strong><span>{hint}</span></div>{control}</div>
+  );
+  return (
+    <section className="glass settings-panel settings-panel--full">
+      <p className="eyebrow">LIBRARY</p><h2>Default filters &amp; view</h2>
+      <div className="setting-cols">
+        <div className="setting-row">
+          Status
+          <select value={d.filter} onChange={(e) => set({ libraryFilter: e.target.value as AppSettings["libraryFilter"] })}>
+            <option value="All">All statuses</option>
+            {STATUSES.map((s) => <option key={s}>{s}</option>)}
+          </select>
+        </div>
+        
+        <div className="setting-row">
+          Game type
+          <select value={d.gameType} onChange={(e) => set({ libraryGameType: e.target.value })}>
+            <option value="All">All types</option>
+            {GAME_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+            <option value={UNSET_TYPE}>Type not set</option>
+          </select>
+        </div>
+
+
+
+        <div className="setting-row">
+          Sort by
+          <select value={d.sort} onChange={(e) => set({ librarySort: e.target.value as AppSettings["librarySort"] })}>
+            {SORT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+        </div>
+    
+        <div className="setting-row">
+          Direction
+          <select value={d.direction} onChange={(e) => set({ librarySortDirection: e.target.value as AppSettings["librarySortDirection"] })}>
+            <option value="asc">Ascending</option>
+            <option value="desc">Descending</option>
+          </select>
+        </div>
+
+        <div className="setting-row">
+          View
+          <select
+            value={d.fullscreen ? "fullscreen" : d.layout}
+            onChange={(e) => {
+              const v = e.target.value;
+              set(v === "fullscreen" ? { libraryLayout: "ps4", libraryFullscreen: true }
+                : { libraryLayout: v as AppSettings["libraryLayout"], libraryFullscreen: false });
+            }}
+          >
+            <option value="ps4">PS4 shelf</option>
+            <option value="fullscreen">Fullscreen shelf</option>
+            <option value="catalog">Grid</option>
+          </select>
+        </div>
+
+        <div className="setting-row">
+          Grid size
+          <select value={d.gridSize} onChange={(e) => set({ gridSize: e.target.value as AppSettings["gridSize"] })}>
+            <option value="sm">Small</option>
+            <option value="md">Medium</option>
+            <option value="lg">Large</option>
+          </select>
+        </div>
+      </div>
     </section>
   );
 }
