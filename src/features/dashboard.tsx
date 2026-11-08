@@ -36,11 +36,11 @@ const SLOTS = [
 const WAVE =
   "M 0 395 C 50 395 50 390 100 390 C 200 390 200 340 300 340 C 400 340 400 300 500 300 C 600 300 600 340 700 340 C 800 340 800 390 900 390 C 950 390 950 395 1000 395";
 
-function BigStat({ value, label, tip, accent }: { value: number; label: string; tip: string; accent?: boolean }) {
+function BigStat({ value, label, accent }: { value: number; label: string; accent?: boolean }) {
   return (
     <div className={`big-stat${accent ? " accent" : ""}`}>
       <strong>{pad(value)}</strong>
-      <span>{label}<i title={tip}><HelpCircle size={13} /></i></span>
+      <span>{label}</span>
     </div>
   );
 }
@@ -177,10 +177,10 @@ export function Dashboard({
       </section>
 
       <section className="stats-strip glass">
-        <BigStat value={data.games.length} label="Games Collected" tip="Every game in your library" />
-        <BigStat value={completed} label="Completed" tip="Games marked as Completed" />
-        <BigStat value={playedThisYear} label={`Played in ${year}`} tip="Games started or finished this year" accent />
-        <BigStat value={wishlist} label="Wishlist" tip="Games on your wishlist" />
+        <BigStat value={data.games.length} label="Games Collected" />
+        <BigStat value={completed} label="Completed" />
+        <BigStat value={playedThisYear} label={`Played in ${year}`} accent />
+        <BigStat value={wishlist} label="Wishlist" />
       </section>
 
       <section className="section">
