@@ -122,10 +122,6 @@ export function Dashboard({
     <>
       {profile}
       <section className="fav-section">
-        <div className="section-title">
-          <div><p className="eyebrow">HALL OF FAME</p></div>
-          <button className="text-button" onClick={openLibrary}>Open library <ChevronRight size={14} /></button>
-        </div>
         <div className="fav-scroll">
           <div className="fav-stage">
             <svg className="fav-svg" viewBox="0 0 1000 460" preserveAspectRatio="none">

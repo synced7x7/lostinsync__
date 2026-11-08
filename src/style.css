@@ -1785,7 +1785,7 @@ nav {
 .ps4-library--fullscreen .ps4-featured-info {
     margin-top: clamp(110px, 22vh, 220px);
     padding-left: clamp(32px, 7vw, 108px);
-    max-width: 660px;
+    max-width: 680px;
 }
 
 .ps4-library--fullscreen .ps4-shelves {

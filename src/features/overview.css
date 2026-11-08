@@ -296,7 +296,7 @@
 .hero-tab button:disabled { opacity: .4; cursor: not-allowed }
 
 /* NEW SECTION */
-.fav-section { margin: 26px 0 8px }
+.fav-section { margin: 20px 0 8px }
 
 .fav-scroll { overflow-x: auto; padding-bottom: 6px }
 
