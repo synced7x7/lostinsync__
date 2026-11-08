@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Camera, Check, FolderPlus, PenLine, Plus, Sparkles, X } from "lucide-react";
+import { Camera, Check, FolderPlus, ImagePlus, PenLine, Plus, Sparkles, X } from "lucide-react";
 import type { AppData, Collection, Game } from "../domain/game";
 import { seedGame } from "./discover";
 import "./overview.css";
@@ -100,6 +100,60 @@ export function ProfileSection({ data, update }: { data: AppData; update: (data:
 
 // IGDB covers are stored as small sizes; request the 2x cover so they stay sharp
 const hq = (url?: string) => url?.replace(/t_(thumb|micro|cover_small|cover_big|logo_med|screenshot_med|720p)\b/, "t_cover_big_2x");
+// crops to 3:4 and stores at 384x512, so custom art is small and matches the card shape
+const cropCover = (file: File) =>
+  new Promise<string>((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const W = 384, H = 512;
+        const s = Math.max(W / img.naturalWidth, H / img.naturalHeight);
+        const sw = W / s, sh = H / s;
+        const c = document.createElement("canvas");
+        c.width = W; c.height = H;
+        c.getContext("2d")?.drawImage(img, (img.naturalWidth - sw) / 2, (img.naturalHeight - sh) / 2, sw, sh, 0, 0, W, H);
+        res(c.toDataURL("image/jpeg", 0.85));
+      };
+      img.onerror = () => rej(new Error("decode"));
+      img.src = String(r.result);
+    };
+    r.onerror = () => rej(new Error("read"));
+    r.readAsDataURL(file);
+  });
+
+const collectionArt = (c: Collection) => c.image ?? hq(c.items[0]?.cover);
+
+function CollectionImagePicker({ value, fallback, onChange }: { value?: string; fallback?: string; onChange: (v?: string) => void }) {
+  const input = useRef<HTMLInputElement>(null);
+  const [err, setErr] = useState("");
+  const shown = value ?? fallback;
+  return (
+    <div className="collection-image-edit">
+      <div className="collection-image-preview">{shown ? <img src={shown} alt="" /> : <ImagePlus size={20} />}</div>
+      <div className="collection-image-actions">
+        <button type="button" className="button soft" onClick={() => input.current?.click()}>
+          <ImagePlus size={15} /> {value ? "Change image" : "Choose image"}
+        </button>
+        {value && <button type="button" className="button soft" onClick={() => onChange(undefined)}>Use first game's cover</button>}
+        <small>{value ? "Custom image" : fallback ? "Using the first game's cover" : "Optional"}</small>
+        {err && <span className="date-error">{err}</span>}
+        <input
+          ref={input}
+          type="file"
+          accept="image/*"
+          hidden
+          onChange={async (e) => {
+            const f = e.target.files?.[0];
+            e.target.value = "";
+            if (!f) return;
+            try { onChange(await cropCover(f)); setErr(""); } catch { setErr("That image could not be read."); }
+          }}
+        />
+      </div>
+    </div>
+  );
+}
 
 export function CollectionShowcase({ data, update, openGame, openDiscover }: { data: AppData; update: (data: AppData) => void; openGame: (id: string) => void; openDiscover: (id: number) => void }) {
   const [selectedId, setSelectedId] = useState<string>();
@@ -117,12 +171,15 @@ export function CollectionShowcase({ data, update, openGame, openDiscover }: { d
         <div className="collection-showcase-row">
           {collections.map((c) => (
             <button type="button" className="collection-card" key={c.id} onClick={() => setSelectedId(c.id)}>
-              <div className={`collection-stack${c.items.length ? "" : " empty"}`}>
-                {c.items.length === 0 && <Plus size={26} />}
-                {[2, 1, 0].map((i) => c.items[i] && <img key={i} className={`s${i}`} src={hq(c.items[i].cover)} alt="" loading="lazy" decoding="async" draggable={false} />)}
+              <div className={`collection-poster${collectionArt(c) ? "" : " empty"}`}>
+                {collectionArt(c)
+                  ? <img src={collectionArt(c)} alt="" loading="lazy" decoding="async" draggable={false} />
+                  : <Plus size={26} />}
+                <div className="collection-poster-info">
+                  <strong>{c.name}</strong>
+                  <small>{c.items.length} games</small>
+                </div>
               </div>
-              <strong>{c.name}</strong>
-              <small>{c.items.length} games</small>
             </button>
           ))}
         </div>

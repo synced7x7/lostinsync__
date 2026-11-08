@@ -1859,6 +1859,12 @@ nav {
     font-size: 13px
 }
 
+.ps4-spacer {
+    flex: 0 0 auto;
+    height: 1px;
+    pointer-events: none
+}
+
 /* Full-bleed background art (NO BLUR, crisp and vibrant) */
 .ps4-bg {
     position: absolute;

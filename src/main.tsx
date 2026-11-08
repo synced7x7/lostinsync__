@@ -1,4 +1,4 @@
-import React, { StrictMode, useCallback, useEffect, useMemo, useRef, useState, lazy, Suspense } from "react";
+import React, { StrictMode, useCallback, useEffect, useMemo, useRef, useState, lazy, Suspense, memo } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, useLocation, useNavigate } from "react-router-dom";
 import {
@@ -487,6 +487,41 @@ const PS4_CARD_LIFTS: Record<number, number> = {
 
 const PS4_NEIGHBOR_HOVER_BOOST = 0.08;
 
+const PS4_BUFFER = 8; // cards kept mounted beyond each screen edge
+const PS4_STEP = 6;   // the window moves in steps of this many cards
+const PS4_CAP = Math.max(Object.keys(PS4_CARD_SCALES).length, Object.keys(PS4_CARD_LIFTS).length) + 1;
+
+const PS4Card = memo(function PS4Card({
+  game, idx, distance, onClick,
+}: { game: Game; idx: number; distance: number; onClick: (game: Game, idx: number) => void }) {
+  const isFocused = distance === 0;
+  return (
+    <motion.button
+      className={`ps4-card${isFocused ? " ps4-card--focused" : ""}`}
+      onClick={() => onClick(game, idx)}
+      animate={{
+        scale: PS4_CARD_SCALES[distance] ?? 1,
+        zIndex: distance === 0 ? 20 : distance === 1 ? 10 : distance === 2 ? 5 : 1,
+        y: -(PS4_CARD_LIFTS[distance] ?? 0),
+      }}
+      transition={{ type: "spring", stiffness: 360, damping: 28 }}
+      whileHover={!isFocused
+        ? {
+          scale: distance <= 2
+            ? (PS4_CARD_SCALES[distance] ?? 1) + PS4_NEIGHBOR_HOVER_BOOST
+            : 1.08,
+          y: distance <= 2 ? -(PS4_CARD_LIFTS[distance] ?? 0) - 4 : -4,
+        }
+        : {}}
+    >
+      <div className="ps4-card-art" style={game.cover ? { backgroundImage: `url(${game.cover})` } : undefined}>
+        {!game.cover && <div className="grid-card-fallback"><Gamepad2 size={28} style={{ marginTop: 8 }} />  <span style={{ fontSize: "12px" }}>{game.title}</span></div>}
+      </div>
+      {isFocused && <div className="ps4-card-focus-ring" />}
+    </motion.button>
+  );
+});
+
 function PS4ShelfView({
   games, featured, focusedGameId, onFocusedGameChange, openGame, saveGame, fullscreen, keyboardEnabled = true,
 }: {
@@ -503,10 +538,22 @@ function PS4ShelfView({
     const index = games.findIndex((game) => game.id === focusedGameId);
     return index >= 0 ? index : 0;
   });
+  const [win, setWin] = useState(() => ({ a: Math.max(0, focusedIdx - 20), b: focusedIdx + 20 }));
+  const [m, setM] = useState({ pitch: 124, gap: 12, w: 112, padL: 36 });
+  const mref = useRef(m);
+  mref.current = m;
+  const total = games.length;
+
   const shelfRef = useRef<HTMLDivElement>(null);
   const scrollTargetRef = useRef(0);
   const scrollRafRef = useRef(0);
   const lastClickRef = useRef<{ index: number; time: number }>({ index: -1, time: 0 });
+  const lastPitch = useRef(0);
+  const openRef = useRef(openGame);
+  const focusCbRef = useRef(onFocusedGameChange);
+  openRef.current = openGame;
+  focusCbRef.current = onFocusedGameChange;
+
   const startScrollAnimation = useCallback(() => {
     if (scrollRafRef.current) return;
     const tick = () => {
@@ -527,6 +574,40 @@ function PS4ShelfView({
     scrollRafRef.current = requestAnimationFrame(tick);
   }, []);
 
+  // which cards are on screen (+ buffer); only changes in coarse steps
+  const updateWin = useCallback(() => {
+    const shelf = shelfRef.current;
+    if (!shelf) return;
+    const { pitch, padL } = mref.current;
+    const first = Math.floor((shelf.scrollLeft - padL) / pitch);
+    const last = Math.ceil((shelf.scrollLeft + shelf.clientWidth - padL) / pitch);
+    const a = Math.max(0, Math.floor((first - PS4_BUFFER) / PS4_STEP) * PS4_STEP);
+    const b = Math.min(total, Math.ceil((last + PS4_BUFFER) / PS4_STEP) * PS4_STEP);
+    setWin((w) => (w.a === a && w.b === b ? w : { a, b }));
+  }, [total]);
+
+  // measure the real card pitch (width + margins + gap) from CSS, so it works in fullscreen too
+  useLayoutEffect(() => {
+    const shelf = shelfRef.current;
+    if (!shelf) return;
+    const measure = () => {
+      const card = shelf.querySelector<HTMLElement>(".ps4-card");
+      if (!card) return;
+      const cs = getComputedStyle(card);
+      const rs = getComputedStyle(shelf);
+      const w = parseFloat(cs.width) || card.offsetWidth;
+      const gap = (parseFloat(rs.columnGap) || 0) + (parseFloat(cs.marginLeft) || 0) + (parseFloat(cs.marginRight) || 0);
+      const padL = parseFloat(rs.paddingLeft) || 0;
+      setM((o) => (o.w === w && o.gap === gap && o.padL === padL ? o : { w, gap, padL, pitch: w + gap }));
+    };
+    measure();
+    const ro = new ResizeObserver(() => { measure(); updateWin(); });
+    ro.observe(shelf);
+    return () => ro.disconnect();
+  }, [fullscreen, total > 0, updateWin]);
+
+  useLayoutEffect(() => { updateWin(); }, [updateWin]);
+
   const focusedGame = games[focusedIdx] ?? games[0];
   useEffect(() => {
     if (focusedGame) onFocusedGameChange(focusedGame.id);
@@ -542,15 +623,15 @@ function PS4ShelfView({
     }
   }, [games.length]);
 
-  const handleCardClick = (game: Game, idx: number) => {
+  const handleCardClick = useCallback((game: Game, idx: number) => {
     const now = performance.now();
     const previous = lastClickRef.current;
     const isDoubleClick = previous.index === idx && now - previous.time < 400;
     lastClickRef.current = { index: idx, time: now };
     setFocusedIdx(idx);
-    onFocusedGameChange(game.id);
-    if (isDoubleClick) openGame(game.id);
-  };
+    focusCbRef.current(game.id);
+    if (isDoubleClick) openRef.current(game.id);
+  }, []);
 
   useEffect(() => {
     if (!keyboardEnabled) return;
@@ -571,6 +652,7 @@ function PS4ShelfView({
     };
     const onScroll = () => {
       if (!scrollRafRef.current) scrollTargetRef.current = shelf.scrollLeft;
+      updateWin();
     };
     shelf.addEventListener("wheel", onWheel, { passive: false });
     shelf.addEventListener("scroll", onScroll, { passive: true });
@@ -580,17 +662,29 @@ function PS4ShelfView({
       cancelAnimationFrame(scrollRafRef.current);
       scrollRafRef.current = 0;
     };
-  }, [startScrollAnimation]);
+  }, [startScrollAnimation, updateWin]);
 
-  useEffect(() => {
+  // centre the focused card by index (the card may not be mounted); jump instantly on first placement
+  useLayoutEffect(() => {
     const shelf = shelfRef.current;
-    const card = shelf?.children[focusedIdx] as HTMLElement | undefined;
-    if (!shelf || !card) return;
-    const max = shelf.scrollWidth - shelf.clientWidth;
-    const target = card.offsetLeft + card.offsetWidth / 2 - shelf.clientWidth / 2;
-    scrollTargetRef.current = Math.max(0, Math.min(max, target));
-    startScrollAnimation();
-  }, [focusedIdx, startScrollAnimation]);
+    if (!shelf || !total) return;
+    const { pitch, w, padL } = m;
+    const max = Math.max(0, shelf.scrollWidth - shelf.clientWidth);
+    const target = Math.max(0, Math.min(max, padL + focusedIdx * pitch + w / 2 - shelf.clientWidth / 2));
+    scrollTargetRef.current = target;
+    if (lastPitch.current !== pitch) {
+      lastPitch.current = pitch;
+      shelf.scrollLeft = target;
+      updateWin();
+    } else {
+      startScrollAnimation();
+    }
+  }, [focusedIdx, m.pitch, total, startScrollAnimation, updateWin]);
+
+  const shown = games.slice(win.a, win.b);
+  const end = Math.min(win.b, total);
+  const lead = win.a > 0 ? win.a * m.pitch - m.gap : 0;
+  const trail = end < total ? (total - end) * m.pitch - m.gap : 0;
 
   return (
     <>
@@ -630,37 +724,20 @@ function PS4ShelfView({
         </AnimatePresence>
         <div className="ps4-shelves">
           <div className="ps4-shelf-row" ref={shelfRef}>
-            {games.map((game, idx) => {
-              const isFocused = focusedIdx === idx;
-              const distance = Math.abs(focusedIdx - idx);
+            {lead > 0 && <div className="ps4-spacer" style={{ width: lead }} />}
+            {shown.map((game, k) => {
+              const idx = win.a + k;
               return (
-                <motion.button
+                <PS4Card
                   key={game.id}
-                  layout
-                  className={`ps4-card${isFocused ? " ps4-card--focused" : ""}`}
-                  onClick={() => handleCardClick(game, idx)}
-                  animate={{
-                    scale: PS4_CARD_SCALES[distance] ?? 1,
-                    zIndex: distance === 0 ? 20 : distance === 1 ? 10 : distance === 2 ? 5 : 1,
-                    y: -(PS4_CARD_LIFTS[distance] ?? 0),
-                  }}
-                  transition={{ type: "spring", stiffness: 360, damping: 28 }}
-                  whileHover={!isFocused
-                    ? {
-                      scale: distance <= 2
-                        ? (PS4_CARD_SCALES[distance] ?? 1) + PS4_NEIGHBOR_HOVER_BOOST
-                        : 1.08,
-                      y: distance <= 2 ? -(PS4_CARD_LIFTS[distance] ?? 0) - 4 : -4,
-                    }
-                    : {}}
-                >
-                  <div className="ps4-card-art" style={game.cover ? { backgroundImage: `url(${game.cover})` } : undefined}>
-                    {!game.cover && <div className="grid-card-fallback"><Gamepad2 size={28} style={{ marginTop: 8 }} />  <span style={{ fontSize: "12px" }}>{game.title}</span></div>}
-                  </div>
-                  {isFocused && <div className="ps4-card-focus-ring" />}
-                </motion.button>
+                  game={game}
+                  idx={idx}
+                  distance={Math.min(Math.abs(focusedIdx - idx), PS4_CAP)}
+                  onClick={handleCardClick}
+                />
               );
             })}
+            {trail > 0 && <div className="ps4-spacer" style={{ width: trail }} />}
           </div>
         </div>
       </div>
