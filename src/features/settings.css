@@ -90,6 +90,15 @@
 }
 .setting-cols .setting-row select { width: 100% }
 
+.settings-panel.glass {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: rgba(0, 0, 0, 0);
+    contain: layout paint;
+}
+.settings-grid { contain: layout; }
+.import-report ul, .collection-items { overscroll-behavior: contain }
+
 @media (max-width: 750px) {
     .settings-grid { grid-template-columns: 1fr }
     .settings-panel:last-child { grid-column: auto }
