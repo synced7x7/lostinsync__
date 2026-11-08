@@ -198,14 +198,36 @@ function App() {
       },
     }));
   };
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const pendingSave = useRef<AppData | null>(null);
+
+  const flushSave = useCallback(() => {
+    if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = undefined; }
+    const next = pendingSave.current;
+    if (!next) return;
+    pendingSave.current = null;
+    void repo.save(next).catch((e: unknown) =>
+      setError(e instanceof Error ? e.message : "Could not save data.")
+    );
+  }, []);
+
   const update = (next: AppData) => {
     setData(next);
-    void repo
-      .save(next)
-      .catch((e: unknown) =>
-        setError(e instanceof Error ? e.message : "Could not save data.")
-      );
+    pendingSave.current = next;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(flushSave, 500);
   };
+
+  useEffect(() => {
+    const onHide = () => { if (document.hidden) flushSave(); };
+    window.addEventListener("pagehide", flushSave);
+    document.addEventListener("visibilitychange", onHide);
+    return () => {
+      window.removeEventListener("pagehide", flushSave);
+      document.removeEventListener("visibilitychange", onHide);
+      flushSave();
+    };
+  }, [flushSave]);
   const addGame = (game: Game) =>
     update({
       ...data,
@@ -336,7 +358,7 @@ function LibraryView({
   focusedGameId?: string;
   onFocusedGameChange: (id: string) => void;
 }) {
-    const [query, setQueryState] = useState(librarySession.query);
+  const [query, setQueryState] = useState(librarySession.query);
   const setQuery = (value: string) => { librarySession.query = value; setQueryState(value); };
   const [showAdd, setShowAdd] = useState(false);
   const [fullscreen, setFullscreen] = useState(data.settings.libraryFullscreen ?? false);

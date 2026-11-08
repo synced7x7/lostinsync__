@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { Camera, Check, FolderPlus, ImagePlus, PenLine, Plus, Sparkles, X } from "lucide-react";
-import type { AppData, Collection, Game } from "../domain/game";
+import type { AppData, Collection, CollectionItem, Game } from "../domain/game";
 import { seedGame } from "./discover";
 import "./overview.css";
 
@@ -98,8 +98,11 @@ export function ProfileSection({ data, update }: { data: AppData; update: (data:
   );
 }
 
+/* ───────────── collections ───────────── */
+
 // IGDB covers are stored as small sizes; request the 2x cover so they stay sharp
 const hq = (url?: string) => url?.replace(/t_(thumb|micro|cover_small|cover_big|logo_med|screenshot_med|720p)\b/, "t_cover_big_2x");
+
 // crops to 3:4 and stores at 384x512, so custom art is small and matches the card shape
 const cropCover = (file: File) =>
   new Promise<string>((res, rej) => {
@@ -122,7 +125,11 @@ const cropCover = (file: File) =>
     r.readAsDataURL(file);
   });
 
-const collectionArt = (c: Collection) => c.image ?? hq(c.items[0]?.cover);
+type GameMap = Map<string, Game>;
+// custom games: the cover is read from the library, so large image data is never duplicated here
+const coverOf = (item: CollectionItem, games: GameMap) => hq(games.get(item.gameId ?? "")?.cover ?? item.cover);
+const collectionArt = (c: Collection, games: GameMap) => c.image ?? (c.items[0] ? coverOf(c.items[0], games) : undefined);
+const sameItem = (i: CollectionItem, game: Game) => i.gameId === game.id || (game.igdbId != null && i.igdbId === game.igdbId);
 
 function CollectionImagePicker({ value, fallback, onChange }: { value?: string; fallback?: string; onChange: (v?: string) => void }) {
   const input = useRef<HTMLInputElement>(null);
@@ -159,6 +166,7 @@ export function CollectionShowcase({ data, update, openGame, openDiscover }: { d
   const [selectedId, setSelectedId] = useState<string>();
   const collections = data.collections ?? [];
   const current = collections.find((c) => c.id === selectedId); // always fresh after edits
+  const gameMap = useMemo(() => new Map(data.games.map((g) => [g.id, g])), [data.games]);
   return (
     <section className="collections-panel glass">
       <div className="collections-heading">
@@ -169,34 +177,66 @@ export function CollectionShowcase({ data, update, openGame, openDiscover }: { d
         <p className="muted">Create collections from any game detail page.</p>
       ) : (
         <div className="collection-showcase-row">
-          {collections.map((c) => (
-            <button type="button" className="collection-card" key={c.id} onClick={() => setSelectedId(c.id)}>
-              <div className={`collection-poster${collectionArt(c) ? "" : " empty"}`}>
-                {collectionArt(c)
-                  ? <img src={collectionArt(c)} alt="" loading="lazy" decoding="async" draggable={false} />
-                  : <Plus size={26} />}
-                <div className="collection-poster-info">
-                  <strong>{c.name}</strong>
-                  <small>{c.items.length} games</small>
+          {collections.map((c) => {
+            const art = collectionArt(c, gameMap);
+            return (
+              <button type="button" className="collection-card" key={c.id} onClick={() => setSelectedId(c.id)}>
+                <div className={`collection-poster${art ? "" : " empty"}`}>
+                  {art
+                    ? <img src={art} alt="" loading="lazy" decoding="async" draggable={false} />
+                    : <Plus size={26} />}
+                  <div className="collection-poster-info">
+                    <strong>{c.name}</strong>
+                    <small>{c.items.length} games</small>
+                  </div>
                 </div>
-              </div>
-            </button>
-          ))}
+              </button>
+            );
+          })}
         </div>
       )}
-      {current && <CollectionDetail collection={current} data={data} update={update} openDiscover={openDiscover} close={() => setSelectedId(undefined)} />}
+      {current && (
+        <CollectionDetail
+          collection={current}
+          data={data}
+          update={update}
+          openDiscover={openDiscover}
+          openGame={openGame}
+          close={() => setSelectedId(undefined)}
+        />
+      )}
     </section>
   );
 }
 
-function CollectionDetail({ collection, data, update, openDiscover, close }: { collection: Collection; data: AppData; update: (data: AppData) => void; openDiscover: (id: number) => void; close: () => void }) {
+function CollectionDetail({
+  collection, data, update, openDiscover, openGame, close,
+}: {
+  collection: Collection;
+  data: AppData;
+  update: (data: AppData) => void;
+  openDiscover: (id: number) => void;
+  openGame: (id: string) => void;
+  close: () => void;
+}) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(collection.name);
   const [description, setDescription] = useState(collection.description ?? "");
+  const [image, setImage] = useState<string | undefined>(collection.image);
+  const gameMap = useMemo(() => new Map(data.games.map((g) => [g.id, g])), [data.games]);
+
   const save = () => {
-    update({ ...data, collections: (data.collections ?? []).map((item) => item.id === collection.id ? { ...item, name: name.trim() || item.name, description: description.trim() } : item) });
+    update({
+      ...data,
+      collections: (data.collections ?? []).map((item) =>
+        item.id === collection.id
+          ? { ...item, name: name.trim() || item.name, description: description.trim(), image }
+          : item
+      ),
+    });
     setEditing(false);
   };
+
   return createPortal(
     <div className="modal-backdrop collection-backdrop" onClick={close}>
       <div className="modal collection-modal glass" onClick={(e) => e.stopPropagation()}>
@@ -206,6 +246,11 @@ function CollectionDetail({ collection, data, update, openDiscover, close }: { c
         </div>
         {editing ? (
           <div className="collection-edit-form">
+            <CollectionImagePicker
+              value={image}
+              fallback={collection.items[0] ? coverOf(collection.items[0], gameMap) : undefined}
+              onChange={setImage}
+            />
             <label>Name<input value={name} onChange={(e) => setName(e.target.value)} maxLength={60} /></label>
             <label>Description
               <textarea value={description} onChange={(e) => setDescription(e.target.value.slice(0, 180))} maxLength={180} placeholder="Describe this collection (180 characters max)" />
@@ -218,8 +263,21 @@ function CollectionDetail({ collection, data, update, openDiscover, close }: { c
             <p className="collection-description">{collection.description || "No description yet."}</p>
             <div className="collection-items">
               {collection.items.length ? collection.items.map((item) => (
-                <button type="button" className="collection-detail-item" key={item.igdbId} onDoubleClick={() => { seedGame({ id: item.igdbId, name: item.name, cover: item.cover }); openDiscover(item.igdbId); }}>
-                  <img src={hq(item.cover)} alt="" loading="lazy" decoding="async" draggable={false} />
+                <button
+                  type="button"
+                  className="collection-detail-item"
+                  key={item.gameId ?? item.igdbId}
+                  title={item.igdbId ? "Double-click to open" : "Double-click to open in your library"}
+                  onDoubleClick={() => {
+                    if (item.igdbId) {
+                      seedGame({ id: item.igdbId, name: item.name, cover: item.cover });
+                      openDiscover(item.igdbId);
+                    } else if (item.gameId && gameMap.has(item.gameId)) {
+                      openGame(item.gameId);
+                    }
+                  }}
+                >
+                  <img src={coverOf(item, gameMap)} alt="" loading="lazy" decoding="async" draggable={false} />
                   <span>{item.name}</span>
                 </button>
               )) : <p className="muted">This collection is empty.</p>}
@@ -238,22 +296,40 @@ export function CollectionActions({ data, update, game, igdbId, cover }: { data:
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [image, setImage] = useState<string | undefined>();
   const collections = data.collections ?? [];
-  const item = igdbId ? { igdbId, name: game.title, cover } : undefined;
+  const gameMap = useMemo(() => new Map(data.games.map((g) => [g.id, g])), [data.games]);
+  // data: URLs (custom covers) are not copied; they are read from the library when shown
+  const item: CollectionItem = {
+    gameId: game.id,
+    igdbId,
+    name: game.title,
+    cover: cover?.startsWith("data:") ? undefined : cover,
+  };
+
   const create = () => {
     const trimmed = name.trim();
-    if (!trimmed || !item) return;
-    update({ ...data, collections: [...collections, { id: crypto.randomUUID(), name: trimmed, description: description.trim(), items: [item] }] });
-    setName(""); setDescription(""); setOpen(false);
+    if (!trimmed) return;
+    update({
+      ...data,
+      collections: [...collections, { id: crypto.randomUUID(), name: trimmed, description: description.trim(), image, items: [item] }],
+    });
+    setName(""); setDescription(""); setImage(undefined); setOpen(false);
   };
+
   const add = (id: string) => {
-    if (!item) return;
-    update({ ...data, collections: collections.map((c) => c.id === id && !c.items.some((i) => i.igdbId === item.igdbId) ? { ...c, items: [...c.items, item] } : c) });
+    update({
+      ...data,
+      collections: collections.map((c) =>
+        c.id === id && !c.items.some((i) => sameItem(i, game)) ? { ...c, items: [...c.items, item] } : c
+      ),
+    });
     setOpen(false);
   };
+
   return (
     <>
-      <button type="button" title={igdbId ? "Add to collection" : "Link this game to IGDB (Edit → pick from IGDB) to use collections"} disabled={!igdbId} onClick={() => setOpen(true)}>
+      <button type="button" title="Add to collection" onClick={() => setOpen(true)}>
         <FolderPlus size={16} /><span>Collection</span>
       </button>
       {open && createPortal(
@@ -270,10 +346,11 @@ export function CollectionActions({ data, update, game, igdbId, cover }: { data:
             <div className="collection-picker-list">
               {collections.length === 0 && <p className="muted">No collections yet. Create your first one below.</p>}
               {collections.map((c) => {
-                const has = c.items.some((i) => i.igdbId === igdbId);
+                const has = c.items.some((i) => sameItem(i, game));
+                const art = collectionArt(c, gameMap);
                 return (
                   <button type="button" key={c.id} disabled={has} onClick={() => add(c.id)}>
-                    <div className="collection-picker-cover">{c.items[0]?.cover && <img src={hq(c.items[0].cover)} alt="" />}</div>
+                    <div className="collection-picker-cover">{art && <img src={art} alt="" />}</div>
                     <span><strong>{c.name}</strong><small>{c.items.length} games{c.description ? ` · ${c.description}` : ""}</small></span>
                     {has ? <Check size={16} /> : <Plus size={16} />}
                   </button>
@@ -281,6 +358,7 @@ export function CollectionActions({ data, update, game, igdbId, cover }: { data:
               })}
             </div>
             <div className="collection-create-form">
+              <CollectionImagePicker value={image} fallback={hq(cover)} onChange={setImage} />
               <input value={name} onChange={(e) => setName(e.target.value)} maxLength={60} placeholder="New collection name" />
               <textarea value={description} onChange={(e) => setDescription(e.target.value.slice(0, 180))} maxLength={180} placeholder="Description (180 characters max)" />
               <button className="button soft" onClick={create}><Plus size={15} /> Create collection</button>

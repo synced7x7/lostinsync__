@@ -95,7 +95,7 @@ fn migrate(connection: &Connection) -> Result<(), rusqlite::Error> {
 }
 
 #[tauri::command]
-fn load_app_data(
+async fn load_app_data(
     database: tauri::State<'_, Database>
 ) -> Result<Option<serde_json::Value>, String> {
     let connection = database.0.lock().map_err(|_| "Database lock failed".to_string())?;
@@ -107,7 +107,7 @@ fn load_app_data(
 }
 
 #[tauri::command]
-fn save_app_data(
+async fn save_app_data(
     database: tauri::State<'_, Database>,
     data: serde_json::Value
 ) -> Result<(), String> {
