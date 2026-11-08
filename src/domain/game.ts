@@ -16,9 +16,11 @@ export type Game = {
   igdbImages?: IgdbDebugImage[]; igdbVideos?: { id: string; name?: string }[];
   gameType?: string; gameStatus?: string; franchises?: string[];
   themes?: string[]; playerPerspectives?: string[];
-  igdbUpdatedAt?: number; backloggdId?: string;
+  igdbUpdatedAt?: number; backloggdId?: string;   bundleGames?: BundleGame[];
 
 };
+
+export type BundleGame = { id: number; name: string; cover?: string; releaseTs?: number };
 export type Profile = { displayName: string; bio: string; accent: string; picture?: string; topFive?: string[] }; export type GridSize = "sm" | "md" | "lg";
 export type LibraryLayout = "ps4" | "catalog";
 export type LibrarySort = "recent" | "completion" | "playtime" | "rating" | "igdbRating" | "title" | "releaseDate" | "avgTime" | "mainTime" | "fullTime";

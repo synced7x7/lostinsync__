@@ -26,3 +26,11 @@ export function matchesGameType(gameType: string | undefined, filter: string) {
   const t = GAME_TYPES.find((x) => x.value === filter);
   return !!t && !!gameType && t.match.includes(key(gameType));
 }
+
+import type { BundleGame } from "./game";
+
+export const isBundle = (gameType?: string) => /bundle/i.test(gameType ?? "");
+export const slimBundle = (list: { id: number; name: string; cover?: string; releaseTs?: number }[]): BundleGame[] =>
+  list.map(({ id, name, cover, releaseTs }) => ({ id, name, cover, releaseTs }));
+export const sameBundle = (a: BundleGame[] | undefined, b: BundleGame[]) =>
+  !!a && a.length === b.length && a.every((x, i) => x.id === b[i].id && x.name === b[i].name && x.cover === b[i].cover);

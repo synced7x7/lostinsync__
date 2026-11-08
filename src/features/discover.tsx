@@ -42,14 +42,17 @@ const stubGame = (id: number): IgdbGame => {
 };
 
 /* ============================ discover home ============================ */
+const discoverSession: { search: string; results: IgdbHit[] } = { search: "", results: [] };
 export function DiscoverView({ data }: { data: AppData }) {
   const credentials: IgdbCreds = { clientId: data.settings.igdbClientId ?? "", clientSecret: data.settings.igdbClientSecret ?? "" };
   const location = useLocation();
   const navigate = useNavigate();
   const feed = new URLSearchParams(location.search).get("feed") as IgdbFeed | null;
   const [feeds, setFeeds] = useState<Partial<Record<IgdbFeed, IgdbDiscoverGame[]>>>({});
-  const [search, setSearch] = useState("");
-  const [searchResults, setSearchResults] = useState<IgdbHit[]>([]);
+  const [search, setSearchState] = useState(discoverSession.search);
+  const [searchResults, setResultsState] = useState<IgdbHit[]>(discoverSession.results);
+  const setSearch = (value: string) => { discoverSession.search = value; setSearchState(value); };
+  const setSearchResults = (results: IgdbHit[]) => { discoverSession.results = results; setResultsState(results); };
   const [error, setError] = useState("");
   const genres = useMemo(() => [...new Set(data.games.flatMap((game) => game.genres ?? [game.genre]).filter(Boolean))], [data.games]);
 

@@ -134,3 +134,19 @@ export async function saveTextFile(defaultName: string, contents: string, filter
   const { invoke } = await import("@tauri-apps/api/core");
   return invoke<string | null>("save_text_file", { defaultName, contents, filterName, ext });
 }
+
+export async function igdbBundleContents(id: number, c: IgdbCreds) {
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<IgdbDiscoverGame[]>("igdb_bundle_contents", { id, clientId: c.clientId, clientSecret: c.clientSecret });
+}
+
+const bundleCache = new Map<string, Promise<IgdbDiscoverGame[]>>();
+export function igdbBundleContentsCached(id: number, c: IgdbCreds) {
+  const key = `${c.clientId}:${id}`;
+  const cached = bundleCache.get(key);
+  if (cached) return cached;
+  const request = igdbBundleContents(id, c);
+  bundleCache.set(key, request);
+  request.catch(() => bundleCache.delete(key));
+  return request;
+}

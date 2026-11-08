@@ -1107,6 +1107,26 @@ async fn save_text_file(
     Ok(Some(path.to_string_lossy().to_string()))
 }
 
+/// Games that belong to a bundle (IGDB stores this on the child: `bundles` = "bundles this game is part of").
+#[tauri::command]
+async fn igdb_bundle_contents(
+    auth: tauri::State<'_, IgdbAuth>,
+    id: i64,
+    client_id: String,
+    client_secret: String
+) -> Result<Vec<Value>, String> {
+    let rows = igdb_post(
+        &auth,
+        "games",
+        format!(
+            "fields name,summary,first_release_date,total_rating,total_rating_count,cover.image_id; where bundles = [{id}]; sort first_release_date asc; limit 50;"
+        ),
+        &client_id,
+        &client_secret
+    ).await?;
+    Ok(discover_games(&rows).iter().map(discover_item).collect())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder
@@ -1132,6 +1152,7 @@ pub fn run() {
                 igdb_details,
                 igdb_images,
                 igdb_series,
+                igdb_bundle_contents,
                 igdb_discover,
                 igdb_discover_feed,
                 igdb_platforms,

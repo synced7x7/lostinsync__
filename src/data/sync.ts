@@ -1,8 +1,8 @@
 import type { Game } from "../domain/game";
 import { emulatedOn } from "./platform";
 import { withRetry } from "./backloggd";
-import { igdbImportBatch, igdbSyncCheck, type IgdbCreds, type IgdbDebugImage, type IgdbGame, type IgdbImport } from "./igdb";
-
+import { igdbBundleContents, igdbImportBatch, igdbSyncCheck, type IgdbCreds, type IgdbDebugImage, type IgdbGame, type IgdbImport } from "./igdb";
+import { isBundle, sameBundle, slimBundle } from "../domain/gametype";
 export type SyncProgress = { phase: "checking" | "updating" | "done"; done: number; total: number };
 export type SyncReport = {
   checked: number; cancelled: boolean;
@@ -135,6 +135,21 @@ export async function syncWithIgdb(
     }
   }
   onProgress({ phase: "done", done: staleIds.length, total: staleIds.length });
+    // a bundle's contents live on the child games, so the bundle's own updated_at never changes when they do:
+  // re-read every linked bundle on each sync (one small request per bundle)
+  for (const g of games) {
+    if (typeof g.igdbId !== "number" || !isBundle(patches.get(g.id)?.gameType ?? g.gameType)) continue;
+    if (signal?.aborted) { report.cancelled = true; break; }
+    try {
+      const fresh = slimBundle(await withRetry(() => igdbBundleContents(g.igdbId as number, creds)));
+      if (sameBundle(g.bundleGames, fresh)) continue;
+      patches.set(g.id, { ...patches.get(g.id), bundleGames: fresh });
+      const e = report.updated.find((x) => x.name === g.title);
+      const label = `bundle contents (${fresh.length} games)`;
+      if (e) e.changes.push(label); else report.updated.push({ name: g.title, changes: [label] });
+    } catch (err) { report.failures.push({ name: g.title, error: String(err) }); }
+  }
+  
   return { patches, report };
 }
 

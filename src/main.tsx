@@ -62,7 +62,7 @@ import { DiscoverGameDetails } from "./features/discover";
 import { igdbDetailsCached, type IgdbGame } from "./data/igdb";
 import { useLayoutEffect } from "react"; // add useLayoutEffect to your existing react import instead if you have one
 import { GAME_TYPES, UNSET_TYPE, matchesGameType } from "./domain/gametype";
-
+import { BundleContents, isBundle } from "./features/bundle";
 
 const repo = createAppRepository();
 
@@ -336,7 +336,8 @@ function LibraryView({
   focusedGameId?: string;
   onFocusedGameChange: (id: string) => void;
 }) {
-  const [query, setQuery] = useState("");
+    const [query, setQueryState] = useState(librarySession.query);
+  const setQuery = (value: string) => { librarySession.query = value; setQueryState(value); };
   const [showAdd, setShowAdd] = useState(false);
   const [fullscreen, setFullscreen] = useState(data.settings.libraryFullscreen ?? false);
   const [showFullscreenFilters, setShowFullscreenFilters] = useState(false);
@@ -672,6 +673,8 @@ function PS4ShelfView({
 
 // Session-only memory of the catalog grid. Lives in memory, never saved, gone when the app closes.
 const gridSession = { scrollY: 0, visible: 40 };
+// Session-only memory of the library search box. Never saved, gone when the app closes.
+const librarySession = { query: "" };
 
 function GridLibraryView({
   games, openGame, saveGame, gridSize, setGridSize,
@@ -898,6 +901,7 @@ function Details({
               </div>
             )}
           </div>
+
           <div className="plat-block">
             {genreList.length > 0 && (
               <div><span className="plat-label">Genres</span><div className="igdb-chips">{genreList.map((x) => <span className="pill" key={x}>{x}</span>)}</div></div>
@@ -955,6 +959,20 @@ function Details({
           <StarRating value={game.rating} readOnly size={16} />
         </section>
       </div>
+
+      <section className="glass detail-panel">
+        {isBundle(game.gameType) && game.igdbId && (
+          <BundleContents
+            igdbId={game.igdbId}
+            creds={igdb}
+            stored={game.bundleGames}
+            canStore={data.games.some((g) => g.id === game.id)}
+            onStore={(list) => saveGame({ ...game, bundleGames: list })}
+            onOpen={onOpenGame}
+          />
+        )}
+      </section>
+
       <MediaSection game={game} save={saveGame} igdbMedia={{ images: game.igdbImages ?? [], videos: game.igdbVideos ?? [] }} series={game.igdbId ? { igdbId: game.igdbId, creds: igdb } : undefined} onOpenGame={onOpenGame} />
 
       <section className="glass note-card" onClick={() => setEditing(true)} title="Edit note">
@@ -965,6 +983,8 @@ function Details({
         </div>
         <PenLine size={14} />
       </section>
+
+
 
       {editing && (
         <AddGame
