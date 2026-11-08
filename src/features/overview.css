@@ -44,6 +44,7 @@
     padding: 0;
     border: 0;
     overflow: hidden
+    drop-shadow(0 20px 30px rgba(0, 0, 0, 0.5)) drop-shadow(0 0 15px rgba(124, 92, 255, 0.4));
 }
 
 .profile-avatar img {
@@ -635,25 +636,128 @@
 }
 
 /* profile banner effects */
-.profile-banner { animation: banner-in .7s cubic-bezier(.2,.8,.2,1) both; border: 1px solid rgba(164,149,255,.22) }
-@keyframes banner-in { from { opacity: 0; transform: translateY(14px) scale(.98) } }
+.profile-banner { 
+  position: relative;
+  overflow: hidden;
+  background: radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.08), rgba(20, 15, 35, 0.4));
+  backdrop-filter: blur(20px) saturate(220%) hue-rotate(15deg);
+  -webkit-backdrop-filter: blur(20px) saturate(220%) hue-rotate(15deg);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.4),
+              inset 0 1px 0 0 rgba(255, 255, 255, 0.25),
+              inset 0 -1px 0 0 rgba(124, 92, 255, 0.2);
+  border-radius: 28px;
+  animation: banner-in .9s cubic-bezier(0.16, 1, 0.3, 1) both; 
+}
+
+@keyframes banner-in { 
+  from { 
+    opacity: 0; 
+    transform: translateY(24px) scale(0.95) skewY(1deg); 
+    filter: blur(12px) grayscale(40%);
+  } 
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1) skewY(0deg);
+    filter: blur(0px) grayscale(0%);
+  }
+}
+
 .profile-aurora {
-  position: absolute; inset: -60%; z-index: 0; pointer-events: none;
-  background: conic-gradient(from 0deg, transparent, rgba(124,92,255,.22), transparent 30%, rgba(56,189,248,.18), transparent 60%);
-  animation: aurora-spin 14s linear infinite;
+  position: absolute; 
+  inset: -100%; 
+  z-index: 0; 
+  pointer-events: none;
+  background: conic-gradient(
+    from 180deg at 50% 50%, 
+    rgba(124, 92, 255, 0.4) 0deg, 
+    transparent 70deg, 
+    rgba(56, 189, 248, 0.45) 140deg, 
+    rgba(255, 59, 107, 0.3) 220deg,
+    transparent 280deg,
+    rgba(124, 92, 255, 0.4) 360deg
+  );
+  filter: blur(60px);
+  mix-blend-mode: screen;
+  animation: aurora-spin 18s cubic-bezier(0.37, 0, 0.63, 1) infinite;
+  opacity: 0.9;
 }
 
-@keyframes aurora-spin { to { transform: rotate(360deg) } }
-.profile-banner:after { animation: ring-pulse 5s ease-in-out infinite }
-@keyframes ring-pulse { 50% { transform: scale(1.15); border-color: rgba(164,149,255,.4) } }
+@keyframes aurora-spin { 
+  0% { transform: rotate(0deg) scale(1); }
+  50% { transform: rotate(180deg) scale(1.15); }
+  100% { transform: rotate(360deg) scale(1); } 
+}
 
-.profile-avatar { position: relative; z-index: 1; animation: avatar-float 4s ease-in-out infinite }
+.profile-banner:after { 
+  content: "";
+  position: absolute;
+  /* Change the second value (currently -2px) or add 'left' to shift it right */
+  inset: -2px -2px -2px; /* Adjust '10px' to shift the left edge further right */
+  border-radius: inherit;
+  border: 1px solid rgba(164, 149, 255, 0.2);
+  pointer-events: none;
+  z-index: 1;
+  animation: ring-pulse 5s ease-in-out infinite;
+  width: 28%;
+}
+
+@keyframes ring-pulse { 
+  0%, 100% { 
+    transform: scale(1); 
+    opacity: 0.2;
+    border-color: rgba(164, 149, 255, 0.15);
+    box-shadow: inset 0 0 15px rgba(56, 189, 248, 0);
+  }
+  50% { 
+    transform: scale(1.03); 
+    opacity: 0.8;
+    border-color: rgba(56, 189, 248, 0.6);
+    box-shadow: inset 0 0 25px rgba(124, 92, 255, 0.25),
+                0 0 35px rgba(255, 59, 107, 0.25);
+  } 
+}
+
+.profile-avatar { 
+  position: relative; 
+  z-index: 1; 
+  animation: avatar-float 5s ease-in-out infinite; 
+}
+
 .profile-avatar:before {
-  content: ""; position: absolute; inset: -4px; border-radius: 50%; z-index: -1;
-  background: conic-gradient(#7c5cff, #38bdf8, #ff3b6b, #7c5cff);
-  animation: aurora-spin 5s linear infinite; filter: blur(2px);
+  content: ""; 
+  position: absolute; 
+  inset: -8px; 
+  border-radius: 42% 58% 70% 30% / 45% 45% 55% 55%; 
+  z-index: -1;
+  background: conic-gradient(
+    from 90deg,
+    #7c5cff, 
+    #ff3b6b, 
+    #38bdf8, 
+    #a855f7,
+    #7c5cff
+  );
+  animation: aurora-spin 7s linear infinite, morph-blob 8s ease-in-out infinite alternate; 
+  filter: blur(8px);
+  opacity: 0.85;
+  box-shadow: 0 0 25px rgba(124, 92, 255, 0.4);
 }
-@keyframes avatar-float { 50% { transform: translateY(-6px) } }
+
+@keyframes avatar-float { 
+  0%, 100% { 
+    transform: translateY(0) rotate(0deg); 
+  }
+  50% { 
+    transform: translateY(-10px) rotate(-1.5deg); 
+  } 
+}
+
+@keyframes morph-blob {
+  0% { border-radius: 42% 58% 70% 30% / 45% 45% 55% 55%; }
+  50% { border-radius: 58% 42% 30% 70% / 55% 35% 65% 45%; }
+  100% { border-radius: 35% 65% 50% 50% / 40% 60% 40% 60%; }
+}
 
 .profile-name {
   font-family: "Cinzel Decorative", serif; letter-spacing: .2em;
