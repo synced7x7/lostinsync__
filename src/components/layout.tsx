@@ -5,7 +5,7 @@ import {
   X,
 } from "lucide-react";
 import type { AppData, View } from "../domain/game";
-import logo from "../images/badges/1.1 Annual Rookie.png";
+import logo from "../images/logo/lostinsynclogosmall.png";
 import { RarityBadge } from "../components/rarity-badge";
 import { navigation } from "./navigation";
 
@@ -77,13 +77,13 @@ function Sidebar({
             title={isOpen ? "Lost in Sync" : "Lost in Sync (Click to expand)"}
             style={{ cursor: !isOpen ? "pointer" : "default" }}
           >
-            <span className="brand-mark">
+            <span>
               <img src={logo} alt="" className="brand-logo" />
             </span>
             {isOpen && (
               <span className="brand-text">
                 LOST IN SYNC
-                <small>CRYPT OF CHRONICLES</small>
+                <small>GAME TRACKER</small>
               </span>
             )}
           </div>
