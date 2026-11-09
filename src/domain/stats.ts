@@ -10,7 +10,7 @@ export type Section = { tiles: Tile[]; charts: ChartSpec[]; story?: { title: str
 export type CategoryId = "overview" | "activity" | "genres" | "platforms" | "eras" | "franchises" | "developers" | "ratings" | "length" | "exploration" | "milestones" | "records" | "insights";
 
 export const CATEGORIES: { id: CategoryId; title: string; blurb: string; tone: Tone }[] = [
-  { id: "overview", title: "Overview", blurb: "Library size, completion rate and your years in the hobby", tone: "violet" },
+  { id: "overview", title: "Overview", blurb: "Library size, completion rate and total time played", tone: "violet" },
   { id: "activity", title: "Activity", blurb: "How fast you finish games and how busy each period gets", tone: "cyan" },
   { id: "genres", title: "Genres", blurb: "What you collect, finish and love most", tone: "rose" },
   { id: "platforms", title: "Platforms", blurb: "Where you play, emulation included", tone: "blue" },
@@ -43,7 +43,7 @@ export const index = (games: Game[]): R[] => games.map((g) => {
     fr: g.franchises ?? [], dev: g.developer?.trim() || undefined, rating: g.rating || undefined,
     len: g.timeAvgSeconds ? g.timeAvgSeconds / 3600 : undefined, // IGDB average time to complete, in hours
     done: g.status === "Completed", played: !OFF.includes(g.status), at: f ?? s ?? (Date.parse(g.createdAt) || 0),
-    };
+  };
 });
 
 export const yearsOf = (games: Game[]) => [...new Set(games.flatMap((g) => { const t = [ts(g.startedAt), ts(g.finishedAt)].filter(isNum); return (t.length ? t : [Date.parse(g.createdAt)]).filter((x) => !Number.isNaN(x)).map((x) => new Date(x).getUTCFullYear()); }))].sort((a, b) => b - a);
@@ -125,19 +125,23 @@ function cartesian(cats: string[], series: S[], o: { horizontal?: boolean; zoom?
   };
 }
 function donut(data: { name: string; value: number }[], o: { rose?: boolean; unit?: string } = {}): Opt {
-  return { color: C, tooltip: { ...TIP, trigger: "item", formatter: (p: any) => `<b>${p.name}</b><br/>${p.value}${o.unit ? " " + o.unit : ""} (${p.percent}%)` }, legend: { ...LEG, top: undefined, bottom: 0, type: "scroll" },
-    series: [{ type: "pie", radius: ["46%", "72%"], center: ["50%", "46%"], roseType: o.rose ? "radius" : undefined, itemStyle: { borderRadius: 8, borderColor: "#0e0c1f", borderWidth: 3 }, label: { show: false }, emphasis: { scaleSize: 6, label: { show: true, color: "#fff", fontSize: 14, fontWeight: 700, formatter: "{b}\n{d}%" } }, data }] };
+  return {
+    color: C, tooltip: { ...TIP, trigger: "item", formatter: (p: any) => `<b>${p.name}</b><br/>${p.value}${o.unit ? " " + o.unit : ""} (${p.percent}%)` }, legend: { ...LEG, top: undefined, bottom: 0, type: "scroll" },
+    series: [{ type: "pie", radius: ["46%", "72%"], center: ["50%", "46%"], roseType: o.rose ? "radius" : undefined, itemStyle: { borderRadius: 8, borderColor: "#0e0c1f", borderWidth: 3 }, label: { show: false }, emphasis: { scaleSize: 6, label: { show: true, color: "#fff", fontSize: 14, fontWeight: 700, formatter: "{b}\n{d}%" } }, data }]
+  };
 }
 function ring(pct: number, label: string, color = C[0]): Opt {
   return { series: [{ type: "pie", radius: ["66%", "84%"], startAngle: 90, silent: true, label: { show: true, position: "center", formatter: `{a|${Math.round(pct)}%}\n{b|${label}}`, rich: { a: { fontSize: 36, fontWeight: 800, color: "#fff" }, b: { fontSize: 11, color: MUTED, lineHeight: 24 } } }, itemStyle: { borderRadius: 10 }, data: [{ value: pct, itemStyle: { color } }, { value: Math.max(0, 100 - pct), itemStyle: { color: "rgba(255,255,255,.07)" } }] }] };
 }
 function scatter(pts: [number, number, string][], xName: string, yName: string): Opt {
   const line = trend(pts);
-  return { tooltip: { ...TIP, trigger: "item", formatter: (p: any) => (p.data?.[2] ? `<b>${p.data[2]}</b><br/>${xName}: ${p.data[0]}<br/>${yName}: ${p.data[1]}` : "") },
+  return {
+    tooltip: { ...TIP, trigger: "item", formatter: (p: any) => (p.data?.[2] ? `<b>${p.data[2]}</b><br/>${xName}: ${p.data[0]}<br/>${yName}: ${p.data[1]}` : "") },
     grid: { left: 6, right: 16, top: 16, bottom: 26, containLabel: true },
     xAxis: { type: "value", name: xName, nameLocation: "middle", nameGap: 30, nameTextStyle: { color: MUTED }, scale: true, ...AX },
     yAxis: { type: "value", name: yName, nameTextStyle: { color: MUTED }, min: 0, max: 10, ...AX },
-    series: [{ type: "scatter", data: pts, symbolSize: 12, itemStyle: { color: "#a495ff", shadowBlur: 10, shadowColor: "rgba(164,149,255,.6)", opacity: 0.85 } }, ...(line ? [{ type: "line", data: line, symbol: "none", silent: true, lineStyle: { color: "#67d8e6", width: 2, type: "dashed" } }] : [])] };
+    series: [{ type: "scatter", data: pts, symbolSize: 12, itemStyle: { color: "#a495ff", shadowBlur: 10, shadowColor: "rgba(164,149,255,.6)", opacity: 0.85 } }, ...(line ? [{ type: "line", data: line, symbol: "none", silent: true, lineStyle: { color: "#67d8e6", width: 2, type: "dashed" } }] : [])]
+  };
 }
 function evolution(rows: R[], names: string[], keys: (x: R) => string[]): Opt {
   const act = rows.filter((x) => x.at > 0);
@@ -158,8 +162,7 @@ function overview(r: R[]): Section {
     tiles: [
       T("Total games", String(r.length), "in your library", "violet"), T("Completed", String(done), "marked as completed", "green"), T("Started", String(started), "backlog & wishlist excluded", "cyan"),
       T("Completion rate", `${f1(rate)}%`, "completed ÷ started", "gold"),
-      T("Time in the hobby", st.length ? ymd(Math.min(...st), Math.max(...en)) : dash, "first start → latest finish (years : months : days)", "rose"),
-      T("Mean rating", rated.length ? `${f1(avg(rated.map((x) => x.rating!)))} /10` : dash, `${rated.length} rated games`, "blue"),
+      T("Timeline", st.length ? ymd(Math.min(...st), Math.max(...en)) : dash, "first start → latest finish", "rose"),
     ],
     charts: [
       { id: "status", title: "Library by status", option: donut(STATUSES.map((s) => ({ name: s, value: r.filter((x) => x.g.status === s).length })).filter((d) => d.value), { unit: "games" }) },
@@ -286,12 +289,15 @@ function ratings(r: R[]): Section {
   const bars = (a: Agg[]) => { const p = ratedPool(a).sort((x, y) => y.rating - x.rating).slice(0, 12); return cartesian(p.map((x) => cut(x.name)), [{ name: "Average rating", data: p.map((x) => Math.round(x.rating * 10) / 10), color: "#e7c56c" }], { horizontal: true, max: 10 }); };
   const ey = [...new Set(R_.filter((x) => x.at > 0).map((x) => yr(x.at)))].sort(), ya = ey.map((y) => R_.filter((x) => x.at > 0 && yr(x.at) === y));
   const pj = R_.filter((x) => x.days).map((x) => [x.days!, x.rating!, x.g.title] as [number, number, string]), pr = R_.filter((x) => x.rel).map((x) => [x.rel!, x.rating!, x.g.title] as [number, number, string]), pl = R_.filter((x) => x.len).map((x) => [Math.round(x.len! * 10) / 10, x.rating!, x.g.title] as [number, number, string]);
+  const st = r.map((x) => x.s ?? x.f).filter(isNum), en = r.map((x) => x.f ?? x.s).filter(isNum), rated = r.filter((x) => x.rating);
   return {
-    tiles: [T("Highest rated game", mx ? `${mx.rating}/10` : dash, mx?.g.title ?? "No ratings yet", "gold"), T("Lowest rated game", mn ? `${mn.rating}/10` : dash, mn?.g.title ?? "", "rose"), T("Perfect 10s", String(R_.filter((x) => x.rating === 10).length), "games rated 10/10", "green"), T("Rated games", String(R_.length), `of ${r.length} in your library`, "violet")],
+    tiles: [T("Mean rating", rated.length ? `${f1(avg(rated.map((x) => x.rating!)))} /10` : dash, `${rated.length} rated games`, "blue"), T("Highest rated game", mx ? `${mx.rating}/10` : dash, mx?.g.title ?? "No ratings yet", "gold"), T("Lowest rated game", mn ? `${mn.rating}/10` : dash, mn?.g.title ?? "", "rose"), T("Perfect 10s", String(R_.filter((x) => x.rating === 10).length), "games rated 10/10", "green"), T("Rated games", String(R_.length), `of ${r.length} in your library`, "violet")],
     charts: [
       { id: "dist", title: "Rating distribution", option: cartesian(range(1, 10).map(String), [{ name: "Games", data: range(1, 10).map((n) => R_.filter((x) => Math.round(x.rating!) === n).length), color: "#e7c56c" }]) },
-      { id: "by", title: "Average rating by…", note: "Groups with at least 2 rated games when possible.", option: bars(agg(R_, (x) => x.genres)), height: 360,
-        tabs: [{ label: "Genre", option: bars(agg(R_, (x) => x.genres)) }, { label: "Developer", option: bars(agg(R_, (x) => (x.dev ? [x.dev] : []))) }, { label: "Franchise", option: bars(agg(R_, (x) => x.fr)) }, { label: "Platform", option: bars(agg(R_, (x) => [x.platform])) }, { label: "Era", option: bars(agg(R_, (x) => (x.rel ? [`${Math.floor(x.rel / 10) * 10}s`] : []))) }] },
+      {
+        id: "by", title: "Average rating by…", note: "Groups with at least 2 rated games when possible.", option: bars(agg(R_, (x) => x.genres)), height: 360,
+        tabs: [{ label: "Genre", option: bars(agg(R_, (x) => x.genres)) }, { label: "Developer", option: bars(agg(R_, (x) => (x.dev ? [x.dev] : []))) }, { label: "Franchise", option: bars(agg(R_, (x) => x.fr)) }, { label: "Platform", option: bars(agg(R_, (x) => [x.platform])) }, { label: "Era", option: bars(agg(R_, (x) => (x.rel ? [`${Math.floor(x.rel / 10) * 10}s`] : []))) }]
+      },
       { id: "evo", title: "Rating evolution", note: "Average rating by year of activity, with games rated per year.", wide: true, option: cartesian(ey.map(String), [{ name: "Games rated", data: ya.map((x) => x.length), color: "#3b3470" }, { name: "Average rating", kind: "line", y2: true, data: ya.map((x) => Math.round(avg(x.map((y) => y.rating!)) * 10) / 10), color: "#e7c56c" }]) },
       { id: "j", title: "Rating vs time invested", note: verdict(corr(pj), "You tend to rate games higher the longer you stay with them. Time invested seems to pay off.", "Games you finish quickly score higher with you. You reward tight, focused experiences.", "How long you spend with a game barely moves your rating."), option: scatter(pj, "Days start → finish", "Rating") },
       { id: "y", title: "Rating vs release year", note: verdict(corr(pr), "Newer games tend to win higher scores from you.", "Classics beat modern releases in your ratings.", "Your ratings don't favour any particular generation."), option: scatter(pr, "Release year", "Rating") },
@@ -313,7 +319,7 @@ function length(r: R[]): Section {
   };
 }
 
-function newGenres(P: R[]) { const seen = new Set<string>(), m = new Map<number, number>(); [...P].filter((x) => x.at > 0).sort((a, b) => a.at - b.at).forEach((x) => x.genres.forEach((g) => { if (!seen.has(g)) { seen.add(g); m.set(yr(x.at), (m.get(yr(x.at)) ?? 0) + 1); } })); return m; }
+function newGenres(P: R[]) { const seen = new Set<string>(), m = new Map<number, number>();[...P].filter((x) => x.at > 0).sort((a, b) => a.at - b.at).forEach((x) => x.genres.forEach((g) => { if (!seen.has(g)) { seen.add(g); m.set(yr(x.at), (m.get(yr(x.at)) ?? 0) + 1); } })); return m; }
 function exploration(r: R[]): Section {
   const P = r.filter((x) => x.played), cnt = (k: (x: R) => string[]) => agg(P, k).map((x) => x.n);
   const gN = cnt((x) => x.genres), dN = cnt((x) => (x.dev ? [x.dev] : [])), fN = cnt((x) => x.fr), eN = cnt((x) => { const e = eraOf(x.rel); return e ? [e] : []; }), pN = cnt((x) => [x.platform]);

@@ -62,7 +62,7 @@ export function StatsView({ data }: { data: AppData }) {
     if (!cat || !meta || !section) {
         return (
             <div className="st-landing">
-                <header className="st-head"><p className="eyebrow">YOUR NUMBERS</p><h1>Stats</h1><p className="muted">Pick a category to dive into the charts.</p></header>
+                <header className="st-head"><h1>Stats</h1></header>
                 <div className="st-grid">
                     {CATEGORIES.map((c, i) => {
                         const Icon = ICONS[c.id];
