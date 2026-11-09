@@ -16,10 +16,10 @@ Lost in Sync is an offline-first desktop application built with Tauri 2 (Rust) +
 - Mark favorites, filter by genre, sort by playtime, rating, release date, and more
 - Two layouts: **PS4-style cover grid** or **catalog list view**
 
-### 🗺️ Game Journey (WebGL Timeline)
-- PixiJS v8 WebGL-rendered interactive timeline of your gaming history
-- Branching visual layout showing games by start/finish dates
-- Zoom, pan, and time-range filtering (`all · month · custom year`)
+### 🗺️ Game Journey (Interactive Timeline)
+- Interactive timeline of your gaming history rendered with dynamic SVG branching strands and React DOM
+- Level-of-Detail (LOD) zooming, panning, and time-range filtering (`all · month · custom year`)
+- High-density "Fit All" overview mode and single-day pillar / long-form playthrough branching
 - Click any node to jump straight to the game's detail page
 
 ### 🔍 Discover & IGDB Browse
@@ -59,8 +59,9 @@ Lost in Sync is an offline-first desktop application built with Tauri 2 (Rust) +
 |---|---|
 | Desktop shell | Tauri v2 (Rust) |
 | Frontend | React 19, TypeScript, Vite |
-| WebGL timeline | PixiJS v8 |
+| Interactive timeline | Native React 19 + SVG strands with LOD rendering |
 | Routing & animation | React Router v7, Framer Motion |
+| Charts & analytics | Apache ECharts |
 | Icons | Lucide React |
 | Persistence | SQLite via `rusqlite` (Tauri managed state) |
 | External data | IGDB API (Twitch OAuth2 client credentials) |
@@ -134,8 +135,8 @@ Lost in Sync uses the [IGDB API](https://api-docs.igdb.com/) (powered by Twitch)
 ```
 lostinsync__/
 ├── src/                        # React / TypeScript frontend
-│   ├── main.tsx                # App root, global state, routing
-│   ├── style.css               # Aurora Glass theme tokens
+│   ├── main.tsx                # App root, global state, routing, PS4/Grid views
+│   ├── style.css               # Aurora Glass theme tokens & core layouts
 │   ├── domain/
 │   │   ├── game.ts             # Game type, Status, AppData, helper fns
 │   │   ├── gametype.ts         # IGDB game-type filtering
@@ -143,22 +144,21 @@ lostinsync__/
 │   ├── data/
 │   │   ├── repository.ts       # AppRepository — Tauri ↔ localStorage adapter
 │   │   └── igdb.ts             # IGDB Tauri command wrappers + cache
-│   ├── hooks/
-│   │   └── useSmoothScroll.ts
 │   ├── components/
 │   │   ├── layout.tsx          # AppLayout, collapsible sidebar
-│   │   └── shared.tsx          # Header, GameMini, StarRating, TrophyToggle…
+│   │   └── shared.tsx          # Header, StarRating, TrophyToggle, Empty…
 │   └── features/
-│       ├── dashboard/          # Dashboard view
-│       ├── library-components/ # AddGame form, game cards
-│       ├── journey/            # PixiJS WebGL timeline
-│       ├── discover/           # Discover feeds + IGDB details
-│       ├── trophies/           # Trophies / platinum view
-│       ├── media/              # Screenshots + YouTube embeds
-│       ├── series/             # Franchise / collection browser
-│       ├── bundle/             # Bundle contents (DLC / editions)
-│       ├── overview/           # Profile section, collection actions
-│       └── settings/           # Settings view
+│       ├── dashboard.tsx       # Dashboard view & quick status counts
+│       ├── library-components.tsx # AddGame modal/form, detail drawer
+│       ├── journey.tsx         # Interactive SVG + DOM timeline
+│       ├── discover.tsx        # Discover feeds + search
+│       ├── trophies.tsx        # Trophies / platinum view & badge gallery
+│       ├── stats.tsx           # Apache ECharts analytics dashboard
+│       ├── media.tsx           # Screenshots carousel + YouTube embeds
+│       ├── series.tsx          # Franchise / collection browser
+│       ├── bundle.tsx          # Bundle contents (DLC / editions)
+│       ├── overview.tsx        # Profile section, collection actions
+│       └── settings-data.tsx   # Settings, credentials, export/import
 │
 ├── src-tauri/                  # Rust / Tauri backend
 │   ├── src/lib.rs              # All Tauri commands (SQLite, IGDB proxy)
@@ -171,6 +171,7 @@ lostinsync__/
 │   ├── design-system.md
 │   ├── features.md
 │   ├── igdb-image-endpoints.md
+│   ├── performance-optimization-report.md
 │   └── roadmap.md
 │
 └── scripts/

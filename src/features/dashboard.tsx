@@ -160,8 +160,6 @@ export function Dashboard({
                         }}
                       ><X size={12} /></button>
                       {!g.cover && <Gamepad2 size={34} className="fav-ph" />}
-                      <div className="fav-info">
-                      </div>
                     </div>
                   ) : (
                     <button className="fav-card empty" style={{ top, height: s.h }} onClick={() => setSlot(i)}>
@@ -210,7 +208,7 @@ export function Dashboard({
         </div>
         {wishlistgames.length ? (
           <div className="recent-row">
-            {wishlistgames.map((g) => (
+            {wishlistgames.slice(0, 7).map((g) => (
               <button key={g.id} className="recent-card" onClick={() => openGame(g.id)}>
                 <div className="recent-art" style={g.cover ? { backgroundImage: `url(${g.cover})` } : undefined}>
                   {!g.cover && <Gamepad2 size={26} />}
@@ -218,7 +216,7 @@ export function Dashboard({
                 </div>
                 <strong>{g.title}</strong>
               </button>
-            )).slice(0,7)}
+            ))}
           </div>
         ) : <p className="muted">No games on your wishlist.</p>}
       </section>

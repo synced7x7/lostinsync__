@@ -1,3 +1,4 @@
+
 .profile-banner {
     display: flex;
     align-items: center;
@@ -610,9 +611,6 @@
     .profile-avatar { width: 62px; height: 62px; font-size: 25px }
     .profile-count { margin-top: 24px }
 }
-
-
-@import url("https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=Cinzel:wght@500&display=swap");
 
 /* gothic brand */
 .brand-logo {  height:40px; width:40px; border-radius: 4px; object-fit: contain; filter: drop-shadow(0 0 6px rgba(164,149,255,.6)) }

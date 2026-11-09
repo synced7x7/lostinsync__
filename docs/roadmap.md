@@ -28,11 +28,11 @@ This document outlines completed milestones and future enhancements for **Lost i
 - [x] Franchise / Series hierarchy tree explorer.
 - [x] Media asset gallery inspector.
 
-### Visual Journey (WebGL Timeline)
-- [x] Migration from DOM/SVG to hardware-accelerated **PixiJS v8** WebGL engine.
-- [x] Dynamic branching lane assignment algorithm based on play dates.
+### Visual Journey (Interactive Timeline)
+- [x] Vector SVG connecting strands with cubic bezier curves and dynamic branch coloring.
+- [x] Dynamic branching lane assignment algorithm based on start and finish play dates.
 - [x] Zoom, pan, time range presets (All, Month, Custom Year), and high-density Fit All mode.
-- [x] Texture memory management with lazy eviction and viewport chunk culling.
+- [x] Level-of-Detail (LOD) node culling below 40% zoom to maintain 60 fps interactions.
 
 ---
 

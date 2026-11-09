@@ -1,15 +1,13 @@
 import { useRef, useState } from "react";
-import { AlertTriangle, Check, FileSpreadsheet, Info, Trash2, Upload, Download, X } from "lucide-react";
+import { AlertTriangle, Check, Download, FileSpreadsheet, Info, RefreshCw, Trash2, Upload, X } from "lucide-react";
 import { hasTauri, saveTextFile, type IgdbCreds } from "../data/igdb";
 import { importBackloggd, reportSections, reportToText, type BlEntry, type ImportProgress, type ImportReport } from "../data/backloggd";
 import type { AppData } from "../domain/game";
-import { RefreshCw } from "lucide-react";
 import { applyPatches, syncReportSections, syncReportToText, syncWithIgdb, type SyncProgress, type SyncReport } from "../data/sync";
 import { STATUSES } from "../domain/game";
 import type { AppSettings } from "../domain/game";
 import { GAME_TYPES, UNSET_TYPE } from "../domain/gametype";
 import { SORT_OPTIONS, librarySession, libraryDefaults } from "../domain/library-session";
-import { option } from "framer-motion/m";
 
 type Notice = { kind: "success" | "error" | "info"; text: string };
 type Props = { data: AppData; update: (data: AppData) => void };
@@ -159,9 +157,6 @@ function LibraryDefaultsSection({ data, update }: Props) {
     librarySession.prefs = null; // Library re-seeds from these defaults on next visit
     update({ ...data, settings: { ...data.settings, ...partial } });
   };
-  const row = (title: string, hint: string, control: React.ReactNode) => (
-    <div className="setting-row"><div><strong>{title}</strong><span>{hint}</span></div>{control}</div>
-  );
   return (
     <section className="glass settings-panel settings-panel--full">
       <p className="eyebrow">LIBRARY</p><h2>Default filters &amp; view</h2>

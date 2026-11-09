@@ -1,19 +1,12 @@
 import { useEffect, useState, useMemo } from "react";
-import { ChevronRight, Gamepad2, Heart, Plus, X } from "lucide-react";
-import { formatCount, formatHours, formatPlaytime, STATUSES, validateGame, type Game, type Status } from "../domain/game";
+import { Gamepad2, Plus, X } from "lucide-react";
+import { formatCount, formatHours, STATUSES, validateGame, type Game, type Status } from "../domain/game";
 import { hasTauri, igdbDetails, igdbImages, igdbSearch, type IgdbCreds, type IgdbDebugImage, type IgdbGame, type IgdbHit } from "../data/igdb";
 import { createPortal } from "react-dom";
-import { DateField, TrophyToggle, PlatformPicker, StarRating, type SaveGame } from "../components/shared";
+import { DateField, TrophyToggle, PlatformPicker, StarRating } from "../components/shared";
 import { ALL_PLATFORMS, emulatedOn, PC, GAME_TYPES } from "../data/platform";
 
 const now = () => new Date().toISOString();
-
-export function GameCard({ game, layout, open, save }: { game: Game; layout: "grid" | "list"; open: () => void; save: SaveGame }) {
-  return <article className={layout === "grid" ? "game-card glass" : "game-row glass"} onClick={open}>
-    <div className="game-art" style={game.cover ? { backgroundImage: `linear-gradient(135deg, rgba(20,16,45,.25), rgba(13,50,62,.45)), url(${game.cover})` } : undefined}>{!game.cover && <Gamepad2 size={layout === "grid" ? 34 : 24} />}<span>{game.platform}</span></div>
-    <div className="game-info"><div className="game-top"><span className="status">{game.status}</span><button className="heart" onClick={(e) => { e.stopPropagation(); save({ ...game, favorite: !game.favorite }); }}><Heart size={16} fill={game.favorite ? "currentColor" : "none"} /></button></div><h3>{game.title}</h3><p>{game.genre || "Uncategorized"} · {formatPlaytime(game.totalSeconds)} played</p>{layout === "grid" && <div className="card-bottom"><span className="muted">Open details</span><ChevronRight size={16} /></div>}</div>
-  </article>;
-}
 
 export function AddGame({ onClose, onAdd, igdb, initial }: { onClose: () => void; onAdd: (game: Game) => void; igdb: IgdbCreds; initial?: Game }) {
   const [title, setTitle] = useState(initial?.title ?? "");

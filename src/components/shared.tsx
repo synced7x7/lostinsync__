@@ -2,18 +2,10 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import {
   CalendarDays,
   Check,
-  ChevronRight,
-  Gamepad2,
   Star,
   Trophy,
   X,
 } from "lucide-react";
-import { formatPlaytime } from "../domain/game";
-import type { Game } from "../domain/game";
-
-export type SaveGame = (
-  game: Game,
-) => void;
 
 export function Header({
   eyebrow,
@@ -32,46 +24,6 @@ export function Header({
       </div>
       {action}
     </div>
-  );
-}
-
-export function Stat({
-  label,
-  value,
-  hint,
-  icon,
-}: {
-  label: string;
-  value: string;
-  hint: string;
-  icon: React.ReactNode;
-}) {
-  return (
-    <div className="stat glass">
-      <div className="stat-icon">{icon}</div>
-      <div>
-        <span>{label}</span>
-        <strong>{value}</strong>
-        <small>{hint}</small>
-      </div>
-    </div>
-  );
-}
-
-export function GameMini({ game, onClick }: { game: Game; onClick: () => void }) {
-  return (
-    <button className="mini-card glass" onClick={onClick}>
-      <div className="art">
-        <Gamepad2 size={23} />
-      </div>
-      <div>
-        <strong>{game.title}</strong>
-        <span>
-          {game.platform} · {formatPlaytime(game.totalSeconds)}
-        </span>
-      </div>
-      <ChevronRight size={16} />
-    </button>
   );
 }
 

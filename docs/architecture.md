@@ -50,29 +50,27 @@ Pure TypeScript — no React, no I/O.
 | `repository.ts` | `AppRepository` interface + `createAppRepository()` factory. In Tauri it calls `load_app_data` / `save_app_data`; in browser it falls back to `localStorage`. |
 | `igdb.ts` | Typed wrappers around every IGDB Tauri command. `igdbDetailsCached` caches detail responses for the session so navigating back doesn't re-fetch. |
 
-### `src/hooks/`
-- `useSmoothScroll` — RAF-based smooth-scroll helper used by the library grid.
-
 ### `src/components/`
 Shared presentational components reused across features:
 - `layout.tsx` — `AppLayout` with the collapsible sidebar and navigation rail
-- `shared.tsx` — `Header`, `GameMini`, `StarRating`, `TrophyToggle`, `Stat`, `Empty`, `formatDate`
+- `shared.tsx` — `Header`, `StarRating`, `TrophyToggle`, `Empty`, `formatDate`
 
 ### `src/features/`
-Each subdirectory is a self-contained view or feature slice:
+Self-contained view components and stylesheets:
 
 | Feature | Description |
 |---|---|
-| `dashboard/` | Activity feed, quick stats, recently added games |
-| `library-components/` | `AddGame` modal/form, game cards, detail pane |
-| `journey/` | PixiJS v8 WebGL interactive timeline |
-| `discover/` | IGDB discovery feeds, search bar, `DiscoverGameDetails` modal |
-| `trophies/` | Platinum / trophy tracking view |
-| `media/` | `MediaSection` — screenshots carousel + YouTube embed player |
-| `series/` | Franchise hierarchy browser powered by `igdb_series` |
-| `bundle/` | Bundle/edition contents via `igdb_bundle_contents` |
-| `overview/` | `ProfileSection`, `CollectionActions` |
-| `settings/` | IGDB credentials, appearance, default view |
+| `dashboard.tsx` | Activity feed, quick stats, recently added games |
+| `library-components.tsx` | `AddGame` modal/form, filter drawer, game detail hero drawer |
+| `journey.tsx` | Interactive timeline with SVG vector strands and React DOM LOD rendering |
+| `discover.tsx` | IGDB discovery feeds, search bar, feed pagination |
+| `trophies.tsx` | Platinum / trophy tracking view & badge gallery |
+| `stats.tsx` | Apache ECharts analytics charts (playtime, status breakdown, releases) |
+| `media.tsx` | `MediaSection` — screenshots carousel + YouTube embed player |
+| `series.tsx` | Franchise hierarchy browser powered by `igdb_series` |
+| `bundle.tsx` | Bundle/edition contents via `igdb_bundle_contents` |
+| `overview.tsx` | `ProfileSection`, `CollectionActions` |
+| `settings-data.tsx` | IGDB credentials, appearance defaults, full JSON export/import |
 
 ### `src/main.tsx`
 The application root. Responsibilities:
@@ -137,21 +135,23 @@ App mounts
 
 ---
 
-## PixiJS WebGL Journey Timeline
+## Interactive Journey Timeline
 
-The `JourneyView` feature (`src/features/journey/`) renders the game history timeline using **PixiJS v8** with WebGL acceleration.
+The `JourneyView` feature (`src/features/journey.tsx`) renders the game history timeline using **React DOM + SVG** vector strands with Level-of-Detail (LOD) optimizations.
 
 ### Architecture
-- A `<canvas>` element is managed by a PixiJS `Application` instance created on mount and destroyed on unmount.
-- Each game that has a `startedAt` date is placed as a node on the timeline; `finishedAt` determines the node's x-extent.
-- Nodes are `PIXI.Graphics` + `PIXI.Text` objects laid out by a custom branching algorithm to avoid overlap.
-- Zoom and pan are implemented via pointer events and wheel handlers that update the PixiJS stage transform.
-- The timeline respects the `journeyRange` and `journeyZoom` settings stored in `AppSettings`.
+- Uses vector `<svg>` paths for cubic bezier connecting strands and axis tick marks.
+- Game cards on the timeline are rendered in React DOM nodes with hardware-accelerated CSS `transform` for pan/zoom.
+- Each game that has a `startedAt` date is positioned as a node; `finishedAt` determines the horizontal span.
+- Games are sorted and slotted into lanes by a dynamic branching algorithm (`lane` allocation) to avoid overlapping strands.
+- Short/single-day completions are rendered as vertical pillars (`SHORT = 5`); long-form playthroughs branch out smoothly.
+- **Level-of-Detail (LOD)**: When zoomed out below `LOD_Z = 0.4`, covers, titles, and dates are culled to minimize DOM overhead, rendering single strands only.
+- Controls include zoom slider / pinch / wheel (10% to 240%), range filtering (`all`, `month`, specific year), and a high-density `Fit All` overview mode.
 
 ### Key design decisions
-- WebGL (PixiJS) is used instead of SVG/Canvas 2D for smooth performance with large libraries.
-- The PixiJS app is instantiated imperatively inside a `useEffect`; React does not manage the canvas children.
-- Timeline state (zoom, viewport offset) is kept as local refs — not in React state — to avoid re-render overhead on every pointer move.
+- Pure React + SVG avoids heavyweight external canvas dependencies while retaining crisp vector rendering across high-DPI displays.
+- LOD culling keeps DOM node counts manageable even with expansive collections.
+- Timeline navigation state (zoom, viewport offset) is clamped and throttled to maintain responsive 60 fps interactions.
 
 ---
 
@@ -162,5 +162,5 @@ The `JourneyView` feature (`src/features/journey/`) renders the game history tim
 | Single JSON blob in SQLite | Avoids complex migrations while the data model is still evolving. The entire `AppData` document is versioned as one record. |
 | `AppRepository` adapter | Keeps the UI identical between Tauri (SQLite) and browser (localStorage) environments, enabling fast Vite iteration without the full Rust compile. |
 | IGDB proxy in Rust | CORS prevents direct browser requests to IGDB; the Rust backend holds the credentials and handles token refresh. |
-| PixiJS for timeline | SVG doesn't scale to hundreds of nodes without jank; WebGL compositing gives smooth 60 fps pan/zoom. |
+| Interactive SVG timeline with LOD | Avoids heavy WebGL library overhead while providing crisp vector curves and LOD DOM culling at high zoom-out levels. |
 | CSS custom properties only | No utility framework means zero build-time CSS overhead and straightforward theming via a single variable override block. |

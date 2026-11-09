@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, ImagePlus, Link2, Play, Trash2, X } from "lucide-react";
 import type { Game } from "../domain/game";
-import type { IgdbDebugImage, IgdbCreds } from "../data/igdb";
+import type { IgdbDebugImage } from "../data/igdb";
 
 export const ytId = (raw: string) => {
   const s = raw.trim();
@@ -41,7 +41,7 @@ const toDataUrl = (file: File) =>
     r.readAsDataURL(file);
   });
 
-export function MediaSection({ game, save, igdbMedia, igdbLoading, igdbError, series, onOpenGame }: { game: Game; save: (g: Game) => void; igdbMedia?: { images: IgdbDebugImage[]; videos: { id: string; name?: string }[] }; igdbLoading?: boolean; igdbError?: string; series?: { igdbId: number; creds: IgdbCreds }; onOpenGame?: (id: number) => void }) {
+export function MediaSection({ game, save, igdbMedia, igdbLoading, igdbError }: { game: Game; save: (g: Game) => void; igdbMedia?: { images: IgdbDebugImage[]; videos: { id: string; name?: string }[] }; igdbLoading?: boolean; igdbError?: string }) {
   const savedShots = game.screenshots ?? [];
   const savedVids = game.videos ?? [];
   const igdbScreenshots = (igdbMedia?.images ?? []).filter((image) => image.category === "screenshot");
@@ -81,9 +81,6 @@ export function MediaSection({ game, save, igdbMedia, igdbLoading, igdbError, se
       save({ ...game, screenshots: [...savedShots, ...urls] });
       setErr("");
     } catch { setErr("One of the images could not be read."); }
-  };
-  const saveImage = (url: string) => {
-    if (!savedShots.includes(url)) save({ ...game, screenshots: [...savedShots, url] });
   };
   const [main, ...rest] = vids;
   const artworkGroups = igdbArtworks.reduce<Record<string, IgdbDebugImage[]>>((groups, image) => {

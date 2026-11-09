@@ -1,5 +1,5 @@
-import React, { StrictMode, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, lazy, Suspense, memo } from "react";
-import { librarySession, libraryDefaults, prefsToSettings, type LibraryPrefs } from "./domain/library-session";
+import React, { StrictMode, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, lazy, Suspense, memo } from "react";
+import { librarySession, libraryDefaults, prefsToSettings, SORT_OPTIONS, type LibraryPrefs } from "./domain/library-session";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, useLocation, useNavigate } from "react-router-dom";
 import {
@@ -60,7 +60,6 @@ import { TrophiesView } from "./features/trophies";
 import { DiscoverView } from "./features/discover";
 import { DiscoverGameDetails } from "./features/discover";
 import { igdbDetailsCached, type IgdbGame } from "./data/igdb";
-import { useLayoutEffect } from "react";
 import { GAME_TYPES, UNSET_TYPE, matchesGameType } from "./domain/gametype";
 import { BundleContents, isBundle } from "./features/bundle";
 
@@ -92,9 +91,7 @@ function App() {
   const [discoverGame, setDiscoverGame] = useState<IgdbGame>();
   const [discoverLoading, setDiscoverLoading] = useState(false);
   const [error, setError] = useState("");
-  const dataRef = useRef(data);
 
-  dataRef.current = data;
   useEffect(() => {
     const root = document.documentElement;
     const enter = () => {
@@ -350,23 +347,11 @@ function LibraryView({
       .filter((g) => (filter === "All" || g.status === filter) && matchesGameType(g.gameType, typeFilter) && (!favoritesOnly || g.favorite) && g.title.toLowerCase().includes(q))
       .sort((a, b) => compareGames(a, b, sort, sortDirection));
   }, [data.games, filter, typeFilter, favoritesOnly, deferredQuery, sort, sortDirection]);
-  const sortOptions: { value: LibrarySort; label: string }[] = [
-    { value: "recent", label: "When added" },
-    { value: "completion", label: "Last played (Completion Time)" },
-    { value: "playtime", label: "Time played" },
-    { value: "rating", label: "User rating" },
-    { value: "igdbRating", label: "IGDB rating" },
-    { value: "title", label: "Title" },
-    { value: "releaseDate", label: "Release date" },
-    { value: "avgTime", label: "Avg time to complete" },
-    { value: "mainTime", label: "Main story completion time" },
-    { value: "fullTime", label: "100% completion time" },
-  ];
   const toggleSortDirection = () => updateSettings({ librarySortDirection: sortDirection === "asc" ? "desc" : "asc" });
   const sortControl = (
     <>
       <select value={sort} onChange={(e) => updateSettings({ librarySort: e.target.value as LibrarySort })}>
-        {sortOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+        {SORT_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
       </select>
       <button className="icon-btn" onClick={toggleSortDirection} title={sortDirection === "asc" ? "Ascending" : "Descending"} aria-label={`Sort ${sortDirection === "asc" ? "ascending" : "descending"}`}>
         {sortDirection === "asc" ? <ArrowUp size={16} /> : <ArrowDown size={16} />}
@@ -411,9 +396,6 @@ function LibraryView({
     </div>
   );
   const featured = games.find((g) => g.id === focusedGameId) ?? games[0];
-  const openLibraryGame = (id: string) => {
-    openGame(id);
-  };
   return (
     <>
       {!fullscreen && <div className="library-heading">
@@ -451,9 +433,9 @@ function LibraryView({
         ? <Empty icon={<Filter />} title="Nothing here yet" text="Try another search or add your first game." action={() => setShowAdd(true)} />
         : layout === "ps4"
           ? <div className={fullscreen ? "ps4-fullscreen-shell" : undefined}>
-            <PS4ShelfView fullscreen={fullscreen} games={games} featured={featured} focusedGameId={focusedGameId} onFocusedGameChange={onFocusedGameChange} openGame={openLibraryGame} saveGame={saveGame} keyboardEnabled={!showAdd} />
+            <PS4ShelfView fullscreen={fullscreen} games={games} featured={featured} focusedGameId={focusedGameId} onFocusedGameChange={onFocusedGameChange} openGame={openGame} keyboardEnabled={!showAdd} />
           </div>
-          : <GridLibraryView games={games} openGame={openLibraryGame} saveGame={saveGame} gridSize={gridSize} setGridSize={(size) => updateSettings({ gridSize: size })} />
+          : <GridLibraryView games={games} openGame={openGame} gridSize={gridSize} setGridSize={(size) => updateSettings({ gridSize: size })} />
       }
       {showAdd && <AddGame igdb={{ clientId: data.settings.igdbClientId ?? "", clientSecret: data.settings.igdbClientSecret ?? "" }} onClose={() => setShowAdd(false)} onAdd={(game) => { addGame(game); setShowAdd(false); }} />}
     </>
@@ -511,14 +493,13 @@ const PS4Card = memo(function PS4Card({
 });
 
 function PS4ShelfView({
-  games, featured, focusedGameId, onFocusedGameChange, openGame, saveGame, fullscreen, keyboardEnabled = true,
+  games, featured, focusedGameId, onFocusedGameChange, openGame, fullscreen, keyboardEnabled = true,
 }: {
   games: Game[];
   featured: Game | undefined;
   focusedGameId?: string;
   onFocusedGameChange: (id: string) => void;
   openGame: (id: string) => void;
-  saveGame: (g: Game) => void;
   fullscreen?: boolean;
   keyboardEnabled?: boolean;
 }) {
@@ -747,11 +728,10 @@ const gridSession = { scrollY: 0, visible: 40 };
 
 
 function GridLibraryView({
-  games, openGame, saveGame, gridSize, setGridSize,
+  games, openGame, gridSize, setGridSize,
 }: {
   games: Game[];
   openGame: (id: string) => void;
-  saveGame: (g: Game) => void;
   gridSize: GridSize;
   setGridSize: (size: GridSize) => void;
 }) {
@@ -814,12 +794,11 @@ function GridLibraryView({
 }
 
 const GridCard = memo(function GridCard({
-  game, gridSize, onOpen, onSave,
+  game, gridSize, onOpen,
 }: {
   game: Game;
   gridSize: GridSize;
   onOpen: (id: string) => void;
-  onSave?: (g: Game) => void;
 }) {
   const [hovered, setHovered] = useState(false);
   return (
@@ -1037,7 +1016,7 @@ function Details({
         </section>
       )}
 
-      <MediaSection game={game} save={saveGame} igdbMedia={{ images: game.igdbImages ?? [], videos: game.igdbVideos ?? [] }} series={game.igdbId ? { igdbId: game.igdbId, creds: igdb } : undefined} onOpenGame={onOpenGame} />
+      <MediaSection game={game} save={saveGame} igdbMedia={{ images: game.igdbImages ?? [], videos: game.igdbVideos ?? [] }} />
 
       <section className="glass note-card" onClick={() => setEditing(true)} title="Edit note">
         <Notebook size={15} />

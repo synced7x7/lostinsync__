@@ -21,21 +21,22 @@ The Library view is the operational heart of the application.
 
 ---
 
-## 2. 🗺️ Game Journey (Interactive WebGL Timeline)
+## 2. 🗺️ Game Journey (Interactive Timeline)
 
 The Game Journey visualizes your gaming life along an interactive, chronologically ordered timeline.
 
-- **PixiJS v8 WebGL Canvas**: High-performance hardware-accelerated rendering capable of handling hundreds of concurrent games without DOM node bloat.
+- **Dynamic Vector & DOM Canvas**: High-performance rendering combining crisp SVG connecting strands with hardware-accelerated DOM nodes and Level-of-Detail (LOD) culling.
 - **Branching Layout**:
   - Automatically slots games based on `startedAt` and `finishedAt` date bounds.
   - Pillars represent single-day completions; branching strands represent long-form playthroughs.
   - Color palettes dynamically assigned to visual lanes with smooth bezier connecting curves.
+- **Level of Detail (LOD)**: Automatically collapses nodes to single strands when zoomed below 40% to preserve fluid frame rates.
 - **Navigation Controls**:
   - Smooth pan via pointer dragging or mouse wheel.
   - Viewport zoom with pinch / wheel + slider (10% to 240%).
   - Range presets: `All Time`, `Current Month`, or specific calendar years.
   - `Fit All` overview mode for a high-density chronological list view.
-- **Interaction**: Hovering highlights corresponding timeline lanes; double-clicking opens the full game details page.
+- **Interaction**: Hovering highlights corresponding timeline lanes; clicking opens the full game details drawer.
 
 ---
 

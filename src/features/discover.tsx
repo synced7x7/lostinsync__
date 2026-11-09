@@ -210,7 +210,7 @@ function FeedPage({ feed, credentials, genres, openGame, goBack }: { feed: IgdbF
     const observer = new IntersectionObserver((entries) => entries[0]?.isIntersecting && void loadMore(), { rootMargin: "500px" });
     observer.observe(target);
     return () => observer.disconnect();
-  });
+  }, [loading, done]);
   return (
     <div className="discover-page">
       <button className="back-button" onClick={goBack}><ChevronLeft size={16} /> Back to Discover</button>
@@ -281,7 +281,6 @@ export function DiscoverGameDetails({ igdbId, game, close, openGame, credentials
     };
   }, [shell, savedGame, images]);
 
-  // const tags = [...shell.themes, ...shell.playerPerspectives];
   return (
     <DetailsView
       game={view} data={data} update={update} igdb={credentials} onOpenGame={openGame}
