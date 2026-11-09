@@ -32,9 +32,27 @@ export type IgdbDiscover = {
 };
 
 export type IgdbFeed = keyof IgdbDiscover;
-const discoverCache = new Map<string, Promise<IgdbDiscover>>();
-const discoverFeedCache = new Map<string, Promise<IgdbDiscoverGame[]>>();
 
+/** Bounded LRU + TTL cache of in-flight/resolved requests. */
+const TTL = 20 * 60_000;
+type Entry<V> = { v: Promise<V>; t: number };
+function memo<V>(map: Map<string, Entry<V>>, key: string, make: () => Promise<V>, max: number): Promise<V> {
+  const hit = map.get(key);
+  if (hit && Date.now() - hit.t < TTL) {
+    map.delete(key);
+    map.set(key, hit); // mark as most recently used
+    return hit.v;
+  }
+  const v = make();
+  map.delete(key);
+  map.set(key, { v, t: Date.now() });
+  if (map.size > max) map.delete(map.keys().next().value as string); // evict least recently used
+  v.catch(() => { if (map.get(key)?.v === v) map.delete(key); }); // never keep failed requests
+  return v;
+}
+
+const discoverCache = new Map<string, Entry<IgdbDiscover>>();
+const discoverFeedCache = new Map<string, Entry<IgdbDiscoverGame[]>>();
 export const hasTauri = "__TAURI_INTERNALS__" in globalThis;
 
 export async function igdbSearch(query: string, c: IgdbCreds) {
@@ -45,60 +63,32 @@ export async function igdbDetails(id: number, c: IgdbCreds) {
   const { invoke } = await import("@tauri-apps/api/core");
   return invoke<IgdbGame>("igdb_details", { id, clientId: c.clientId, clientSecret: c.clientSecret });
 }
-const detailsCache = new Map<string, Promise<IgdbGame>>();
-export function igdbDetailsCached(id: number, c: IgdbCreds) {
-  const key = `${c.clientId}:${id}`;
-  const cached = detailsCache.get(key);
-  if (cached) return cached;
-  const request = igdbDetails(id, c);
-  detailsCache.set(key, request);
-  request.catch(() => detailsCache.delete(key));
-  return request;
-}
+const detailsCache = new Map<string, Entry<IgdbGame>>();
+export const igdbDetailsCached = (id: number, c: IgdbCreds) =>
+  memo(detailsCache, `${c.clientId}:${id}`, () => igdbDetails(id, c), 150);
 export async function igdbImages(id: number, c: IgdbCreds) {
   const { invoke } = await import("@tauri-apps/api/core");
   return invoke<IgdbDebugImage[]>("igdb_images", { id, clientId: c.clientId, clientSecret: c.clientSecret });
 }
-const imagesCache = new Map<string, Promise<IgdbDebugImage[]>>();
-export function igdbImagesCached(id: number, c: IgdbCreds) {
-  const key = `${c.clientId}:${id}`;
-  const cached = imagesCache.get(key);
-  if (cached) return cached;
-  const request = igdbImages(id, c);
-  imagesCache.set(key, request);
-  request.catch(() => imagesCache.delete(key));
-  return request;
-}
+const imagesCache = new Map<string, Entry<IgdbDebugImage[]>>();
+export const igdbImagesCached = (id: number, c: IgdbCreds) =>
+  memo(imagesCache, `${c.clientId}:${id}`, () => igdbImages(id, c), 60);
 export async function igdbDiscover(preferredGenres: string[], c: IgdbCreds) {
   const { invoke } = await import("@tauri-apps/api/core");
   return invoke<IgdbDiscover>("igdb_discover", {
     preferredGenres, clientId: c.clientId, clientSecret: c.clientSecret,
   });
 }
-export function igdbDiscoverCached(preferredGenres: string[], c: IgdbCreds) {
-  const key = `${c.clientId}:${preferredGenres.join("|")}`;
-  const cached = discoverCache.get(key);
-  if (cached) return cached;
-  const request = igdbDiscover(preferredGenres, c);
-  discoverCache.set(key, request);
-  request.catch(() => discoverCache.delete(key));
-  return request;
-}
+export const igdbDiscoverCached = (preferredGenres: string[], c: IgdbCreds) =>
+  memo(discoverCache, `${c.clientId}:${preferredGenres.join("|")}`, () => igdbDiscover(preferredGenres, c), 10);
 export async function igdbDiscoverFeed(feed: IgdbFeed, preferredGenres: string[], offset: number, limit: number, c: IgdbCreds) {
   const { invoke } = await import("@tauri-apps/api/core");
   return invoke<IgdbDiscoverGame[]>("igdb_discover_feed", {
     feed, preferredGenres, offset, limit, clientId: c.clientId, clientSecret: c.clientSecret,
   });
 }
-export function igdbDiscoverFeedCached(feed: IgdbFeed, preferredGenres: string[], offset: number, limit: number, c: IgdbCreds) {
-  const key = `${c.clientId}:${feed}:${preferredGenres.join("|")}:${offset}:${limit}`;
-  const cached = discoverFeedCache.get(key);
-  if (cached) return cached;
-  const request = igdbDiscoverFeed(feed, preferredGenres, offset, limit, c);
-  discoverFeedCache.set(key, request);
-  request.catch(() => discoverFeedCache.delete(key));
-  return request;
-}
+export const igdbDiscoverFeedCached = (feed: IgdbFeed, preferredGenres: string[], offset: number, limit: number, c: IgdbCreds) =>
+  memo(discoverFeedCache, `${c.clientId}:${feed}:${preferredGenres.join("|")}:${offset}:${limit}`, () => igdbDiscoverFeed(feed, preferredGenres, offset, limit, c), 60);
 
 
 export type SeriesData = {
@@ -140,13 +130,6 @@ export async function igdbBundleContents(id: number, c: IgdbCreds) {
   return invoke<IgdbDiscoverGame[]>("igdb_bundle_contents", { id, clientId: c.clientId, clientSecret: c.clientSecret });
 }
 
-const bundleCache = new Map<string, Promise<IgdbDiscoverGame[]>>();
-export function igdbBundleContentsCached(id: number, c: IgdbCreds) {
-  const key = `${c.clientId}:${id}`;
-  const cached = bundleCache.get(key);
-  if (cached) return cached;
-  const request = igdbBundleContents(id, c);
-  bundleCache.set(key, request);
-  request.catch(() => bundleCache.delete(key));
-  return request;
-}
+const bundleCache = new Map<string, Entry<IgdbDiscoverGame[]>>();
+export const igdbBundleContentsCached = (id: number, c: IgdbCreds) =>
+  memo(bundleCache, `${c.clientId}:${id}`, () => igdbBundleContents(id, c), 40);

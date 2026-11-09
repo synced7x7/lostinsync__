@@ -230,7 +230,7 @@ function DiscoverCard({ game, onDoubleClick }: { game: IgdbDiscoverGame; onDoubl
       title="Double-click to open details"
       onClick={() => { seedGame(game); prefetchGame(game.id); }} // first click of a double-click starts loading
       onDoubleClick={() => { seedGame(game); onDoubleClick(); }}
-      onMouseEnter={() => { timer.current = window.setTimeout(() => prefetchGame(game.id), 250); }}
+      onMouseEnter={() => { timer.current = window.setTimeout(() => prefetchGame(game.id), 400); }}
       onMouseLeave={() => window.clearTimeout(timer.current)}
     >
       <div className={`discover-card-art${game.cover ? "" : " empty"}`}>
