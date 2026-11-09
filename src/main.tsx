@@ -95,7 +95,6 @@ function App() {
   const [discoverLoading, setDiscoverLoading] = useState(false);
   const [error, setError] = useState("");
   const dataRef = useRef(data);
-  const journeyPreferencesDirty = useRef(false);
 
   dataRef.current = data;
   useEffect(() => {
@@ -162,43 +161,8 @@ function App() {
       )
       .finally(() => setLoading(false));
   }, []);
-  useEffect(() => {
-    const saveJourneyPreferences = () => {
-      if (!journeyPreferencesDirty.current) return;
-      journeyPreferencesDirty.current = false;
-      void repo.save(dataRef.current).catch((e: unknown) =>
-        setError(e instanceof Error ? e.message : "Could not save data.")
-      );
-    };
-    const onVisibilityChange = () => {
-      if (document.visibilityState === "hidden") saveJourneyPreferences();
-    };
-    window.addEventListener("pagehide", saveJourneyPreferences);
-    document.addEventListener("visibilitychange", onVisibilityChange);
-    return () => {
-      window.removeEventListener("pagehide", saveJourneyPreferences);
-      document.removeEventListener("visibilitychange", onVisibilityChange);
-    };
-  }, []);
-  const [journeyRange, setJourneyRange] = useState<"all" | "month" | number>(() => data.settings.journeyRange ?? "all");
-  useEffect(() => {
-    if (data.settings.journeyRange) {
-      setJourneyRange(data.settings.journeyRange);
-    }
-  }, [data.settings.journeyRange]);
-  const updateJourneyPreferences = (preferences: { range: "all" | "month" | number; zoom: number; fit: boolean }) => {
-    setJourneyRange(preferences.range);
-    journeyPreferencesDirty.current = true;
-    setData((current) => ({
-      ...current,
-      settings: {
-        ...current.settings,
-        journeyRange: preferences.range,
-        journeyZoom: preferences.zoom,
-        journeyFit: preferences.fit,
-      },
-    }));
-  };
+  
+
   const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const pendingSave = useRef<AppData | null>(null);
 
@@ -280,8 +244,6 @@ function App() {
         <JourneyView
           games={data.games}
           openGame={openGame}
-          preferences={{ range: journeyRange, zoom: data.settings.journeyZoom ?? 1, fit: data.settings.journeyFit ?? false }}
-          onPreferencesChange={updateJourneyPreferences}
         />
       )}{" "}
       {view === "trophies" && <TrophiesView data={data} />}{" "}
@@ -902,7 +864,6 @@ function Details({
   backLabel?: string;
   extra?: React.ReactNode;
 }) {
-  useSmoothScroll();
   const [editing, setEditing] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const descRef = useRef<HTMLParagraphElement>(null);

@@ -124,7 +124,7 @@ function Panel({ s, onClose }: { s: TrophyState; onClose: () => void }) {
   );
 }
 
-// ===================== CHEAT PANEL (bottom-left, type "iddqd" on the Trophies tab) =====================
+// ===================== CHEAT PANEL (bottom-left, type "" on the Trophies tab) =====================
 function Dev({ states, cheat, setCheat }: { states: TrophyState[]; cheat: Override; setCheat: (c: Override) => void }) {
   const tiers = states.flatMap((s) => s.tiers);
   const cycle = (id: string) => {

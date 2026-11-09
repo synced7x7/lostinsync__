@@ -70,7 +70,6 @@ body:has(.sidebar.closed) .jn-screen { --jn-left: 92px }
     border-radius: 999px;
     border: 1px solid rgba(255, 255, 255, .12);
     background: rgba(12, 14, 30, .6);
-    backdrop-filter: blur(14px)
 }
 
 .jn-pills button {
@@ -162,7 +161,6 @@ body:has(.sidebar.closed) .jn-screen { --jn-left: 92px }
     border: 1px solid rgba(255, 255, 255, .14);
     background: rgba(14, 16, 34, .96);
     box-shadow: 0 16px 40px rgba(0, 0, 0, .5);
-    backdrop-filter: blur(16px);
     z-index: 8;
     scrollbar-width: none
 }
@@ -457,7 +455,6 @@ body:has(.sidebar.closed) .jn-screen { --jn-left: 92px }
     border: 1px solid rgba(255, 255, 255, .14);
     background: linear-gradient(150deg, rgba(26, 29, 56, .88), rgba(10, 12, 26, .92));
     box-shadow: 0 20px 50px rgba(0, 0, 0, .5), 0 0 0 1px color-mix(in srgb, var(--c) 25%, transparent);
-    backdrop-filter: blur(18px)
 }
 
 .jn-detail-head { display: flex; gap: 14px }
@@ -527,7 +524,6 @@ body:has(.sidebar.closed) .jn-screen { --jn-left: 92px }
     border-radius: 999px;
     border: 1px solid rgba(255, 255, 255, .12);
     background: rgba(12, 14, 30, .65);
-    backdrop-filter: blur(14px);
     font-size: 12px;
     color: var(--muted)
 }
@@ -589,7 +585,6 @@ body:has(.sidebar.closed) .jn-screen { --jn-left: 92px }
     border-radius: 999px;
     border: 1px solid rgba(255, 255, 255, .12);
     background: rgba(12, 14, 30, .6);
-    backdrop-filter: blur(14px);
     color: var(--muted);
     font-size: 12px;
     font-weight: 600;
@@ -710,7 +705,6 @@ body:has(.sidebar.closed) .jn-screen { --jn-left: 92px }
     max-height: none;
     flex: none;
     background: rgba(12, 14, 30, .72);
-    backdrop-filter: none
 }
 
 

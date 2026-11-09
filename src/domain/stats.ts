@@ -18,7 +18,7 @@ export const CATEGORIES: { id: CategoryId; title: string; blurb: string; tone: T
   { id: "franchises", title: "Franchises", blurb: "The series you keep coming back to", tone: "green" },
   { id: "developers", title: "Developers", blurb: "The studios behind your library", tone: "violet" },
   { id: "ratings", title: "Ratings", blurb: "What your scores say about your taste", tone: "gold" },
-  { id: "length", title: "Game Length", blurb: "Short, long and everything in between", tone: "cyan" },
+  // { id: "length", title: "Game Length", blurb: "Short, long and everything in between", tone: "cyan" },
   { id: "exploration", title: "Exploration", blurb: "How widely you roam across genres, studios and eras", tone: "green" },
   { id: "milestones", title: "Milestones", blurb: "Badges unlocked across every rarity", tone: "rose" },
   { id: "records", title: "Personal Records", blurb: "Your best years, months, weeks and streaks", tone: "blue" },
@@ -103,7 +103,14 @@ const MUTED = "#9b98b5";
 const AX = { axisLine: { lineStyle: { color: "rgba(255,255,255,.14)" } }, axisTick: { show: false }, axisLabel: { color: MUTED, fontSize: 11 }, splitLine: { lineStyle: { color: "rgba(255,255,255,.06)" } } };
 const TIP = { backgroundColor: "rgba(16,14,34,.94)", borderColor: "rgba(164,149,255,.35)", textStyle: { color: "#eee", fontSize: 12 }, extraCssText: "backdrop-filter:blur(8px);border-radius:10px" };
 const LEG = { textStyle: { color: MUTED }, top: 0, icon: "roundRect", itemWidth: 10, itemHeight: 10 };
-const grad = (c: string) => ({ type: "linear", x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: c }, { offset: 1, color: c + "55" }] });
+const fade = (c: string) => {
+  if (/^#[0-9a-f]{6}$/i.test(c)) return c + "55";
+  if (/^#[0-9a-f]{3}$/i.test(c)) return "#" + [...c.slice(1)].map((x) => x + x).join("") + "55";
+  const m = c.match(/^rgba?\(([^)]+)\)$/i);
+  if (m) { const [r, g, b] = m[1].split(",").map((x) => x.trim()); return `rgba(${r},${g},${b},.33)`; }
+  return c;
+};
+const grad = (c: string) => ({ type: "linear", x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: c }, { offset: 1, color: fade(c) }] });
 const GLASS_VM = { calculable: false, orient: "horizontal", left: "center", bottom: 0, itemHeight: 90, inRange: { color: ["rgba(255,255,255,.05)", "#4b3f9e", "#a495ff", "#67d8e6"] }, textStyle: { color: MUTED } };
 
 type S = { name: string; data: number[]; color?: string; kind?: "bar" | "line" | "area"; stack?: string; y2?: boolean };
@@ -127,17 +134,102 @@ function cartesian(cats: string[], series: S[], o: { horizontal?: boolean; zoom?
 function donut(data: { name: string; value: number }[], o: { rose?: boolean; unit?: string } = {}): Opt {
   return {
     color: C, tooltip: { ...TIP, trigger: "item", formatter: (p: any) => `<b>${p.name}</b><br/>${p.value}${o.unit ? " " + o.unit : ""} (${p.percent}%)` }, legend: { ...LEG, top: undefined, bottom: 0, type: "scroll" },
-    series: [{ type: "pie", radius: ["46%", "72%"], center: ["50%", "46%"], roseType: o.rose ? "radius" : undefined, itemStyle: { borderRadius: 8, borderColor: "#0e0c1f", borderWidth: 3 }, label: { show: false }, emphasis: { scaleSize: 6, label: { show: true, color: "#fff", fontSize: 14, fontWeight: 700, formatter: "{b}\n{d}%" } }, data }]
+    series: [{
+      type: "pie",
+      radius: ["46%", "72%"],
+      center: ["50%", "46%"],
+      roseType: o.rose ? "radius" : undefined,
+      avoidLabelOverlap: false,
+      minShowLabelAngle: 0,
+
+      itemStyle: {
+        borderRadius: 8,
+        borderColor: "#0e0c1f",
+        borderWidth: 3
+      },
+
+      label: {
+        show: true,
+        position: "outside",
+        color: "#fff",
+        fontSize: 11,
+        formatter: "{d}%"
+      },
+
+      labelLine: {
+        show: true,
+        length: 12,
+        length2: 8
+      },
+
+      labelLayout: {
+        hideOverlap: false
+      },
+
+      emphasis: {
+        scaleSize: 6,
+        label: {
+          show: true,
+          color: "#fff",
+          fontSize: 14,
+          fontWeight: 700,
+          formatter: "{b}\n{d}%"
+        }
+      },
+
+      data
+    }]
   };
 }
 function ring(pct: number, label: string, color = C[0]): Opt {
-  return { series: [{ type: "pie", radius: ["66%", "84%"], startAngle: 90, silent: true, label: { show: true, position: "center", formatter: `{a|${Math.round(pct)}%}\n{b|${label}}`, rich: { a: { fontSize: 36, fontWeight: 800, color: "#fff" }, b: { fontSize: 11, color: MUTED, lineHeight: 24 } } }, itemStyle: { borderRadius: 10 }, data: [{ value: pct, itemStyle: { color } }, { value: Math.max(0, 100 - pct), itemStyle: { color: "rgba(255,255,255,.07)" } }] }] };
+  return {
+    series: [{
+      type: "pie",
+      radius: ["66%", "84%"],
+      startAngle: 90,
+      silent: true,
+      avoidLabelOverlap: false,
+      minShowLabelAngle: 0,
+
+      label: {
+        show: true,
+        position: "center",
+        formatter: `{a|${Math.round(pct)}%}\n{b|${label}}`,
+        rich: {
+          a: {
+            fontSize: 36,
+            fontWeight: 800,
+            color: "#fff"
+          },
+          b: {
+            fontSize: 11,
+            color: MUTED,
+            lineHeight: 24
+          }
+        }
+      },
+
+      data: [
+        {
+          value: pct,
+          name: label,
+          itemStyle: { color }
+        },
+        {
+          value: Math.max(0, 100 - pct),
+          name: "Remaining",
+          itemStyle: { color: "rgba(255,255,255,.07)" }
+        }
+      ]
+    }]
+  };
 }
+
 function scatter(pts: [number, number, string][], xName: string, yName: string): Opt {
   const line = trend(pts);
   return {
     tooltip: { ...TIP, trigger: "item", formatter: (p: any) => (p.data?.[2] ? `<b>${p.data[2]}</b><br/>${xName}: ${p.data[0]}<br/>${yName}: ${p.data[1]}` : "") },
-    grid: { left: 6, right: 16, top: 16, bottom: 26, containLabel: true },
+    grid: { left: 6, right: 16, top: 22, bottom: 26, containLabel: true },
     xAxis: { type: "value", name: xName, nameLocation: "middle", nameGap: 30, nameTextStyle: { color: MUTED }, scale: true, ...AX },
     yAxis: { type: "value", name: yName, nameTextStyle: { color: MUTED }, min: 0, max: 10, ...AX },
     series: [{ type: "scatter", data: pts, symbolSize: 12, itemStyle: { color: "#a495ff", shadowBlur: 10, shadowColor: "rgba(164,149,255,.6)", opacity: 0.85 } }, ...(line ? [{ type: "line", data: line, symbol: "none", silent: true, lineStyle: { color: "#67d8e6", width: 2, type: "dashed" } }] : [])]
@@ -177,7 +269,7 @@ function activity(r: R[]): Section {
   const touch = (key: (t: number) => number) => { const m = new Map<number, Set<string>>(); r.forEach((x) => [x.s, x.f].forEach((t) => { if (t !== undefined) { const k = key(t); (m.get(k) ?? m.set(k, new Set()).get(k)!).add(x.id); } })); return new Map([...m].map(([k, v]) => [k, v.size] as [number, number])); };
   const W = touch(wk), M = touch(mo), Y = touch(yr), per = (m: Map<number, number>) => { const k = [...m.keys()]; return k.length ? sum([...m.values()]) / (Math.max(...k) - Math.min(...k) + 1) : 0; };
   const now = Date.now(), lo = top(sp, (x) => x.days!, -1), hi = top(sp, (x) => x.days!);
-  const B: [string, number, number][] = [["< 5 days", 0, 5], ["5–15", 5, 15], ["15–30", 15, 30], ["30–60", 30, 60], ["60–90", 60, 90], ["90+ days", 90, Infinity]];
+  const B: [string, number, number][] = [["< 5 days", 0, 5], ["5–15", 5, 15], ["15–30", 15, 30], ["30–60", 30, 60], ["60–90", 60, 90], ["90-150", 90, 150], ["150–365", 150, 365], ["> 1 year", 365, Infinity]];
   const sm = count(r, (x) => (x.s === undefined ? undefined : mo(x.s))), fm = count(r, (x) => (x.f === undefined || !x.done ? undefined : mo(x.f)));
   const all = [...sm.keys(), ...fm.keys()], ks = all.length ? range(Math.min(...all), Math.max(...all)) : [];
   const cal = new Map<string, number>(); r.forEach((x) => [x.s, x.f].forEach((t) => { if (t !== undefined) cal.set(iso(t), (cal.get(iso(t)) ?? 0) + 1); }));
@@ -195,7 +287,7 @@ function activity(r: R[]): Section {
     ],
     charts: [
       { id: "dist", title: "Completion journey distribution", note: "How long games take you from first start to final finish.", option: cartesian(B.map((b) => b[0]), [{ name: "Games", data: B.map(([, a, b]) => dv.filter((v) => v >= a && v < b).length) }]) },
-      { id: "calendar", title: `Activity calendar · ${cy}`, note: "Each square is a day you started or finished a game.", option: { tooltip: { ...TIP, formatter: (p: any) => `${p.data[0]}: ${p.data[1]} event(s)` }, visualMap: { ...GLASS_VM, min: 0, max: Math.max(1, ...cd.map((d) => d[1])) }, calendar: { range: String(cy), top: 30, left: 40, right: 12, cellSize: ["auto", 15], itemStyle: { color: "transparent", borderColor: "rgba(255,255,255,.06)", borderWidth: 1 }, splitLine: { show: false }, yearLabel: { color: MUTED }, monthLabel: { color: MUTED }, dayLabel: { color: MUTED, firstDay: 1 } }, series: [{ type: "heatmap", coordinateSystem: "calendar", data: cd }] }, height: 260 },
+      { id: "calendar", title: `Activity calendar · ${cy}`, note: "Each square is a day you started or finished a game.", option: { tooltip: { ...TIP, formatter: (p: any) => `${p.data[0]}: ${p.data[1]} event(s)` }, visualMap: { ...GLASS_VM, min: 0, max: Math.max(1, ...cd.map((d) => d[1])) }, calendar: { range: String(cy), top: 35, left: 49, right: 10, cellSize: ["auto", 28], itemStyle: { color: "transparent", borderColor: "rgba(255,255,255,.06)", borderWidth: 1 }, splitLine: { show: false }, yearLabel: { color: MUTED }, monthLabel: { color: MUTED }, dayLabel: { color: MUTED, firstDay: 1 } }, series: [{ type: "heatmap", coordinateSystem: "calendar", data: cd }] }, height: 300 },
       { id: "timeline", title: "Starts vs completions", note: "Month-by-month rhythm. Drag the slider to zoom.", wide: true, option: cartesian(ks.map(moLabel), [{ name: "Started", kind: "area", data: ks.map((k) => sm.get(k) ?? 0) }, { name: "Completed", kind: "area", data: ks.map((k) => fm.get(k) ?? 0) }], { zoom: true }) },
     ],
   };
@@ -223,7 +315,7 @@ function platforms(r: R[]): Section {
   return {
     tiles: [
       tl("Most time invested", top(spn, (x) => x.days), (x) => `${x.days} days start → finish`, "cyan"), tl("Most completed", top(a, (x) => x.done), (x) => `${x.done} completed`, "green"), tl("Largest collection", top(a, (x) => x.n), (x) => `${x.n} games`, "violet"), tl("Favorite", top(rp, (x) => x.rating), (x) => `${f1(x.rating)}/10 average`, "gold"),
-      T("Emulation rate", known.length ? `${f1((emu / known.length) * 100)}%` : dash, "played on a platform the game never released for", "rose"), T("Emulated games", String(emu), "total", "rose"),
+      T("Emulation rate", known.length ? `${f1((emu / known.length) * 100)}%` : dash, "played thorough emulation", "rose"), T("Emulated games", String(emu), "total", "rose"),
     ],
     charts: [
       { id: "size", title: "Platform collection size", option: stackedCollection(a, 10), height: 340 },
@@ -262,7 +354,7 @@ function franchises(r: R[]): Section {
   return {
     tiles: [
       tl("Most time invested", top(spn, (x) => x.days), (x) => `${x.days} days start → finish`, "cyan"), tl("Most collected", top(a, (x) => x.n), (x) => `${x.n} games`, "violet"), tl("Most completed", top(a, (x) => x.done), (x) => `${x.done} completed`, "green"), tl("Favorite", top(rp, (x) => x.rating), (x) => `${f1(x.rating)}/10 average`, "gold"),
-      T("Longest journey", lj?.d ? lj.name : dash, lj?.d ? `${lj.d} days, first start → latest finish` : "No data yet", "rose"), T("Franchises completed", String(a.filter((x) => x.n > 0 && x.done === x.n).length), "every owned game finished", "green"),
+      T("Longest journey", lj?.d ? lj.name : dash, lj?.d ? `${lj.d} days, first start → latest finish` : "No data yet", "rose"), T("Franchises completed", String(a.filter((x) => x.n > 0 && x.done === x.n).length), "completed all games in that franchise", "green"),
       T("Franchise completion", fr.length ? `${f1((fr.filter((x) => x.done).length / fr.length) * 100)}%` : dash, "of your franchise games are completed", "blue"),
     ],
     charts: [
@@ -289,7 +381,7 @@ function ratings(r: R[]): Section {
   const bars = (a: Agg[]) => { const p = ratedPool(a).sort((x, y) => y.rating - x.rating).slice(0, 12); return cartesian(p.map((x) => cut(x.name)), [{ name: "Average rating", data: p.map((x) => Math.round(x.rating * 10) / 10), color: "#e7c56c" }], { horizontal: true, max: 10 }); };
   const ey = [...new Set(R_.filter((x) => x.at > 0).map((x) => yr(x.at)))].sort(), ya = ey.map((y) => R_.filter((x) => x.at > 0 && yr(x.at) === y));
   const pj = R_.filter((x) => x.days).map((x) => [x.days!, x.rating!, x.g.title] as [number, number, string]), pr = R_.filter((x) => x.rel).map((x) => [x.rel!, x.rating!, x.g.title] as [number, number, string]), pl = R_.filter((x) => x.len).map((x) => [Math.round(x.len! * 10) / 10, x.rating!, x.g.title] as [number, number, string]);
-  const st = r.map((x) => x.s ?? x.f).filter(isNum), en = r.map((x) => x.f ?? x.s).filter(isNum), rated = r.filter((x) => x.rating);
+  const rated = r.filter((x) => x.rating);
   return {
     tiles: [T("Mean rating", rated.length ? `${f1(avg(rated.map((x) => x.rating!)))} /10` : dash, `${rated.length} rated games`, "blue"), T("Highest rated game", mx ? `${mx.rating}/10` : dash, mx?.g.title ?? "No ratings yet", "gold"), T("Lowest rated game", mn ? `${mn.rating}/10` : dash, mn?.g.title ?? "", "rose"), T("Perfect 10s", String(R_.filter((x) => x.rating === 10).length), "games rated 10/10", "green"), T("Rated games", String(R_.length), `of ${r.length} in your library`, "violet")],
     charts: [
@@ -326,7 +418,7 @@ function exploration(r: R[]): Section {
   const sc = [evenness(gN), evenness(dN), evenness(fN), evenness(eN), evenness(pN)], ng = newGenres(P), pk = peak(ng), ys = ng.size ? range(Math.min(...ng.keys()), Math.max(...ng.keys())) : []; let run = 0;
   return {
     tiles: [
-      T("Genres explored", String(gN.length), `${f1((gN.length / ALL_GENRES) * 100)}% of ${ALL_GENRES} IGDB genres`, "rose"), T("Franchises explored", String(fN.length), "unique series", "green"), T("Developers explored", String(dN.length), "unique studios", "violet"), T("Release eras explored", `${eN.length} / ${ERAS.length}`, "gaming generations", "gold"), T("Platforms explored", String(pN.length), "unique platforms", "blue"),
+      T("Genres explored", String(gN.length), `${f1((gN.length / ALL_GENRES) * 100)}% of ${ALL_GENRES} IGDB genres`, "rose"), T("Franchises explored", String(fN.length), "at least one game in the franchise", "green"), T("Developers explored", String(dN.length), "unique studios", "violet"), T("Release eras explored", `${eN.length} / ${ERAS.length}`, "gaming generations", "gold"), T("Platforms explored", String(pN.length), "unique platforms", "blue"),
       T("Overall diversity", `${Math.round(avg(sc))}/100`, "how evenly your games are spread", "cyan"), T("Most experimental year", pk ? String(pk[0]) : dash, pk ? `${pk[1]} new genres tried` : "", "rose"),
     ],
     charts: [
@@ -394,7 +486,7 @@ function insights(r: R[]): Section {
   const trendTxt = yk.length < 2 ? "Not enough history yet to see a trend." : recent / 2 > before / n0 ? `You tried ${recent} new genres in the last two years. You're branching out faster than ever.` : `You tried ${recent} new genres in the last two years. You're settling into your favourites.`;
   const top6 = [...g].sort((a, b) => b.n - a.n).slice(0, 6).map((x) => x.name), share = (rows: R[], n: string) => (rows.length ? Math.round((rows.filter((x) => x.genres.includes(n)).length / rows.length) * 100) : 0);
   return {
-    tiles: [T("Gaming personality", arche, `a ${trait}`, "violet"), T("Franchise loyalty", `${Math.round(fl)}%`, "of games from your top 3 series", "green"), T("Developer loyalty", `${Math.round(dl)}%`, "of games from your top 3 studios", "cyan"), T("Nostalgia index", `${Math.round(nos)}%`, "of journey days spent on pre-2000 games", "gold"), T("Long-game preference", `${Math.round(lp)}%`, "of games take 30h+ to beat", "rose")],
+    tiles: [T("Gaming personality", arche, `a ${trait}`, "violet"), T("Franchise loyalty", `${Math.round(fl)}%`, "of games from your top 3 series", "green"), T("Developer loyalty", `${Math.round(dl)}%`, "of games from your top 3 studios", "cyan"), T("Nostalgia index", `${Math.round(nos)}%`, "days spent on pre-2000 games", "gold"), T("Long-game preference", `${Math.round(lp)}%`, "of games take 30h+ to beat", "rose")],
     story: [
       { title: arche, text: `${tg ? `${tg.name} leads your library (${tg.n} games). ` : ""}You finish ${Math.round(rate * 100)}% of what you start and wander across ${g.length} genres. You're a ${trait}.` },
       { title: "Franchise loyalty", text: lvl(fl, 50, 25, "You're a series loyalist. You stick with the worlds you love.", "You balance favourite series with fresh worlds.", "You rarely stay with one series. Every game is a new place to visit.") },

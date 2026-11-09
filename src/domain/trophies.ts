@@ -135,7 +135,7 @@ const byTitle = (re: RegExp) => (g: Game) => re.test(g.title) || (g.franchises ?
 const genre = (row: number, name: string, label: string, re: RegExp): Trophy => ({
   id: `5.${row}`, title: name, evo: false,
   value: (c) => c.done.filter((g) => genresOf(g).some((x) => re.test(x))).length,
-  tiers: [T(5, row, name, "rare", 100, `Complete 100 ${label} games`)],
+  tiers: [T(5, row, name, "rare", 200, `Complete 200 ${label} games`)],
 });
 const solo = (sec: number, row: number, name: string, rarity: Rarity, at: number, desc: string, value: (c: Ctx) => number, bottom = false): Trophy =>
   ({ id: `${sec}.${row}`, title: name, evo: false, bottom, value, tiers: [T(sec, row, name, rarity, at, desc)] });
@@ -174,7 +174,7 @@ export const TROPHIES: Trophy[] = [
   fran(4, 5, "Blacklist #1", 7, "NFS", byTitle(/need for speed/i)),
   fran(4, 6, "The fallen leaves tell a story", 6, "FromSoftware", (g) => /from ?software/i.test(g.developer ?? "")),
   fran(4, 7, "Consider it done", 5, "Commandos", byTitle(/commandos/i)),
-  solo(4, 8, "Pantheon of Worlds", "lostinsync", 100, "Complete 100 different franchises",
+  solo(4, 8, "Pantheon of Worlds", "lostinsync", 200, "Complete 200 different franchises",
     (c) => new Set(c.done.flatMap((g) => g.franchises ?? []).map(norm)).size, true),
 
   genre(1, "Action Specialist", "Action", /action/i),

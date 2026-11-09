@@ -131,7 +131,21 @@ type Base = {
   sorted: Row[]; min: number; last: number; now: number;
   cs: (t: number) => number; ticks: { t: number; label: string }[]; open: number;
 };
-type JourneyPreferences = { range: Range; zoom: number; fit: boolean };
+
+const session: { range?: Range; zoom: number; fit: boolean } = { zoom: 1, fit: false };
+
+const latestYear = (games: Game[]): Range => {
+  const now = Date.now();
+  const dates = games
+    .filter((g) => g.status === "Completed" || g.status === "Playing")
+    .flatMap((g) => {
+      const s = Date.parse(g.startedAt ?? "");
+      if (Number.isNaN(s)) return [];
+      const f = Date.parse(g.finishedAt ?? "");
+      return [s, Number.isNaN(f) ? (g.status === "Playing" ? now : s) : f];
+    });
+  return dates.length ? new Date(Math.max(...dates)).getUTCFullYear() : "all";
+};
 
 /* ───────────── lazy, cached geometry (only for branches that get drawn) ───────────── */
 type Geo = { pts: P[]; glow?: string; s: (string | undefined)[] };
@@ -349,30 +363,16 @@ const FitView = memo(function FitView({
 export function JourneyView({
   games,
   openGame,
-  preferences,
-  onPreferencesChange,
 }: {
   games: Game[];
   openGame: (id: string) => void;
-  preferences: JourneyPreferences;
-  onPreferencesChange: (preferences: JourneyPreferences) => void;
 }) {
-  const [range, setRange] = useState<Range>(() => {
-    if (preferences.range !== "all") return preferences.range;
-    // compute latest year from games with valid start dates
-    const starts = games
-      .filter((g) => g.status === "Completed" || g.status === "Playing")
-      .map((g) => Date.parse(g.startedAt ?? ""))
-      .filter((t) => !Number.isNaN(t));
-    if (!starts.length) return "all";
-    const latest = new Date(Math.max(...starts)).getUTCFullYear();
-    return latest;
-  });
+  const [range, setRange] = useState<Range>(() => session.range ?? latestYear(games));
   const [menu, setMenu] = useState(false);
-  const [fit, setFit] = useState(preferences.fit);
+  const [fit, setFit] = useState(session.fit);
   const [pickId, setPickId] = useState<string>();
-  const [zoomInput, setZoomInput] = useState(() => String(Math.round(clampZoom(preferences.zoom) * 100)));
-  const [lod, setLod] = useState(() => clampZoom(preferences.zoom) < LOD_Z);
+  const [zoomInput, setZoomInput] = useState(() => String(Math.round(clampZoom(session.zoom) * 100)));
+  const [lod, setLod] = useState(() => clampZoom(session.zoom) < LOD_Z);
   const [vis, setVis] = useState({ a: 0, b: 0 });
   // Progressive timeline rendering
   const BATCH_SIZE = 80;
@@ -384,18 +384,18 @@ export function JourneyView({
   const spacerRef = useRef<HTMLDivElement>(null);
   const stickyRef = useRef<HTMLDivElement>(null);
   const worldRef = useRef<HTMLDivElement>(null);
-  const zoomRef = useRef(clampZoom(preferences.zoom));
+  const zoomRef = useRef(clampZoom(session.zoom));
   const rangeRef = useRef(range);
   const fitRef = useRef(fit);
   const visRef = useRef(vis);
   const dragged = useRef(false);
   const pickRef = useRef(pickId);
-  const propsRef = useRef({ openGame, onPreferencesChange });
+  const propsRef = useRef({ openGame });
   const gamesRef = useRef(games);
   rangeRef.current = range;
   fitRef.current = fit;
   pickRef.current = pickId;
-  propsRef.current = { openGame, onPreferencesChange };
+  propsRef.current = { openGame };
   gamesRef.current = games;
 
   const store = useMemo(makeStore, []);
@@ -403,25 +403,13 @@ export function JourneyView({
   const onPick = useCallback((id?: string) => setPickId(id), []);
   const onOpen = useCallback((id: string) => propsRef.current.openGame(id), []);
 
-  /* ── 7. debounced preferences ── */
-  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const dirty = useRef(false);
-  const sent = useRef(preferences);
-  const flushPrefs = useCallback(() => {
-    if (timer.current) { clearTimeout(timer.current); timer.current = undefined; }
-    if (!dirty.current) return;
-    dirty.current = false;
-    const p = { range: rangeRef.current, zoom: zoomRef.current, fit: fitRef.current };
-    sent.current = p;
-    propsRef.current.onPreferencesChange(p);
+
+  // session-only: remembered in memory while the app is open, never saved to the database
+  const queuePrefs = useCallback((_now = false) => {
+    session.range = rangeRef.current;
+    session.zoom = zoomRef.current;
+    session.fit = fitRef.current;
   }, []);
-  const queuePrefs = useCallback((now = false) => {
-    dirty.current = true;
-    if (now) { flushPrefs(); return; }
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(flushPrefs, 400);
-  }, [flushPrefs]);
-  useEffect(() => () => flushPrefs(), [flushPrefs]);
 
   /* ── 8. stable layout: keyed on id, status, start, end only ── */
   const sig = useMemo(
@@ -689,14 +677,7 @@ export function JourneyView({
   useEffect(() => () => { if (reraster.current) clearTimeout(reraster.current); cancelAnimationFrame(uiRaf.current); }, []);
 
   // preferences changed from outside (not by us)
-  useEffect(() => {
-    const s = sent.current;
-    if (preferences.range === s.range && preferences.fit === s.fit && Math.abs(preferences.zoom - s.zoom) < 0.0005) return;
-    sent.current = preferences;
-    setRange(preferences.range);
-    setFit(preferences.fit);
-    applyZoom(preferences.zoom);
-  }, [preferences.range, preferences.zoom, preferences.fit]); // eslint-disable-line react-hooks/exhaustive-deps
+  // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ── smooth wheel, click-and-drag pan, ctrl+wheel zoom ── */
   useEffect(() => {
