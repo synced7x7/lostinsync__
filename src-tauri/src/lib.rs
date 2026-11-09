@@ -7,6 +7,8 @@ use std::time::{ Duration, Instant };
 use tauri::Manager;
 use serde_json::{ json, Value };
 use std::collections::HashSet;
+use std::hash::{ Hash, Hasher };
+use base64::{ engine::general_purpose::STANDARD, Engine };
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -121,6 +123,44 @@ async fn save_app_data(
         )
         .map(|_| ())
         .map_err(|error| error.to_string())
+}
+
+fn images_dir(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
+    let dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| e.to_string())?
+        .join("images");
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    Ok(dir)
+}
+
+#[tauri::command]
+async fn images_path(app: tauri::AppHandle) -> Result<String, String> {
+    Ok(images_dir(&app)?.to_string_lossy().into_owned())
+}
+
+#[tauri::command]
+async fn store_image(app: tauri::AppHandle, data_uri: String) -> Result<String, String> {
+    let (head, b64) = data_uri.split_once(',').ok_or("bad data uri")?;
+    let ext = if head.contains("png") {
+        "png"
+    } else if head.contains("webp") {
+        "webp"
+    } else if head.contains("gif") {
+        "gif"
+    } else {
+        "jpg"
+    };
+    let bytes = STANDARD.decode(b64).map_err(|e| e.to_string())?;
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    bytes.hash(&mut h);
+    let name = format!("{:016x}-{}.{}", h.finish(), bytes.len(), ext);
+    let path = images_dir(&app)?.join(&name);
+    if !path.exists() {
+        std::fs::write(&path, &bytes).map_err(|e| e.to_string())?;
+    }
+    Ok(name)
 }
 
 struct IgdbAuth(tauri::async_runtime::Mutex<Option<(String, Instant)>>);
@@ -402,7 +442,7 @@ async fn igdb_search(
             .as_array()
             .map(|a| {
                 a.iter()
-                    .filter(|g| (
+                    .filter(|g| {
                         if id_query.is_some() {
                             g["id"].as_i64().is_some()
                         } else {
@@ -410,7 +450,7 @@ async fn igdb_search(
                                 .map(|strict| g["name"].as_str() == Some(strict))
                                 .unwrap_or(true)
                         }
-                    ))
+                    })
                     .map(|g| IgdbHit {
                         id: g["id"].as_i64().unwrap_or(0),
                         name: g["name"].as_str().unwrap_or("").to_string(),
@@ -673,7 +713,6 @@ async fn igdb_discover(
             discover_query(fields, "storyline != null & themes != null", "total_rating desc"),
         ),
     ];
-    let mut result = serde_json::Map::new();
     let mut result = serde_json::Map::new();
     for (name, query) in queries {
         let rows = igdb_post(&auth, "games", query, &client_id, &client_secret).await?;
@@ -1148,6 +1187,8 @@ pub fn run() {
             tauri::generate_handler![
                 load_app_data,
                 save_app_data,
+                images_path,
+                store_image,
                 igdb_search,
                 igdb_details,
                 igdb_images,
