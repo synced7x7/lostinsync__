@@ -42,13 +42,12 @@ import {
   type AppSettings,
   type Game,
   type GridSize,
-  type LibraryLayout,
   type LibrarySort,
   type Status,
   type View,
 } from "./domain/game";
 import "./style.css";
-import { Empty, formatDate, GameMini, Header, TrophyToggle, StarRating, Stat } from "./components/shared";
+import { Empty, formatDate, TrophyToggle, StarRating } from "./components/shared";
 import { AppLayout } from "./components/layout";
 import { Dashboard } from "./features/dashboard";
 import { AddGame } from "./features/library-components";
@@ -61,10 +60,9 @@ import { TrophiesView } from "./features/trophies";
 import { DiscoverView } from "./features/discover";
 import { DiscoverGameDetails } from "./features/discover";
 import { igdbDetailsCached, type IgdbGame } from "./data/igdb";
-import { useLayoutEffect } from "react"; // add useLayoutEffect to your existing react import instead if you have one
+import { useLayoutEffect } from "react";
 import { GAME_TYPES, UNSET_TYPE, matchesGameType } from "./domain/gametype";
 import { BundleContents, isBundle } from "./features/bundle";
-import { useSmoothScroll } from "./hooks/useSmoothScroll";
 
 const repo = createAppRepository();
 

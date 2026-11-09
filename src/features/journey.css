@@ -512,25 +512,7 @@ body:has(.sidebar.closed) .jn-screen { --jn-left: 92px }
 
 .jn-open:hover { background: rgba(155, 140, 255, .24); color: #fff }
 
-/* legend + empty */
-.jn-legend {
-    position: absolute;
-    left: calc(var(--jn-left) + 10px);
-    bottom: 28px;
-    z-index: 6;
-    display: flex;
-    gap: 22px;
-    padding: 12px 20px;
-    border-radius: 999px;
-    border: 1px solid rgba(255, 255, 255, .12);
-    background: rgba(12, 14, 30, .65);
-    font-size: 12px;
-    color: var(--muted)
-}
-
-.jn-legend span { display: flex; align-items: center; gap: 8px }
-.jn-legend i { width: 11px; height: 11px; border-radius: 50%; box-shadow: 0 0 10px currentColor }
-
+/* empty */
 .jn-empty {
     position: absolute;
     inset: 0;
@@ -707,12 +689,9 @@ body:has(.sidebar.closed) .jn-screen { --jn-left: 92px }
     background: rgba(12, 14, 30, .72);
 }
 
-
-
 @media (max-width: 750px) {
     .jn-ov-grid { padding-left: 151px }
 }
-
 
 @media (max-width: 750px) {
     .jn-screen { --jn-left: 80px }

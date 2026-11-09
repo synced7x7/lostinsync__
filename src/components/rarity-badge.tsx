@@ -1,4 +1,3 @@
-import { Sparkles } from "lucide-react";
 import type { Game } from "../domain/game";
 import { RARITY_COLOR, topBadge, type Override } from "../domain/trophies";
 

@@ -1,9 +1,8 @@
 import { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronRight, Clock3, Gamepad2, Heart, HelpCircle, Plus, Search, Star, X } from "lucide-react";
+import { ChevronRight, Gamepad2, Heart, Plus, Search, Star, X } from "lucide-react";
 import type { ReactNode } from "react";
 import type { AppData, Game } from "../domain/game";
-import { Header } from "../components/shared";
 import { CollectionShowcase } from "./overview";
 
 const DAY = 86_400_000;

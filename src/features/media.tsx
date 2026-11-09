@@ -2,9 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, ImagePlus, Link2, Play, Trash2, X } from "lucide-react";
 import type { Game } from "../domain/game";
-import type { IgdbDebugImage } from "../data/igdb";
-import { SeriesButton } from "./series";
-import type { IgdbCreds } from "../data/igdb";
+import type { IgdbDebugImage, IgdbCreds } from "../data/igdb";
 
 export const ytId = (raw: string) => {
   const s = raw.trim();
