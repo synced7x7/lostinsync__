@@ -156,7 +156,7 @@ function App() {
       )
       .finally(() => setLoading(false));
   }, []);
-  
+
 
   const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const pendingSave = useRef<AppData | null>(null);
@@ -166,9 +166,27 @@ function App() {
     const next = pendingSave.current;
     if (!next) return;
     pendingSave.current = null;
-    void repo.save(next).catch((e: unknown) =>
-      setError(e instanceof Error ? e.message : "Could not save data.")
-    );
+    // void repo.save(next).catch((e: unknown) =>
+    //   setError(e instanceof Error ? e.message : "Could not save data.")
+    // );
+
+    const t0 = performance.now();
+    const size = JSON.stringify(next).length;
+    const t1 = performance.now();
+    void repo.save(next)
+      .then(() => console.log(
+        `save: ${(size / 1e6).toFixed(2)} MB | stringify ${(t1 - t0).toFixed(0)} ms | full save ${(performance.now() - t0).toFixed(0)} ms`
+
+      ))
+      .catch((e: unknown) =>
+        setError(e instanceof Error ? e.message : "Could not save data.")
+
+      );
+    const sizes: Record<string, number> = {};
+    next.games.forEach((g) => Object.entries(g).forEach(([k, v]) => { sizes[k] = (sizes[k] ?? 0) + JSON.stringify(v ?? "").length; }));
+    console.table(Object.entries(sizes).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([field, n]) => ({ field, MB: (n / 1e6).toFixed(2) })));
+    console.log("profile MB:", (JSON.stringify(next.profile).length / 1e6).toFixed(2));
+  
   }, []);
 
   const update = (next: AppData) => {
