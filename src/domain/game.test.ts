@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import { formatPlaytime, validateGame } from "./game";
 describe("game rules", () => {
   it("validates required fields", () => {
-    expect(validateGame("A", "PC")).toContain("title");
-    expect(validateGame("Celeste", "")).toContain("platform");
-    expect(validateGame("Celeste", "PC")).toBeNull();
+    expect(validateGame("A")).toContain("title");
+    expect(validateGame("Celeste")).toContain("platform");
+    expect(validateGame("Celeste")).toBeNull();
   });
   it("formats verified playtime without treating missing time as completed time", () => {
     expect(formatPlaytime(0)).toBe("0m");
