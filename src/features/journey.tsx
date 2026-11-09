@@ -149,16 +149,18 @@ const latestYear = (games: Game[]): Range => {
 
 /* ───────────── lazy, cached geometry (only for branches that get drawn) ───────────── */
 type Geo = { pts: P[]; glow?: string; s: (string | undefined)[] };
-const geoCache = new WeakMap<Br, Geo>();
+const geoCache = new Map<string, Geo>();
+const geoKey = (b: Br) => `${b.pillar ? "p" : "r"}${b.merge ? "m" : "o"}|${b.x1}|${b.x2}|${b.xm}|${b.T}|${b.y}|${b.amp}`;
 const geo = (b: Br): Geo => {
-  let g = geoCache.get(b);
-  if (!g) {
-    g = {
-      pts: b.pillar ? line({ x: b.xm, y: b.T }, { x: b.xm, y: b.y }) : route(b.x1, b.x2, b.T, b.y, b.merge),
-      s: [],
-    };
-    geoCache.set(b, g);
-  }
+  const k = geoKey(b);
+  let g = geoCache.get(k);
+  if (g) { geoCache.delete(k); geoCache.set(k, g); return g; } // mark as recently used
+  g = {
+    pts: b.pillar ? line({ x: b.xm, y: b.T }, { x: b.xm, y: b.y }) : route(b.x1, b.x2, b.T, b.y, b.merge),
+    s: [],
+  };
+  geoCache.set(k, g);
+  if (geoCache.size > 800) geoCache.delete(geoCache.keys().next().value as string); // bounded
   return g;
 };
 const glowOf = (b: Br) => {

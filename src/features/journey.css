@@ -529,7 +529,8 @@ body:has(.sidebar.closed) .jn-screen { --jn-left: 92px }
 .jn-strand {
     fill: none;
     stroke-width: 2.2;
-    stroke-linecap: round
+    stroke-linecap: round;
+    shape-rendering: optimizeSpeed;
 }
 
 
@@ -599,10 +600,12 @@ body:has(.sidebar.closed) .jn-screen { --jn-left: 92px }
     width: 0;
     height: 0;
     transform-origin: 0 0;
-    will-change: transform
+    will-change: transform;
+    backface-visibility: hidden
 }
 
 .jn-base { position: absolute; left: 0; top: 0; transition: opacity .2s }
+.jn-base, .jn-hot { contain: layout style }
 .jn-world.hov .jn-base { opacity: .16 }
 .jn-hot, .jn-marks { position: absolute; left: 0; top: 0; pointer-events: none }
 
