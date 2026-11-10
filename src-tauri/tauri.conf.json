@@ -13,11 +13,11 @@
   "app": {
     "windows": [
       {
-        "title": "Lost in Sync",
-        "width": 1280,
-        "height": 800,
+        "title": "lostinsync__",
+        "width": 1920,
+        "height": 1080,
         "resizable": true,
-        "fullscreen": false
+        "fullscreen": true
       }
     ],
     "security": {
