@@ -6,6 +6,8 @@
 
 Lost in Sync is an offline-first desktop application built with Tauri 2 (Rust) and React 19 (TypeScript). It is a local-first home for every game you have played, want to play, or have set aside. Your library is stored on your own machine.
 
+> [!IMPORTANT]
+> **For the complete documentation, features, how to run, and usage guide, read the [A COMPLETE GUIDE TO LOSTINSYNC__](https://github.com/synced7x7/lostinsync__/releases).**
 ## Screenshots
 
 <table>
