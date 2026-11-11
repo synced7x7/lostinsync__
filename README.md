@@ -1,3 +1,4 @@
+
 # Lost in Sync
 
 > **A personal game library OS** - track your collection, explore new games, and visualize your gaming history.
@@ -9,7 +10,7 @@ Lost in Sync is an offline-first desktop application built with Tauri 2 (Rust) a
 
 <table>
   <tr>
-    <td align="center"><img src="https://github.com/user-attachments/assets/7fcdeca9-24f2-4eb1-9b2c-ec9db6ac0394" width="100%"><br><sub>Overview</sub></td>
+    <td align="center"><img width="1920" height="1080" alt="Screenshot (914)" src="https://github.com/user-attachments/assets/2653ae24-fbb2-4a5b-bbe9-3d16a4301a8b" /><br><sub>Overview</sub></td>
     <td align="center"><img src="https://github.com/user-attachments/assets/da366d3f-d5b3-4aa5-ba84-0b607cac51e4" width="100%"><br><sub>Full screen view</sub></td>
      <td align="center"><img src="https://github.com/user-attachments/assets/51c82895-4809-4f60-a173-bc2647f5a677" width="100%"><br><sub>PS4 View</sub></td>
   </tr>
