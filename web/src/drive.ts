@@ -2,9 +2,23 @@
 // Everything is stored in the hidden, app-only "appDataFolder" of the user's own Drive.
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
 export const driveConfigured = !!CLIENT_ID;
-const SCOPE = "https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/userinfo.email";
+const SCOPE = "https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email";
 const FILES = "https://www.googleapis.com/drive/v3/files";
 const UPLOAD = "https://www.googleapis.com/upload/drive/v3/files";
+
+const FOLDER = "Lost in Sync";
+let folderId: string | undefined;
+async function folder(tk: string): Promise<string> {
+  if (folderId) return folderId;
+  const q = new URLSearchParams({ q: `name='${FOLDER}' and mimeType='application/vnd.google-apps.folder' and trashed=false`, fields: "files(id)", pageSize: "1" });
+  const found = ((await (await api(tk, `${FILES}?${q}`)).json()) as { files?: { id: string }[] }).files?.[0];
+  if (found) return (folderId = found.id);
+  const res = await api(tk, `${FILES}?fields=id`, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name: FOLDER, mimeType: "application/vnd.google-apps.folder" }),
+  });
+  return (folderId = ((await res.json()) as { id: string }).id);
+}
 
 export class DriveError extends Error {
   kind: "auth" | "quota" | "network" | "http";
@@ -33,7 +47,11 @@ function loadGis(): Promise<any> {
 }
 export const preloadGoogle = () => { if (driveConfigured) void loadGis().catch(() => undefined); };
 
-let token: { value: string; exp: number } | undefined;
+const TK = "lis.gtoken2";
+let token: { value: string; exp: number } | undefined = (() => {
+  try { const t = JSON.parse(localStorage.getItem(TK) ?? "null"); return t && t.exp - 60_000 > Date.now() ? t : undefined; } catch { return undefined; }
+})();
+const saveTok = () => { try { token ? localStorage.setItem(TK, JSON.stringify(token)) : localStorage.removeItem(TK); } catch { /* ignore */ } };
 let pending: Promise<string> | undefined;
 
 /** interactive=false never opens UI: it only succeeds if Google can renew silently. */
@@ -48,6 +66,7 @@ export function getToken(interactive: boolean): Promise<string> {
         callback: (r: any) => {
           if (r.error || !r.access_token) return reject(new DriveError("auth", r.error_description || r.error || "Sign-in failed."));
           token = { value: r.access_token, exp: Date.now() + (Number(r.expires_in) || 3600) * 1000 };
+          saveTok();
           resolve(r.access_token);
         },
         error_callback: (e: any) =>
@@ -61,7 +80,7 @@ export function getToken(interactive: boolean): Promise<string> {
 
 export async function forgetToken(): Promise<void> {
   const t = token?.value;
-  token = undefined;
+  token = undefined; saveTok(); folderId = undefined;
   if (!t) return;
   try { (await loadGis()).accounts.oauth2.revoke(t, () => undefined); } catch { /* ignore */ }
 }
@@ -74,7 +93,7 @@ async function api(tk: string, url: string, init: RequestInit = {}): Promise<Res
     throw new DriveError("network", "Could not reach Google Drive. Check your connection.");
   }
   if (res.ok) return res;
-  if (res.status === 401) { token = undefined; throw new DriveError("auth", "Google sign-in expired. Reconnect to continue."); }
+  if (res.status === 401) { token = undefined; saveTok(); folderId = undefined; throw new DriveError("auth", "Google sign-in expired. Reconnect to continue."); }
   const text = await res.text().catch(() => "");
   if (res.status === 403 && /quota|storageQuotaExceeded/i.test(text)) throw new DriveError("quota", "Your Google Drive storage is full.");
   throw new DriveError("http", `Google Drive error ${res.status}.`);
@@ -89,9 +108,10 @@ export async function fetchEmail(tk: string): Promise<string | undefined> {
 
 export async function listFiles(tk: string): Promise<RemoteFile[]> {
   const out: RemoteFile[] = [];
+  const parent = await folder(tk);
   let page = "";
   do {
-    const q = new URLSearchParams({ spaces: "appDataFolder", pageSize: "1000", fields: "nextPageToken,files(id,name,size,modifiedTime)" });
+    const q = new URLSearchParams({ q: `'${parent}' in parents and trashed=false`, pageSize: "1000", fields: "nextPageToken,files(id,name,size,modifiedTime)" });
     if (page) q.set("pageToken", page);
     const j = (await (await api(tk, `${FILES}?${q}`)).json()) as { files?: RemoteFile[]; nextPageToken?: string };
     out.push(...(j.files ?? []));
@@ -102,7 +122,7 @@ export async function listFiles(tk: string): Promise<RemoteFile[]> {
 
 export async function uploadFile(tk: string, name: string, blob: Blob, existingId?: string): Promise<RemoteFile> {
   const boundary = "lis" + crypto.randomUUID().replace(/-/g, "");
-  const meta = existingId ? { name } : { name, parents: ["appDataFolder"] };
+  const meta = existingId ? { name } : { name, parents: [await folder(tk)] };
   const body = new Blob([
     `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n`,
     `--${boundary}\r\nContent-Type: ${blob.type || "application/octet-stream"}\r\n\r\n`,

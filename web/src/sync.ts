@@ -84,6 +84,13 @@ async function exclusive<T>(kind: "push" | "pull" | "check", fn: () => Promise<T
 }
 const progress = (progressText: string) => set({ progress: progressText });
 
+let renewArmed = false;
+function armRenew() {
+  if (renewArmed) return;
+  renewArmed = true;
+  document.addEventListener("pointerdown", () => { renewArmed = false; void check(true); }, { once: true });
+}
+
 async function auth(interactive: boolean): Promise<string> {
   try {
     const tk = await getToken(interactive);
@@ -91,6 +98,7 @@ async function auth(interactive: boolean): Promise<string> {
     return tk;
   } catch (e) {
     set({ needsAuth: true });
+    if (!interactive) armRenew();
     throw e;
   }
 }

@@ -3,3 +3,26 @@ dist/
 .env
 .DS_Store
 badges.zip
+
+
+# ==========================================
+# Web version
+# ==========================================
+
+# Environment variables / secrets
+web/.env
+web/.env.local
+web/.env.*.local
+
+# Dependencies
+web/node_modules/
+
+# Build output
+web/dist/
+
+# Cloudflare Wrangler
+web/worker/.wrangler/
+web/worker/node_modules/
+
+# Local development
+web/.vite/
