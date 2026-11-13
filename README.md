@@ -1,10 +1,16 @@
+<h1 align="center">Lost in Sync</h1>
 
-# Lost in Sync
+<p align="center">
+  <a href="https://lostinsync.vercel.app/">
+    <img src="https://img.shields.io/badge/Lost%20in%20Sync-Live%20Website-8B5CF6?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Visit Lost in Sync" />
+  </a>
+</p>
 
-> **A personal game library OS** - track your collection, explore new games, and visualize your gaming history.
----
-
-Lost in Sync is an offline-first desktop application built with Tauri 2 (Rust) and React 19 (TypeScript). It is a local-first home for every game you have played, want to play, or have set aside. Your library is stored on your own machine.
+<p align="center">
+  <strong>A personal game library OS</strong>
+  <br />
+  Track your collection, explore new games, and visualize your gaming history.
+</p>
 
 > [!IMPORTANT]
 > **For the complete documentation, features, how to run, and usage guide, read the [A COMPLETE GUIDE TO LOSTINSYNC__](https://github.com/synced7x7/lostinsync__/releases).**
