@@ -1,0 +1,10 @@
+name = "lis-igdb-proxy"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+
+[vars]
+# comma-separated list of the exact origins allowed to call this proxy
+ALLOWED_ORIGINS = "https://YOUR-APP.pages.dev,http://localhost:5174"
+
+[observability]
+enabled = false   # keep request data out of logs

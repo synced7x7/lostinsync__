@@ -1,0 +1,14 @@
+.cloud .cloud-compare { display: grid; grid-template-columns: 1.1fr 1fr 1.4fr; gap: 8px 16px; margin: 16px 0 6px; padding: 14px 16px; border-radius: 12px; background: rgba(255, 255, 255, .04); font-size: 12px }
+.cloud .cloud-compare b { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted) }
+.cloud .cloud-compare span:nth-child(3n + 1) { color: var(--muted) }
+.cloud .cloud-progress { color: #c9c0ff }
+.cloud .cloud-history { margin-top: 18px }
+.cloud .cloud-history h3 { margin: 0 0 8px; font-size: 13px }
+.cloud .cloud-report { margin-bottom: 6px; padding: 8px 12px; border-radius: 10px; background: rgba(255, 255, 255, .04); font-size: 12px }
+.cloud .cloud-report summary { display: flex; align-items: center; gap: 8px; cursor: pointer }
+.cloud .cloud-report summary span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.cloud .cloud-report summary small { color: var(--muted) }
+.cloud .cloud-report.ok summary svg { color: #9be8b0 }
+.cloud .cloud-report.bad summary svg { color: #ffafc8 }
+.cloud .cloud-report ul { margin: 8px 0 0; padding-left: 18px; color: var(--muted); line-height: 1.6 }
+@media (max-width: 750px) { .cloud .cloud-compare { grid-template-columns: 1fr 1fr 1fr; font-size: 11px } }
