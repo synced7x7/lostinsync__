@@ -32,7 +32,7 @@ export type SyncState = {
 };
 type Meta = {
   connected: boolean; intervalMin: number; dirty: boolean; lastSyncedAt?: number; remoteModified?: string;
-  email?: string; deviceId: string; history: SyncReport[];
+  email?: string; deviceId: string; history: SyncReport[]; uploaded?: string[];
 };
 
 let meta: Meta | undefined;
@@ -106,7 +106,7 @@ async function auth(interactive: boolean): Promise<string> {
 async function inspect(tk: string, files: RemoteFile[]): Promise<RemoteInfo> {
   const snap = files.find((f) => f.name === SNAP);
   if (!snap) return { exists: false };
-  const base: RemoteInfo = { exists: true, modifiedTime: snap.modifiedTime, bytes: Number(snap.size ?? 0), images: files.filter((f) => f.name.startsWith("img-")).length };
+  const base: RemoteInfo = { exists: true, modifiedTime: snap.modifiedTime, bytes: Number(snap.size ?? 0), images: files.filter((f) => f.name.startsWith("img-") || /^[0-9a-f]{16}-\d+\.\w+$/.test(f.name)).length };
   try {
     const parsed = JSON.parse(await gunzip(await downloadFile(tk, snap.id)));
     if (parsed?.format !== FORMAT || !Array.isArray(parsed.data?.games)) return { ...base, unreadable: true };
@@ -159,7 +159,8 @@ export function push(opts: { trigger: "auto" | "manual"; force?: boolean }): Pro
 
       const refs = [...refsOf(slim.games)];
       const have = new Set(files.map((f) => f.name));
-      const missing = refs.filter((h) => !have.has(imgName(h)));
+      const done0 = new Set(meta?.uploaded ?? []);
+      const missing = refs.filter((h) => !have.has(imgName(h)) && !have.has(h) && !done0.has(h));
       let done = 0;
       await pool(missing, 3, async (h) => {
         progress(`Uploading images (${++done}/${missing.length})…`);
@@ -167,6 +168,7 @@ export function push(opts: { trigger: "auto" | "manual"; force?: boolean }): Pro
         if (!blob) { rep.imagesMissing++; return; }
         await uploadFile(tk, imgName(h), blob);
         rep.imagesUploaded++;
+        (meta!.uploaded ??= []).push(h);
       });
 
       progress("Uploading library…");
@@ -229,8 +231,8 @@ export function pull(): Promise<AppData | undefined> {
       let done = 0;
       await pool(need, 3, async (h) => {
         progress(`Downloading images (${++done}/${need.length})…`);
-        const f = byName.get(imgName(h));
-        if (!f) { rep.imagesMissing++; return; }
+        const f = byName.get(imgName(h)) ?? byName.get(h);
+        if (!f) { rep.imagesMissing++; (rep as SyncReport & { sample?: string }).sample ??= h; return; }
         await db.put("images", h, await downloadFile(tk, f.id));
         rep.imagesDownloaded++;
       });
@@ -241,7 +243,8 @@ export function pull(): Promise<AppData | undefined> {
       set({ remote: await inspect(tk, files) });
       await refreshLocal();
       rep.ok = true;
-      rep.message = `Restored ${rep.games} games${rep.imagesDownloaded ? ` and ${rep.imagesDownloaded} images` : ""}.${rep.imagesMissing ? ` ${rep.imagesMissing} images were missing on Drive.` : ""}`;
+      const sample = (rep as SyncReport & { sample?: string }).sample;
+      rep.message = `Restored ${rep.games} games${rep.imagesDownloaded ? ` and ${rep.imagesDownloaded} images` : ""}.${rep.imagesMissing ? ` ${rep.imagesMissing} images not found in the folder (looked for "${sample}"; ${files.length} files seen).` : ""}`;
       await log(rep, t0);
       return restored;
     } catch (e) {
@@ -297,12 +300,19 @@ export async function disconnect(): Promise<void> {
   meta.remoteModified = undefined;
   if (timer) { clearInterval(timer); timer = undefined; }
   set({ remote: undefined, error: undefined, needsAuth: false });
+  meta.uploaded = undefined;
   await persist();
 }
 
 export async function setIntervalMin(min: number) {
   if (!meta) return;
   meta.intervalMin = min;
+  await persist();
+}
+
+export async function clearHistory() {
+  if (!meta) return;
+  meta.history = [];
   await persist();
 }
 

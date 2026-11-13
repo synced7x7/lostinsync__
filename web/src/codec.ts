@@ -7,6 +7,12 @@ import * as db from "./db";
 export const REF = "img:";
 const isData = (v: unknown): v is string => typeof v === "string" && v.startsWith("data:image/");
 const isRef = (v: unknown): v is string => typeof v === "string" && v.startsWith(REF);
+const DESKTOP = /asset\.localhost\/.*images(?:%2F|%5C|\/|\\)([^/\\?#]+)$/i;
+const desktopName = (v: unknown): string | undefined => {
+  if (typeof v !== "string") return undefined;
+  const m = DESKTOP.exec(v);
+  return m ? decodeURIComponent(m[1]) : undefined;
+};
 
 const hashOf = new Map<string, string>(); // data URI -> hash (avoids re-hashing on every save)
 const remember = (uri: string, hash: string) => {
@@ -54,7 +60,7 @@ export async function externalizeGames(games: Game[]): Promise<Game[]> {
   for (const g of games) {
     let s = slimCache.get(g);
     if (!s) {
-      const one = async (v?: string) => (isData(v) ? store(v) : v);
+      const one = async (v?: string) => (isData(v) ? store(v) : desktopName(v) ? REF + desktopName(v) : v);
       const [cover, backgroundCover, screenshots] = await Promise.all([
         one(g.cover), one(g.backgroundCover), Promise.all((g.screenshots ?? []).map(one)),
       ]);
@@ -89,7 +95,7 @@ export async function inflateGames(games: Game[]): Promise<Game[]> {
       remember(uri, h);
     }
   }));
-  const fix = (v?: string) => (isRef(v) ? uris.get(v.slice(REF.length)) : v);
+  const fix = (v?: string) => (isRef(v) ? uris.get(v.slice(REF.length)) ?? v : v);
   return games.map((g) => {
     const has = [g.cover, g.backgroundCover, ...(g.screenshots ?? [])].some(isRef);
     if (!has) return g;

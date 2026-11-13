@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { AlertTriangle, Check, Cloud, Info } from "lucide-react";
 import type { AppData } from "../../src/domain/game";
 import { driveConfigured } from "./drive";
-import { check, connect, disconnect, pull, push, refreshLocal, setIntervalMin, useSyncState, type SyncReport } from "./sync";
+import { check, clearHistory, connect, disconnect, pull, push, refreshLocal, setIntervalMin, useSyncState, type SyncReport } from "./sync";
 
 type Props = { data: AppData; update: (data: AppData) => void };
 type Confirm = "restore" | "overwrite" | "disconnect" | null;
@@ -163,7 +163,10 @@ export function CloudSection({ update }: Props) {
 
           {s.history.length > 0 && (
             <div className="cloud-history">
-              <h3>Sync reports</h3>
+              <h3 style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                Sync reports
+                <button className="button soft" disabled={busy} onClick={() => void clearHistory()}>Clear reports</button>
+              </h3>
               {s.history.map((r) => <ReportRow key={r.id} r={r} />)}
             </div>
           )}
