@@ -317,18 +317,6 @@ export async function igdbBundleContents(id: number, c: IgdbCreds): Promise<Igdb
 /** Browser "Save as": uses the native picker where available (Chrome/Edge), otherwise a normal download. */
 export async function saveTextFile(defaultName: string, contents: string, filterName: string, ext: string): Promise<string | null> {
   const mime = ext === "json" ? "application/json" : ext === "csv" ? "text/csv" : "text/plain";
-  const picker = (window as J).showSaveFilePicker as undefined | ((o: J) => Promise<J>);
-  if (picker) {
-    try {
-      const handle = await picker({ suggestedName: defaultName, types: [{ description: filterName, accept: { [mime]: [`.${ext}`] } }] });
-      const w = await handle.createWritable();
-      await w.write(contents);
-      await w.close();
-      return handle.name as string;
-    } catch (e) {
-      if ((e as Error)?.name === "AbortError") return null;
-    }
-  }
   const url = URL.createObjectURL(new Blob([contents], { type: mime }));
   const a = document.createElement("a");
   a.href = url; a.download = defaultName;

@@ -4,7 +4,7 @@ import { createRoot } from "react-dom/client";
 import { init, needsLogin } from "./sync";
 import { LoginGate } from "./login-gate";
 
-const startApp = () => import("../../src/main");
+const startApp = () => import("../../../src/main");
 
 async function boot() {
   await init();
