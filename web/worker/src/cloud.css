@@ -1,0 +1,27 @@
+.cloud .cloud-compare { display: grid; grid-template-columns: 1.1fr 1fr 1.4fr; gap: 8px 16px; margin: 16px 0 6px; padding: 14px 16px; border-radius: 12px; background: rgba(255, 255, 255, .04); font-size: 12px }
+.cloud .cloud-compare b { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted) }
+.cloud .cloud-compare span:nth-child(3n + 1) { color: var(--muted) }
+.cloud .cloud-progress { color: #c9c0ff }
+.cloud .cloud-history { margin-top: 18px }
+.cloud .cloud-history h3 { margin: 0 0 8px; font-size: 13px }
+.cloud .cloud-report { margin-bottom: 6px; padding: 8px 12px; border-radius: 10px; background: rgba(255, 255, 255, .04); font-size: 12px }
+.cloud .cloud-report summary { display: flex; align-items: center; gap: 8px; cursor: pointer }
+.cloud .cloud-report summary span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.cloud .cloud-report summary small { color: var(--muted) }
+.cloud .cloud-report.ok summary svg { color: #9be8b0 }
+.cloud .cloud-report.bad summary svg { color: #ffafc8 }
+.cloud .cloud-report ul { margin: 8px 0 0; padding-left: 18px; color: var(--muted); line-height: 1.6 }
+@media (max-width: 750px) { .cloud .cloud-compare { grid-template-columns: 1fr 1fr 1fr; font-size: 11px } }
+
+.login-gate { min-height: 100vh; display: grid; place-items: center; padding: 24px; background: radial-gradient(1200px 600px at 20% 10%, rgba(99,102,241,.25), transparent), radial-gradient(900px 500px at 85% 90%, rgba(20,184,166,.2), transparent), #0b0d14; color: #e8eaf2; font-family: inherit; }
+.login-card { width: min(420px, 100%); display: grid; gap: 14px; padding: 32px; border-radius: 20px; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12); backdrop-filter: blur(18px); text-align: center; }
+.login-card h1 { margin: 0; font-size: 1.6rem; }
+.login-card p { margin: 0; opacity: .8; line-height: 1.5; }
+.login-card small { opacity: .6; line-height: 1.4; }
+.login-google, .login-skip { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 11px 16px; border-radius: 12px; font: inherit; cursor: pointer; }
+.login-google { border: 0; background: #6366f1; color: #fff; font-weight: 600; }
+.login-skip { border: 1px solid rgba(255,255,255,.18); background: transparent; color: inherit; }
+.login-google:disabled, .login-skip:disabled { opacity: .55; cursor: default; }
+.login-error { display: flex; gap: 6px; align-items: center; justify-content: center; font-size: .85rem; color: #fca5a5; }
+.login-card .spin { animation: login-spin 1s linear infinite; }
+@keyframes login-spin { to { transform: rotate(360deg); } }
