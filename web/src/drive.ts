@@ -2,7 +2,7 @@
 // Everything is stored in the hidden, app-only "appDataFolder" of the user's own Drive.
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
 export const driveConfigured = !!CLIENT_ID;
-const SCOPE = "https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/userinfo.email";
+const SCOPE = "https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email";
 const FILES = "https://www.googleapis.com/drive/v3/files";
 const UPLOAD = "https://www.googleapis.com/upload/drive/v3/files";
 
@@ -47,7 +47,7 @@ function loadGis(): Promise<any> {
 }
 export const preloadGoogle = () => { if (driveConfigured) void loadGis().catch(() => undefined); };
 
-const TK = "lis.gtoken3";
+const TK = "lis.gtoken4";
 let token: { value: string; exp: number } | undefined = (() => {
   try { const t = JSON.parse(localStorage.getItem(TK) ?? "null"); return t && t.exp - 60_000 > Date.now() ? t : undefined; } catch { return undefined; }
 })();
@@ -65,7 +65,6 @@ export function getToken(interactive: boolean): Promise<string> {
         scope: SCOPE,
         callback: (r: any) => {
           if (r.error || !r.access_token) return reject(new DriveError("auth", r.error_description || r.error || "Sign-in failed."));
-          if (!String(r.scope ?? "").split(" ").includes("https://www.googleapis.com/auth/drive")) return reject(new DriveError("auth", `Full Drive permission was not granted. Google returned: ${r.scope ?? "(none)"}`));
           token = { value: r.access_token, exp: Date.now() + (Number(r.expires_in) || 3600) * 1000 };
           saveTok();
           resolve(r.access_token);
