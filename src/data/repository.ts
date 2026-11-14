@@ -2,9 +2,16 @@ import type { AppData, Game } from "../domain/game";
 import { defaultData } from "../domain/game";
 const KEY = "lost-in-sync.data";
 import { convertFileSrc } from "@tauri-apps/api/core";
+const upgradeIgdbCover = (u?: string) =>
+  u && u.includes("images.igdb.com") ? u.replace("/t_cover_big/", "/t_cover_big_2x/") : u;
+
 const normalizeStatuses = (data: AppData): AppData => ({
   ...data,
-  games: data.games.map((game) => (game.status as string) === "Retired" ? { ...game, status: "Completed" } : game),
+  games: data.games.map((game) => ({
+    ...game,
+    status: (game.status as string) === "Retired" ? "Completed" : game.status,
+    cover: upgradeIgdbCover(game.cover),
+  })),
   settings: { ...data.settings, libraryFilter: (data.settings.libraryFilter as string) === "Played" ? "All" : data.settings.libraryFilter },
 });
 export interface AppRepository { load(): Promise<AppData>; save(data: AppData): Promise<void>; }

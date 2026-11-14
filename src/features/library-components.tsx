@@ -81,7 +81,8 @@ export function AddGame({ onClose, onAdd, igdb, initial }: { onClose: () => void
     file: File,
     setter: (value: string) => void,
     maxW = 1920,
-    maxH = 1080
+    maxH = 1080,
+    quality = 0.85
   ) => {
     const reader = new FileReader();
     reader.onload = () => {
@@ -91,8 +92,13 @@ export function AddGame({ onClose, onAdd, igdb, initial }: { onClose: () => void
         const canvas = document.createElement("canvas");
         canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
         canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
-        canvas.getContext("2d")?.drawImage(image, 0, 0, canvas.width, canvas.height);
-        setter(canvas.toDataURL("image/jpeg", 0.82));
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = "high";
+          ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+        }
+        setter(canvas.toDataURL("image/jpeg", quality));
       };
       image.onerror = () => setError("The selected image could not be decoded.");
       image.src = String(reader.result);
@@ -168,8 +174,8 @@ export function AddGame({ onClose, onAdd, igdb, initial }: { onClose: () => void
             <div className="add-cover" style={cover ? { backgroundImage: `url(${cover})` } : undefined}>
               {!cover && <Gamepad2 size={34} />}
             </div>
-            <label className="button soft upload-btn">Small cover
-              <input type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) readImage(f, setCover, 192, 256); }}/>
+            <label className="button soft upload-btn">Cover image
+              <input type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) readImage(f, setCover, 480, 640, 0.88); }}/>
             </label>
             <div className="add-bg" style={backgroundCover ? { backgroundImage: `url(${backgroundCover})` } : undefined}>
               {!backgroundCover && <span>Large cover</span>}

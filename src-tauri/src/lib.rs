@@ -271,7 +271,7 @@ fn discover_games(rows: &Value) -> Vec<Value> {
 
 fn discover_item(g: &Value) -> Value {
     json!({
-        "id": g["id"], "name": g["name"], "cover": g["cover"]["image_id"].as_str().map(|i| img(i, "cover_big")),
+        "id": g["id"], "name": g["name"], "cover": g["cover"]["image_id"].as_str().map(|i| img(i, "cover_big_2x")),
         "releaseTs": g["first_release_date"], "rating": g["total_rating"], "ratingCount": g["total_rating_count"],
         "hypes": g["hypes"], "follows": g["follows"], "summary": g["summary"]
     })
@@ -537,7 +537,7 @@ async fn igdb_details(
         time_avg: t["normally"].as_i64(),
         time_main: t["hastily"].as_i64(),
         time_full: t["completely"].as_i64(),
-        cover: g["cover"]["image_id"].as_str().map(|i| img(i, "cover_big")),
+        cover: g["cover"]["image_id"].as_str().map(|i| img(i, "cover_big_2x")),
         background: background_id.map(|i| img(i, "1080p")),
         videos,
         screenshots,
@@ -556,7 +556,7 @@ async fn igdb_details(
                 |game|
                     json!({
             "id": game["id"], "name": game["name"],
-            "cover": game["cover"]["image_id"].as_str().map(|i| img(i, "cover_big"))
+            "cover": game["cover"]["image_id"].as_str().map(|i| img(i, "cover_big_2x"))
         })
             )
             .collect(),
@@ -616,7 +616,7 @@ async fn igdb_images(
                 "category": category,
                 "imageId": image_id,
                 "imageType": type_name(&image["image_type"]),
-                "url": img(image_id, if category == "cover" { "cover_big" } else { "1080p" }),
+                "url": img(image_id, if category == "cover" { "cover_big_2x" } else { "1080p" }),
                 "width": image["width"],
                 "height": image["height"],
             })
@@ -934,7 +934,7 @@ async fn igdb_series(
                 "id": r["id"],
                 "name": r["name"],
                 "releaseTs": r["first_release_date"],
-                "cover": r["cover"]["image_id"].as_str().map(|i| img(i, "cover_big")),
+                "cover": r["cover"]["image_id"].as_str().map(|i| img(i, "cover_big_2x")),
             })
             );
         }
@@ -1061,7 +1061,7 @@ async fn igdb_import_batch(
                         "category": category,
                         "imageId": image_id,
                         "imageType": image_type_name(&v["image_type"], &image_types),
-                         "url": img(image_id, if category == "cover" { "cover_big" } else { "1080p" }),
+                         "url": img(image_id, if category == "cover" { "cover_big_2x" } else { "1080p" }),
                         "width": v["width"],
                         "height": v["height"],
                     })
@@ -1102,7 +1102,7 @@ async fn igdb_import_batch(
             time_avg: t["normally"].as_i64(),
             time_main: t["hastily"].as_i64(),
             time_full: t["completely"].as_i64(),
-            cover: g["cover"]["image_id"].as_str().map(|i| img(i, "cover_big")),
+            cover: g["cover"]["image_id"].as_str().map(|i| img(i, "cover_big_2x")),
             background: background_id.map(|i| img(i, "1080p")),
             videos,
             screenshots: vec![],
