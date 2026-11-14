@@ -135,7 +135,7 @@ function Sidebar({
           <div className="offline">
             <span title="Local-first workspace"></span>
           </div>
-          {isOpen && <small>v0.1.0 · Genesis Crypt</small>}
+          {isOpen && <small>v0.1.1 · Genesis Crypt</small>}
         </div>
       </aside>
       {!isOpen && (
