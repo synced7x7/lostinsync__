@@ -39,6 +39,7 @@ This document outlines completed milestones and future enhancements for **Lost i
 - [x] Branching lane assignment from `startedAt`/`finishedAt` dates.
 - [x] Zoom, pan, range presets, and virtualized Fit All overview.
 - [x] LOD node culling below 40% zoom.
+- [x] Ascending/descending sort in Fit All (oldest/newest first; session-only, timeline stays chronological).
 
 ### Web Application
 - [x] Web build reusing shared `src/` via three Vite module swaps.
@@ -53,9 +54,9 @@ This document outlines completed milestones and future enhancements for **Lost i
 The items below are **planned, not implemented**. See `agent/future_implementation_guide.md` for per-feature file paths, dependencies, and suggested order.
 
 ### Phase 1 — Isolated improvements
-- [ ] Fix Add Game search interface always appearing.
-- [ ] Ascending/descending sort control in Journey Fit All mode.
-- [ ] Inline Played On / Completed status updates without the entry screen.
+- [x] IGDB suggestion dropdown in Add Game closes on outside click / Escape (feature 1, completed).
+- [x] Ascending/descending sort control in Journey Fit All mode (feature 2, completed).
+- [ ] Inline Played On / Completed status updates without the entry screen (original feature-1 idea; re-scoped to the dropdown fix above, still not implemented).
 - [ ] Clean up save debug logging and stale error toasts.
 
 ### Phase 2 — Data-model extensions (JSON only, no SQL migration)

@@ -123,6 +123,7 @@ Meaningful paths only (no build artifacts, no `node_modules`, no individual badg
 | `src/domain/game.ts` | `STATUSES`, `Game`, `Profile`, `AppSettings`, `AppData`, `defaultData`, helpers (`formatPlaytime`, `formatHours`, `validateGame`, `formatCount`) | Nearly every module | Adding/changing data fields |
 | `src/domain/gametype.ts` | IGDB game-type constants, `matchesGameType`, `isBundle`, `slimBundle`, `sameBundle` | Library filters, Discover, bundle UI | Game-type/bundle logic |
 | `src/domain/library-session.ts` | `LibraryPrefs`, `libraryDefaults`, `prefsToSettings`, `SORT_OPTIONS`, `librarySession` | `src/main.tsx` LibraryView | Library sort/filter changes |
+| `src/domain/journey-sort.ts` | `sortJourneyRows` — chronological comparator with `id` tie-break, reversible for Fit All | `src/features/journey.tsx` | Journey Fit All sort changes |
 | `src/domain/stats.ts` | Row index (`index`), `yearsOf`, `CATEGORIES`, 13 section builders, ECharts option builders, `build` | `src/features/stats.tsx` | Any analytics change |
 | `src/domain/trophies.ts` | Rarity tiers, `TROPHIES`, `DEV_FAVORITES`, `GOTY`, `evaluate`, `topBadge`, `RARITY_COLOR` | Trophy UI, sidebar badge, stats milestones | Badge/rarity work |
 | `src/domain/game.test.ts` | Only existing test file (2 Vitest tests) | `pnpm test` | Adding pure-function tests |
@@ -198,7 +199,7 @@ Feature components are self-contained with co-located CSS (see directory table).
 - Single persisted document `data: AppData` + `setData` (`src/main.tsx:80`).
 - `update(next)` (`src/main.tsx:192-197`) sets state, stores `pendingSave`, resets a **500 ms** timer; `flushSave` (`:164-190`) calls `repo.save`. Flushes on `pagehide`, `visibilitychange` (hidden), and unmount.
 - CRUD helpers: `addGame` (`:209-213`), `saveGame` (`:216-223`), `deleteGame` (`:224-231`).
-- Non-persisted state: `selectedId`, `libraryFocusId`, `error`, `discoverGame`, `librarySession` (module-level), Journey `session` (module-level), `gridSession`.
+- Non-persisted state: `selectedId`, `libraryFocusId`, `error`, `discoverGame`, `librarySession` (module-level), Journey `session` (module-level, now includes `fitDirection`), `gridSession`.
 - Web cloud sync subscribes to repository writes via `web/src/events.ts` pub/sub (`emitDirty`).
 
 ### Hooks and utilities
@@ -220,7 +221,7 @@ Utilities: `compareGames` (`src/main.tsx:300-314`), `formatSpan` (`:316-333`), `
 - **Library**: status select, game-type select, favorites toggle, title search, 10-key sort + direction button, PS4 shelf with hover/arrow/wheel navigation, catalog grid with infinite "load more".
 - **Add/Edit**: `AddGame` portal modal (`src/features/library-components.tsx:11-259`); optional IGDB lookup when `hasTauri && clientId && clientSecret`, 350 ms debounce, `pick()` fills form; edit is the same modal with `initial` and `saveGame`.
 - **Details**: read-only journey panel with "Edit" buttons that open the modal; inline "Favorite" mutation already demonstrates direct `saveGame`.
-- **Journey**: lane allocation, LOD (cull below 40% zoom), zoom 10–240%, range presets, Fit All virtualized list.
+- **Journey**: lane allocation, LOD (cull below 40% zoom), zoom 10–240%, range presets, Fit All virtualized list with an ascending (oldest first) / descending (newest first) toggle that reorders only the overview rows.
 - **Discover**: 10 feeds loaded with 3 concurrent workers, 20 items each; "View all" pages of 30 up to 100; hover prefetch.
 - **Stats**: category tabs, year filter, tile grid, tabbed chart cards.
 - **Settings/Data**: export JSON (strips IGDB credentials), export CSV, import JSON (destructive replace), Backloggd import with progress/report, IGDB sync with report, library defaults, wipe library.
@@ -463,7 +464,7 @@ cd web/worker && npx wrangler deploy                 # IGDB proxy
 - **Image externalization:** `PFX = "img:"` (`src/data/repository.ts:41`); `externalize()` writes via `store_image`; `fileGame()`/`convertFileSrc()` produce `asset://` URLs; `DefaultHasher` filenames are non-cryptographic and have no orphan cleanup.
 - **Sync allow-list:** `FIELDS` (`src/data/sync.ts:28-47`) is the authoritative list of IGDB-owned fields; user-owned fields (status, rating, notes, priority-like fields) must never be added. `buildPatch` avoids blanking empty IGDB fields and preserves user-uploaded data: covers.
 - **Library/Journey prefs:** `librarySession` (`domain/library-session.ts:36`) and Journey `session` (`features/journey.tsx:135`) are memory-only; `queuePrefs` at `journey.tsx:409-414` explicitly says prefs are "never saved to the database". `AppSettings.journeyRange/zoom/fit` and `defaultView`, `libraryGenre` are declared but unused.
-- **Journey ordering:** `base.sorted` uses `[...items].sort((a,b) => a.start - b.start)` (`journey.tsx:470-471`); both Fit All and timeline share this array, so reversing it affects lane colors and branch layout.
+- **Journey ordering:** `base.sorted` uses `sortJourneyRows(items, "asc")` (`src/domain/journey-sort.ts`, start + `id` tie-break); Fit All gets a separate `fitRows` array reversed by direction while timeline geometry, lane colours and palette stay chronological (`journey.tsx`).
 - **Journey LOD:** culling below `LOD_Z = 0.4`; Fit All uses a positional virtual window and resets `scrollTop` when `base` changes (`journey.tsx:298`).
 - **Stats:** `CATEGORIES` has 12 visible entries; the `"length"` category is implemented (`length()` at `:401-412`, registered in `BUILD` at `:505`) but commented out of `CATEGORIES` at `:21`. `totalSeconds` is **not** read by `stats.ts`; `len` comes from IGDB `timeAvgSeconds`.
 - **Web `hasTauri = true`** (`web/src/igdb.web.ts:9`) deliberately enables desktop-looking IGDB UI in the browser; capability checks like `hasTauri && creds` gate import/sync in settings.

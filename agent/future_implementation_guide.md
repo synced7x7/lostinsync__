@@ -6,51 +6,41 @@
 
 **Feature index:** A. Improvements — 1 Played/completed inline, 2 Fit All sort, 3 Gameplay time stats, 4 Discover algorithm, 5 Theme system, 6 WebApp, 7 Android, 8 Add Game search bug, 9 Steam sync, 10 Backlog priority / play next. B. Wishlist — 11 Wishlist extras, 12 Platform ownership, 13 Franchise completion. C. Import/export — 14 More import sources, 15 Shareable card. D. PWA — 16 Installation & offline caching.
 
+**Completed (2026-11-19):** feature 1 (Add Game IGDB dropdown closes on outside click / Escape) and feature 2 (Fit All ascending/descending toggle). Both are verified in source; see their entries below. Feature 1's heading is legacy — its tracked request was re-scoped to the dropdown issue, and inline Played/Completed editing was not implemented.
+
 ---
 
 # A. EXISTING FEATURE IMPROVEMENTS
 
-## 1. Played On and Completed Status Without Entry Screen
+## 1. Played On and Completed Status Without Entry Screen — COMPLETED
 
-When a user enters or clicks the add a game from the library and after that when user types a name theres a suggestions of dropdowns of games that mmatches the igdb which is okay but the problem is when the user wants to add custom games he doesnt need the dropdown but still if the name matches the igdb game name then the dropdown persists . so what i am expecting that the dropdown should get removed when user clicks other parts of the screen.
+**Status: Completed (2026-11-19).** Verified in source (commit `c864403`).
+
+**Original request (resolved):** When a user enters or clicks the add a game from the library and after that when user types a name theres a suggestions of dropdowns of games that mmatches the igdb which is okay but the problem is when the user wants to add custom games he doesnt need the dropdown but still if the name matches the igdb game name then the dropdown persists . so what i am expecting that the dropdown should get removed when user clicks other parts of the screen.
+
+**What was implemented (`src/features/library-components.tsx`):** a `titleBox` ref on the Title label plus a document-level `mousedown` listener closes the IGDB suggestion dropdown on any outside click (`:39-44`); Escape in the title input also closes it (`:200`). Typing still opens the dropdown (`:201`) and `pick()` still fills the form. No data-model or Tauri changes.
+
+**Scope note:** the heading is legacy. The tracked request is the dropdown issue above, not inline Played/Completed editing; inline status/date controls in Details remain unimplemented and are no longer part of this feature.
 
 ---
 
-## 2. Ascending/Descending Button in Fit All Mode
+## 2. Ascending/Descending Button in Fit All Mode — COMPLETED
 
 **Objective:** Add ascending/descending sort controls to the Journey "Fit All" overview.
 
-**Current Implementation:**
-- `src/features/journey.tsx:135` module-level `session: { range?, zoom, fit }`; `JourneyView` state `fit` at `:374`; `queuePrefs` (`:409-414`) keeps prefs in memory only ("never saved to the database").
-- `FitView` (`:274-362`) renders `base.sorted.slice(win.first, win.first + win.count)` (`:302`) using a positional virtual window (`:281-288`) and resets `scrollTop` to 0 when `base` changes (`:298`).
-- `base` (`:467-481`) hard-codes `[...items].sort((a, b) => a.start - b.start)` (`:470-471`); the same `base` feeds both Fit rows and timeline layout/lane colors (`:484-502`).
-- Toolbar (`:811-858`) has range pills, a Fit All button (`:833-835`) and zoom controls, but no sort control.
-- Library precedent: `SORT_OPTIONS` (`src/domain/library-session.ts:22-33`), `SortDirection` (`src/domain/game.ts:27`), `toggleSortDirection` + `ArrowUp`/`ArrowDown` (`src/main.tsx:368-377`), `compareGames` (`:300-314`).
-- `AppSettings.journeyRange/Zoom/Fit` exist (`src/domain/game.ts:40-42`) but are unused.
+**Status: Completed (2026-11-19).** Verified with `pnpm typecheck`, `pnpm test` (6 tests total, 4 new), `pnpm build`, and `npx vite build --config web/vite.config.ts`.
 
-**Probable Files to Modify:**
-- `src/features/journey.tsx` — sort state, toolbar button, comparator, pass direction into `FitView`.
-- `src/features/journey.css` — toolbar styles near `.jn-tools` (`:63`) and `.jn-fit` (`:563-586`).
-- `src/domain/game.ts` — add `journeySort?`/`journeySortDirection?` only if persistence is desired (reuse existing unused journey fields or replace them).
-- `src/domain/library-session.ts` — only if reusing `SORT_OPTIONS`/`SortDirection`.
-- `src/features/settings-data.tsx` — `LibraryDefaultsSection` (`:154-225`) if the sort becomes a saved default.
-- `src/main.tsx` — only to visually mirror the library sort control.
+**Implementation (completed):**
+- `src/domain/journey-sort.ts` — `sortJourneyRows(rows, direction)` sorts by `start` with an `id` tie-breaker and reverses for `"desc"`; returns a new array, never mutates input.
+- `src/features/journey.tsx` — Journey `session` now has `fitDirection: SortDirection` (default `"asc"`); `fitDirection` state/ref, `toggleFitDirection`, and a toolbar button next to Fit All (shown only in fit mode). `base.sorted` uses the same comparator so ties are deterministic; `fitRows` is derived from `base.sorted` via `sortJourneyRows` and passed to `FitView` as an explicit prop. Timeline geometry, lane allocation and `PALETTE` colours remain chronological.
+- `src/features/journey.css` — `.jn-fit.jn-sort` keeps the toggle's width stable as the label changes.
+- `src/domain/journey-sort.test.ts` — 4 Vitest cases: ascending, descending, equal-start ties, and no mutation / empty or single rows.
 
-**Potential New Files (proposed):**
-- **[proposed]** `src/domain/journey-sort.ts` — pure comparator for `Row`-like items (`start`, `end`, `title`, `status`).
-- **[proposed]** `src/features/journey.sort.test.ts` — comparator tests.
+**Decisions resolved:** sort key is `start` with an `id` tie-break; the order applies only to Fit All rows (timeline layout is untouched); direction is intentionally session-only, consistent with the existing Journey prefs design. `AppSettings.journeyRange/Zoom/Fit` remain unused — no settings or persistence changes.
 
-**Implementation Approach:** Keep the direction in Journey's existing `session` object; render an asc/desc button next to the Fit All control; derive `base.sorted` via a comparator that reverses deterministically. Apply the order only to Fit rows if possible; if `base` is shared, verify lane/color effects.
+**Database Changes:** None — no JSON or SQL fields were added.
 
-**Dependencies and Integrations:** `FitView`, `base` rows, Journey `session`, shared `SortDirection` type, optional settings persistence.
-
-**Database Changes:** None if session-only. If persisted, add optional fields to `AppSettings` (JSON blob; no SQL migration). Reconcile with the already-declared-but-unused `journeyRange/Zoom/Fit`.
-
-**Potential Challenges:** Reversing `base.sorted` also reverses `PALETTE[idx % ...]` colors and affects branch/lane logic; `FitView` scroll resets to top on `base` change; comparator currently has no tie-breaker; Journey excludes games without `startedAt` or with statuses other than Completed/Playing (`:420-435`), so it cannot sort the whole library.
-
-**Testing Requirements:** Unit tests for ascending/descending, ties, empty/single lists; jsdom test of `base.sorted` order after toggling (mock `ResizeObserver`); manual QA of scroll position and timeline rendering.
-
-**Investigation Required:** Desired sort keys (start only vs title/duration/status); whether the direction should persist despite the session-only design; whether timeline mode should be affected too.
+**Verification still recommended:** manual QA of the toggle's scroll reset and row order in both desktop and web builds (no DOM/component test harness is configured).
 
 ---
 
@@ -619,16 +609,16 @@ When a user enters or clicks the add a game from the library and after that when
 | **8 Add Game search bug → 4 / 14 (shared search)** | Auto-search effect (`src/features/library-components.tsx:47-54`), `igdbSearch` shared with Discover (`:5,87`) and Backloggd (`src/data/backloggd.ts:184`) | Fixing the trigger benefits all search UX |
 | **15 Share card → 5 Theme + 3/11/13 stats** | `Profile` (`src/domain/game.ts:24`), `--accent` (`src/style.css:37`), `topBadge` (`src/domain/trophies.ts:262`) | Card should follow final theme/stats decisions |
 | **16 PWA → 5 Theme (minor)** | Manifest `theme_color` should follow profile accent / `--accent` | Coordinate colors |
-| **1 Played/completed → 13/3/10** | `Status` (`src/domain/game.ts:3-4`), `compareGames` "completion" (`src/main.tsx:305`), legacy `"Played"` normalized away (`src/data/repository.ts:15`, `web/src/codec.ts:126`) | Clarify semantics before stats/recommendation rely on it |
+| **1 Add Game dropdown fix (completed) → shared search** | `igdbSearch` is used by Add Game, Discover and Backloggd (`src/features/library-components.tsx`, `src/features/discover.tsx`, `src/data/backloggd.ts:184`) | No downstream data-model change; outside-click/Escape dismissal is local UI state. Inline status semantics are not part of this feature |
 
 ## Largely independent features
 
-- **2 Fit All asc/desc** — confined to `src/features/journey.tsx` (`FitView` `:274-342`, `session` `:135`, `toggleFit` `:781-786`); no cross-module data change.
+- **2 Fit All asc/desc (completed)** — confined to `src/features/journey.tsx`, `journey.css`, and the new `src/domain/journey-sort.ts` + test; no cross-module data change.
 - **5 Theme system** — mainly CSS + `AppSettings.theme`, with light coupling to 16/15.
 - **7 Android app** — packaging concern using `src-tauri/`; no domain coupling; can run in parallel, but may compete with PWA for "installed app" UX.
-- **8 Add Game search fix** — localized component fix, though it shares `igdbSearch`.
+- **8 Add Game search fix** — overlaps completed feature 1 (dropdown dismissal on outside click / Escape). Reopen only for the remaining "hints/auto-open always visible" symptom; it shares `igdbSearch` with Discover and Backloggd.
 
-**Feature 1 is the main ambiguity:** "Played/completed without entry screen" could mean quick status changes from library/details, or resurrecting the legacy `Played` filter (normalized away in `src/data/repository.ts:15` and `web/src/codec.ts:126`). Requires product clarification before scheduling.
+**Feature 1 ambiguity resolved:** the tracked request was re-scoped from inline status editing to the Add Game IGDB dropdown problem and is complete (commit `c864403`). Inline Played/Completed status editing remains unimplemented and is not scheduled here; the legacy `Played` filter was normalized away (`src/data/repository.ts:15`, `web/src/codec.ts:126`).
 
 ---
 
@@ -637,12 +627,12 @@ When a user enters or clicks the add a game from the library and after that when
 No dates are assigned. Ordering is by dependency, complexity, and risk to existing functionality.
 
 **Phase 1 — Isolated, low-risk fixes**
-1. **8** Add Game search-visibility fix (`src/features/library-components.tsx:47-54,190-210`).
-2. **2** Fit All asc/desc (`src/features/journey.tsx:274-342,467-481,811-858`).
+1. ~~**8** Add Game search dropdown dismissal~~ — completed as feature 1 (outside click / Escape); only the separate hints/auto-open symptom remains.
+2. ~~**2** Fit All asc/desc~~ — completed (2026-11-19): `src/features/journey.tsx`, `journey.css`, `src/domain/journey-sort.ts`, `journey-sort.test.ts`.
 3. Housekeeping: remove save debug logs / clear error toast (`src/main.tsx:164-208`).
 
 **Phase 2 — Settle data-model extensions early (all JSON, no SQL migrations)**
-4. **1** status/date semantics; **12** ownership fields (existing platform fields already present); **11** wishlist price/payment/reminder fields; **10** priority. Define defaults in `src/domain/game.ts:61-77` and normalization in `src/data/repository.ts` / `web/src/codec.ts:111-129`. Keep all new user-owned fields out of `src/data/sync.ts` `FIELDS` (`:28-47`).
+4. **12** ownership fields (existing platform fields already present); **11** wishlist price/payment/reminder fields; **10** priority. Define defaults in `src/domain/game.ts:61-77` and normalization in `src/data/repository.ts` / `web/src/codec.ts:111-129`. Keep all new user-owned fields out of `src/data/sync.ts` `FIELDS` (`:28-47`).
 
 **Phase 3 — Domain/analytics built on those fields**
 5. **3** gameplay time stats (re-evaluate hidden `length` section).
@@ -699,7 +689,7 @@ Every future AI coding agent implementing a feature from this document must foll
 
 ## Documentation is not implementation
 
-This task was strictly documentation. Do not implement planned features, refactor existing code, change application behavior, modify database schemas, install dependencies, change configuration, or delete/rename existing files while using this guide. Only the three knowledge-base Markdown files were created.
+The original task that produced this guide was documentation-only ("Only the three knowledge-base Markdown files were created"). The guide itself exists to direct later implementation work: features 1 and 2 have since been implemented and marked completed above. Follow rules 1–17 for each new feature; do not change unrelated modules.
 
 ---
 

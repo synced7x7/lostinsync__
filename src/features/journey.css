@@ -582,6 +582,8 @@ body:has(.sidebar.closed) .jn-screen { --jn-left: 92px }
     box-shadow: inset 0 0 0 1px rgba(155, 140, 255, .65)
 }
 
+.jn-fit.jn-sort { min-width: 120px; justify-content: center }
+
 /* ── viewport layer ── */
 .jn-spacer { position: relative }
 

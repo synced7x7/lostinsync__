@@ -3,9 +3,10 @@ import {
   type CSSProperties,
 } from "react";
 import { createPortal } from "react-dom";
-import { ArrowRight, CalendarDays, ChevronDown, Clock3, Maximize2, Minimize2, Minus, Plus, Route, Trophy } from "lucide-react";
-import type { Game } from "../domain/game";
+import { ArrowDown, ArrowRight, ArrowUp, CalendarDays, ChevronDown, Clock3, Maximize2, Minimize2, Minus, Plus, Route, Trophy } from "lucide-react";
+import type { Game, SortDirection } from "../domain/game";
 import { formatPlaytime } from "../domain/game";
+import { sortJourneyRows } from "../domain/journey-sort";
 import "./journey.css";
 
 const DAY = 86_400_000;
@@ -132,7 +133,7 @@ type Base = {
   cs: (t: number) => number; ticks: { t: number; label: string }[]; open: number;
 };
 
-const session: { range?: Range; zoom: number; fit: boolean } = { zoom: 1, fit: false };
+const session: { range?: Range; zoom: number; fit: boolean; fitDirection: SortDirection } = { zoom: 1, fit: false, fitDirection: "desc" };
 
 const latestYear = (games: Game[]): Range => {
   const now = Date.now();
@@ -272,9 +273,9 @@ function HoverLayer({
 
 /* ───────────── fit mode: virtualized rows, grid drawn once ───────────── */
 const FitView = memo(function FitView({
-  base, games, pickId, onPick, onOpen,
+  base, fitRows, games, pickId, onPick, onOpen,
 }: {
-  base: Base; games: Map<string, Game>; pickId?: string;
+  base: Base; fitRows: Row[]; games: Map<string, Game>; pickId?: string;
   onPick: (id?: string) => void; onOpen: (id: string) => void;
 }) {
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -295,17 +296,17 @@ const FitView = memo(function FitView({
     return () => ro.disconnect();
   }, [calc]);
 
-  useLayoutEffect(() => { if (bodyRef.current) bodyRef.current.scrollTop = 0; calc(); }, [base, calc]);
+  useLayoutEffect(() => { if (bodyRef.current) bodyRef.current.scrollTop = 0; calc(); }, [base, fitRows, calc]);
 
   const span = Math.max(base.last - base.min, DAY);
   const pct = (t: number) => clamp(((base.cs(t) - base.min) / span) * 100, 100);
-  const rows = base.sorted.slice(win.first, win.first + win.count);
+  const rows = fitRows.slice(win.first, win.first + win.count);
   const showToday = base.open > 0 && base.now >= base.min && base.now <= base.last;
 
   return (
     <div className="jn-ov" onClick={() => onPick(undefined)}>
       <div className="jn-ov-axis">
-        <span className="jn-ov-count">{base.sorted.length} {base.sorted.length === 1 ? "game" : "games"}</span>
+        <span className="jn-ov-count">{fitRows.length} {fitRows.length === 1 ? "game" : "games"}</span>
         <div className="jn-ov-ticks">
           {base.ticks.map((k) => <span key={k.t} style={{ left: `${pct(k.t)}%` }}>{k.label}</span>)}
         </div>
@@ -318,7 +319,7 @@ const FitView = memo(function FitView({
           </div>
         </div>
         <div className="jn-ov-body" ref={bodyRef} onScroll={calc}>
-          <div className="jn-ov-inner" style={{ height: base.sorted.length * PITCH }}>
+          <div className="jn-ov-inner" style={{ height: fitRows.length * PITCH }}>
             {rows.map((r, k) => {
               const game = games.get(r.id);
               if (!game) return null;
@@ -372,6 +373,7 @@ export function JourneyView({
   const [range, setRange] = useState<Range>(() => session.range ?? latestYear(games));
   const [menu, setMenu] = useState(false);
   const [fit, setFit] = useState(session.fit);
+  const [fitDirection, setFitDirection] = useState<SortDirection>(session.fitDirection);
   const [pickId, setPickId] = useState<string>();
   const [zoomInput, setZoomInput] = useState(() => String(Math.round(clampZoom(session.zoom) * 100)));
   const [lod, setLod] = useState(() => clampZoom(session.zoom) < LOD_Z);
@@ -389,6 +391,7 @@ export function JourneyView({
   const zoomRef = useRef(clampZoom(session.zoom));
   const rangeRef = useRef(range);
   const fitRef = useRef(fit);
+  const fitDirectionRef = useRef(fitDirection);
   const visRef = useRef(vis);
   const dragged = useRef(false);
   const pickRef = useRef(pickId);
@@ -396,6 +399,7 @@ export function JourneyView({
   const gamesRef = useRef(games);
   rangeRef.current = range;
   fitRef.current = fit;
+  fitDirectionRef.current = fitDirection;
   pickRef.current = pickId;
   propsRef.current = { openGame };
   gamesRef.current = games;
@@ -411,6 +415,7 @@ export function JourneyView({
     session.range = rangeRef.current;
     session.zoom = zoomRef.current;
     session.fit = fitRef.current;
+    session.fitDirection = fitDirectionRef.current;
   }, []);
 
   /* ── 8. stable layout: keyed on id, status, start, end only ── */
@@ -467,8 +472,7 @@ export function JourneyView({
   const base = useMemo<Base | null>(() => {
     if (!items.length) return null;
     const now = Date.now();
-    const sorted: Row[] = [...items]
-      .sort((a, b) => a.start - b.start)
+    const sorted: Row[] = sortJourneyRows(items, "asc")
       .map((r, idx) => ({
         ...r,
         color: PALETTE[idx % PALETTE.length],
@@ -479,6 +483,9 @@ export function JourneyView({
     const cs = (t: number) => (win ? Math.min(win.b, Math.max(win.a, t)) : t);
     return { sorted, min, last, now, cs, ticks: makeTicks(min, last, range === "month"), open: sorted.filter((r) => !r.end).length };
   }, [items, win]);
+
+  // Fit All ordering only: timeline geometry/lane colours stay chronological
+  const fitRows = useMemo(() => (base ? sortJourneyRows(base.sorted, fitDirection) : []), [base, fitDirection]);
 
   /* ── timeline layout (geometry is NOT built here, only positions) ── */
   const L = useMemo(() => {
@@ -784,6 +791,12 @@ export function JourneyView({
     fitRef.current = next;
     queuePrefs(true);
   };
+  const toggleFitDirection = () => {
+    const next: SortDirection = fitDirection === "asc" ? "desc" : "asc";
+    setFitDirection(next);
+    fitDirectionRef.current = next;
+    queuePrefs(true);
+  };
 
   /* ── 1. culling: only what overlaps the visible x-range (+ margin) ── */
   const vb = useMemo(
@@ -833,6 +846,17 @@ export function JourneyView({
           <button className={`jn-fit${fit ? " on" : ""}`} onClick={toggleFit} title="See the whole journey in one screen">
             {fit ? <Minimize2 size={14} /> : <Maximize2 size={14} />} {fit ? "Timeline" : "Fit all"}
           </button>
+          {fit && (
+            <button
+              className="jn-fit jn-sort"
+              onClick={toggleFitDirection}
+              title={fitDirection === "asc" ? "Ascending — oldest first" : "Descending — newest first"}
+              aria-label={`Fit All ${fitDirection === "asc" ? "ascending, oldest first" : "descending, newest first"}`}
+            >
+              {fitDirection === "asc" ? <ArrowUp size={14} /> : <ArrowDown size={14} />}
+              {fitDirection === "asc" ? "Oldest first" : "Newest first"}
+            </button>
+          )}
           {!fit && (
             <div className="jn-zoom">
               <button onClick={() => applyZoom(zoomRef.current - 0.1)} aria-label="Zoom out"><Minus size={14} /></button>
@@ -864,7 +888,7 @@ export function JourneyView({
           <p>Games you are playing or have completed, with a start date, will appear here.</p>
         </div>
       ) : fit ? (
-        <FitView base={base} games={gameById} pickId={pickId} onPick={onPick} onOpen={onOpen} />
+        <FitView base={base} fitRows={fitRows} games={gameById} pickId={pickId} onPick={onPick} onOpen={onOpen} />
       ) : (
         /* ───── Timeline: scroll container only supplies the scroll extent ───── */
         <div className="jn-scroll" ref={scrollRef}>
