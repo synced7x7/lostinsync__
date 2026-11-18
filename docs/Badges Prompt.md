@@ -1,3 +1,5 @@
+> **Implementation note (verified 2026-11-19):** This is the original design brief. The implemented rarity system in `src/domain/trophies.ts` uses **six** tiers, not five: `common`, `uncommon`, `rare`, `legendary`, `mythic`, and `lostinsync__` (the top tier, above Mythic). The "lostinsync__" special category, Developer's Favorites, Completionist, and GOTY sets are implemented and evaluated by `evaluate()` / `topBadge()`. Badge PNGs live in `src/images/badges/`, trophy backgrounds in `src/images/trophy-bg/`.
+
 The theme I've been using is Dark Gothic Fantasy × Neon Purple Cyberpunk.
 
 More specifically, it's a blend of:

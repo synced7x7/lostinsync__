@@ -1,6 +1,6 @@
 # PROJECT_CONTEXT.md — Lost in Sync (technical reference)
 
-> Generated from direct source inspection on 2026-11-19. **The code is the source of truth.** Several files in `docs/` are stale and are explicitly flagged below. This document is the permanent technical reference for AI agents; `PROJECT_STATUS.md` tracks changing progress and `future_implementation_guide.md` tracks planned features.
+> Generated from direct source inspection on 2026-11-19. **The code is the source of truth.** The `docs/` folder was refreshed to match this reference on 2026-11-19; the root `README.md` and `web/README.md` are still partially stale. This document is the permanent technical reference for AI agents; `PROJECT_STATUS.md` tracks changing progress and `future_implementation_guide.md` tracks planned features.
 
 ---
 
@@ -106,7 +106,7 @@ User action → updater in src/main.tsx (addGame / saveGame / deleteGame / updat
 - **Rust IGDB proxy** because browser CORS and credential handling; token cached with a 5-minute early refresh (`src-tauri/src/lib.rs:349-376`).
 - **Externalized images**: large base64 images are written to `images/` as content-addressed files; the saved record holds `img:<filename>` refs (`src/data/repository.ts:41-79`).
 - **Session-only UI prefs**: `librarySession` (`src/domain/library-session.ts:36`) and Journey `session` (`src/features/journey.tsx:135`) are deliberately not persisted.
-- **Bounded LRU + TTL caches** for IGDB (`src/data/igdb.ts:36-52`, 20 min TTL, max 10–150 entries depending on cache) — note the older `docs/performance-optimization-report.md` incorrectly calls these unbounded.
+- **Bounded LRU + TTL caches** for IGDB (`src/data/igdb.ts:36-52`, 20 min TTL, max 10–150 entries depending on cache); `docs/performance-optimization-report.md` was corrected to reflect this.
 - **Web isolation**: only three modules are swapped; shared `src/` is never edited by web code (`web/vite.config.ts:14-18`).
 
 ---
@@ -161,7 +161,7 @@ Meaningful paths only (no build artifacts, no `node_modules`, no individual badg
 | `web/src/settings-data.web.tsx` | Re-exports offline `DataSection` and injects `CloudSection` | Settings | Web-only settings panel |
 | `web/worker/` | Cloudflare Worker: `src/index.ts` (stateless IGDB proxy), `wrangler.toml`; note stale dead frontend copies in `src/{entry.tsx,login-gate.tsx,sync.ts,cloud.css}` | Web IGDB | Proxy work |
 | `vercel.json`, `pnpm-workspace.yaml`, `scripts/check-environment.ps1` | SPA rewrite, build allowlist (not a package list), Windows env check | Deployment/setup | Deploy/setup |
-| `docs/*.md` | Architecture, schema, features, design, IGDB images, performance, roadmap, badge brief — **many stale claims** | Humans/agents | Historical context only |
+| `docs/*.md` | Architecture, schema, features, design, IGDB images, performance, roadmap, badge brief — **refreshed 2026-11-19 to match source** | Humans/agents | Concise human-readable overview; this knowledge base remains the exhaustive reference |
 
 ---
 
@@ -191,7 +191,7 @@ All views are wrapped in `AppLayout` (`src/components/layout.tsx:13`) with sideb
 `src/components/shared.tsx` is the reusable control library:
 - `Header` (page heading), `Empty` (empty state with an "Open library" action button), `StarRating` (1–10 stars in two clusters, half-star granularity), `TrophyToggle` (platinum toggle), `formatDate`, `parseDate` (ISO / `D/M/YYYY` / `D Mon YYYY`), `DateField` (text + native picker, `capAtToday`, 2200 ms "saved" indicator), `PlatformPicker` (searchable chips, `single` mode).
 
-Feature components are self-contained with co-located CSS (see directory table). `Details`, `LibraryView`, `PS4ShelfView`, `GridLibraryView` are **not** in `library-components.tsx`; they live in `src/main.tsx` (contrary to `docs/architecture.md`).
+Feature components are self-contained with co-located CSS (see directory table). `Details`, `LibraryView`, `PS4ShelfView`, `GridLibraryView` are **not** in `library-components.tsx`; they live in `src/main.tsx` (as `docs/architecture.md` now also states).
 
 ### State management
 
@@ -211,7 +211,7 @@ Utilities: `compareGames` (`src/main.tsx:300-314`), `formatSpan` (`:316-333`), `
 
 - Theme tokens in `src/style.css:25-44`: `--bg`, `--panel`, `--panel-strong`, `--line`, `--line-soft`, `--text`, `--muted`, `--dim`, `--accent`, `--accent-strong`, `--cyan`, `--rose`, `--success`, `--shadow`, `--radius`.
 - Component-scoped vars: `--p` (rating ring), `--c`, `--rc` (rarity color), `--g` (trophy rarity RGB), `--tc` (chart tone), `--jn-left` (timeline).
-- **Only one theme exists**: `AppSettings.theme` is the literal `"aurora"` (`src/domain/game.ts:30`), the Settings view shows a static pill (`src/features/settings.tsx:18`), and there is no `data-theme`, class toggle, or runtime variable assignment. `docs/design-system.md` describes a `[data-theme]` mechanism that is **not implemented**.
+- **Only one theme exists**: `AppSettings.theme` is the literal `"aurora"` (`src/domain/game.ts:30`), the Settings view shows a static pill (`src/features/settings.tsx:18`), and there is no `data-theme`, class toggle, or runtime variable assignment. `docs/design-system.md` now explicitly marks the `[data-theme]` pattern as proposed, not implemented.
 - Many hard-coded colors remain in feature CSS and ECharts options (`src/domain/stats.ts:101-114`), so variable overrides alone would be partial.
 - Web-only styling: `web/src/cloud.css`; stale unused copy at `web/worker/src/cloud.css`.
 
@@ -300,7 +300,7 @@ CREATE TABLE IF NOT EXISTS app_state (
 ```
 
 - Database file: `<app_data_dir>/lost-in-sync.sqlite`, identifier `com.lostinsync.desktop` → `%APPDATA%/com.lostinsync.desktop/` on Windows (`lib.rs:1175-1179`).
-- Only migration version 1 is checked/inserted (`:85-95`); there is no generic migration runner. `docs/database-schema.md` incorrectly claims an `updated_at` column and SQL defaults.
+- Only migration version 1 is checked/inserted (`:85-95`); there is no generic migration runner. `docs/database-schema.md` was corrected to show the actual DDL (no `updated_at` column, no SQL defaults).
 - No normalized tables and no relationships/constraints beyond `id = 1`. The typed Rust structs `Game`, `Profile`, `Settings`, `AppData` (`lib.rs:13-69`) are unused dead code; commands take `serde_json::Value`.
 
 ### Models (TypeScript, `src/domain/game.ts`)
@@ -380,7 +380,7 @@ invoke("save_app_data", { data })                                 // ()
 
 Rust parameter names are snake_case (`client_id`), Tauri maps JS camelCase keys.
 
-**IGDB REST endpoints used by Rust** (all POST to `https://api.igdb.com/v4/<endpoint>`): `games`, `popularity_primitives`, `game_time_to_beats`, `image_types`, `artworks`, `covers`, `screenshots`, `collection_relations`, `collections`, `platforms`. Image CDN: `https://images.igdb.com/igdb/image/upload/t_{size}/{image_id}.jpg` (`cover_big_2x`, `1080p`, `screenshot_big`, `cover_small`). `docs/igdb-image-endpoints.md` lists older sizes (`cover_big`, `720p`) — stale.
+**IGDB REST endpoints used by Rust** (all POST to `https://api.igdb.com/v4/<endpoint>`): `games`, `popularity_primitives`, `game_time_to_beats`, `image_types`, `artworks`, `covers`, `screenshots`, `collection_relations`, `collections`, `platforms`. Image CDN: `https://images.igdb.com/igdb/image/upload/t_{size}/{image_id}.jpg` (`cover_big_2x`, `1080p`, `screenshot_big`, `cover_small`). `docs/igdb-image-endpoints.md` was corrected; note the remaining divergence: desktop uses `cover_big_2x` for main covers while `web/src/igdb.web.ts` still uses `cover_big`.
 
 ---
 
@@ -471,7 +471,7 @@ cd web/worker && npx wrangler deploy                 # IGDB proxy
 - **Debug instrumentation:** `flushSave` logs payload size and a `console.table` of field sizes on every save (`src/main.tsx:173-188`); the former catch-block error reporting is commented out (`:169-171`).
 - **Auto fullscreen:** `src/main.tsx:95-127` requests fullscreen on first interaction; web overrides `Element.prototype.requestFullscreen` to require F11.
 - **Stale worker frontend:** `web/worker/src/{entry.tsx,login-gate.tsx,sync.ts,cloud.css}` are dead copies importing non-existent modules; `wrangler.toml` builds only `src/index.ts`.
-- **Backloggd importer exists** (`src/data/backloggd.ts`) even though `docs/roadmap.md:49` lists it as future; IGDB sync exists too.
+- **Backloggd importer and IGDB sync exist** (`src/data/backloggd.ts`, `src/data/sync.ts`); `docs/roadmap.md` now lists both under completed milestones.
 
 ---
 
@@ -491,7 +491,7 @@ cd web/worker && npx wrangler deploy                 # IGDB proxy
 12. **Web:** no `web/.env.example`; stale dead worker frontend copies; `new URL()` on a malformed proxy URL throws at config load; `opener:default` granted but plugin debug-only; Drive docs say `drive.appdata` but code uses `drive.file` and a visible root folder; deploy target docs conflict (Vercel vs Cloudflare Pages).
 13. **React runtime 18 vs types 19** mismatch (not verified as a build failure).
 14. **Sparse tests:** 2 pure-function tests; no React/Rust tests, no lint/format, jsdom not configured.
-15. **Documentation drift:** `docs/architecture.md`, `database-schema.md`, `features.md`, `design-system.md`, `igdb-image-endpoints.md`, `performance-optimization-report.md`, and `roadmap.md` contain stale claims; treat code as authoritative.
+15. **Documentation drift partially resolved:** all files in `docs/` were refreshed on 2026-11-19, but the root `README.md` and `web/README.md` still contain stale claims (structure, deploy target, Drive scopes); treat code as authoritative for those.
 
 ---
 

@@ -177,7 +177,7 @@
 - Settings persistence already works: `updateSettings` (`src/features/settings.tsx:8-10`) → `update` → 500 ms save; defaults merge in `src/data/repository.ts:23,89-93`.
 - Local component vars: `--p`, `--c`, `--rc` (`src/components/rarity-badge.tsx:11`), `--g` (`src/features/trophies.css:16-20`), `--tc` (`src/features/stats.css:2-22`).
 - ~151 hard-coded color literals remain across feature CSS; ECharts palette constants `C`, `MUTED`, `AX`, `TIP`, `LEG` (`src/domain/stats.ts:101-114`) are JS values. Web adds `web/src/cloud.css` and stale `web/worker/src/cloud.css` hard-coded colors.
-- `docs/design-system.md` describes `[data-theme="ember"]` overrides that are not implemented.
+- `docs/design-system.md` now explicitly marks `[data-theme="ember"]` overrides as a proposed pattern that is not implemented.
 
 **Probable Files to Modify:**
 - `src/domain/game.ts` — widen `theme` from literal to union/string + defaults (`:30,66`).
@@ -320,7 +320,7 @@
 **Objective:** Integrate Steam library/playtime/achievement data with the local library.
 
 **Current Implementation:**
-- No Steam code exists. Grep matches only `docs/roadmap.md:43,47` and platform strings such as `SteamOS`/`Steam Deck` in `src/data/platform.ts:1,3,10`.
+- No Steam code exists. Grep matches only the planned Steam items in `docs/roadmap.md` (Phase 4) and platform strings such as `SteamOS`/`Steam Deck` in `src/data/platform.ts:1,3,10`.
 - `Game` has `igdbId?: number` (`src/domain/game.ts:11`) and `backloggdId?: string` (`:19`) but no Steam identifier.
 - Import precedent: `src/data/backloggd.ts` — `BlEntry` (`:15`), `ImportReport` (`:17-28`), `mapEntry()` (`:59-135`), `withRetry()` (`:137-145`), `importBackloggd()` (`:147-205`, dedupe by `igdbId` at `:152-161`, chunking, abort, strict `/ ` search fallback at `:183-190`, report helpers `:207-223`).
 - Sync precedent: `src/data/sync.ts` — `FIELDS` allow-list (`:28-47`), `buildPatch()` (`:49-68`) preserving user fields, `applyPatches()` (`:70-78`), `syncWithIgdb()` (`:80-154`).
@@ -358,7 +358,7 @@
 **Objective:** Let users prioritize backlog games and receive a recommendation based on current mood, available playtime, and preferred genre.
 
 **Current Implementation:**
-- No priority/order field exists in `Game` (`src/domain/game.ts:6-21`), `AppSettings` (`:29-47`), or `LibrarySort` (`:26`). `docs/database-schema.md:62` mentions `order?` but the doc is stale.
+- No priority/order field exists in `Game` (`src/domain/game.ts:6-21`), `AppSettings` (`:29-47`), or `LibrarySort` (`:26`). The older `order?` mention was removed from `docs/database-schema.md` when it was corrected on 2026-11-19; the field does not exist.
 - Library prefs: `LibraryPrefs`, `libraryDefaults`, `SORT_OPTIONS` (`src/domain/library-session.ts:3-33`), `librarySession` memory-only (`:36`); sorting in `compareGames` (`src/main.tsx:300-314`) and controls at `:368-377`.
 - Add/Edit tracking controls: dates, hours, game type, status, rating, trophy (`src/features/library-components.tsx:226-248`) — no priority.
 - Dashboard: `topFive` picks (`src/features/dashboard.tsx:88-90`), `recent` excludes Backlog/Wishlist and ranks Playing > Completed then recency (`:92-109`), wishlist section (`:111`), "PICK UP WHERE YOU LEFT" (`:183-202`).
@@ -388,7 +388,7 @@
 
 **Testing Requirements:** Vitest scorer tests (priority wins, eligibility, tie-breaks, missing metadata, deterministic order, manual override); sort test; manual QA with an old library lacking priorities and after IGDB sync.
 
-**Investigation Required:** Scoring formula, manual vs computed priority, placement of the UI, whether Wishlist is eligible, and whether stale `order?` in docs reflects any intended design.
+**Investigation Required:** Scoring formula, manual vs computed priority, placement of the UI, whether Wishlist is eligible, and whether any intended ordering design from the old docs still applies.
 
 ---
 
@@ -698,7 +698,7 @@ No dates are assigned. Ordering is by dependency, complexity, and risk to existi
 
 **Parallel / independent:** 2, 5, 7, 8 can proceed with minimal coordination; 3 and 12 have existing fields and can start before Phase 2 is fully complete if scoped carefully.
 
-Cross-cutting work throughout: refresh stale `docs/`, add Vitest coverage for new pure logic, and run desktop + web build regression after each phase.
+Cross-cutting work throughout: keep `docs/` and this knowledge base in sync, add Vitest coverage for new pure logic, and run desktop + web build regression after each phase.
 
 ---
 
@@ -741,4 +741,4 @@ This task was strictly documentation. Do not implement planned features, refacto
 
 - **Verified directly:** file paths, route table, `AppData`/`Game` field lists, 15 Tauri command names, `app_state` schema, `FIELDS` sync allow-list, LRU cache implementation, module-swap map, env var names, absence of PWA/manifest/service worker, absence of Steam/priority/ownership/price fields, existing tests.
 - **Uncertain / needs investigation at implementation time:** exact Add Game search bug reproduction; "Played On" semantics; authoritative franchise total source; Steam API/auth availability and "two-way" feasibility; share-card image/CORS feasibility; authoritative web deploy target (Vercel vs Cloudflare Pages); whether stale `web/worker/src/*` duplicates are intentional; exact Tauri Android generated layout and mobile capability schema; product definitions for mood/time/genre recommendation scoring and "total wishlist spending".
-- **Stale documentation warning:** `docs/architecture.md`, `database-schema.md`, `design-system.md`, `features.md`, `igdb-image-endpoints.md`, `performance-optimization-report.md`, `roadmap.md`, and `web/README.md` contain claims contradicted by source. Use code and this guide instead.
+- **Documentation status:** all files in `docs/` were refreshed against source on 2026-11-19 and are consistent with this guide. The root `README.md` and `web/README.md` still contain stale claims (project structure, deploy target, Drive scopes, `.env.example`); use code and this guide for those.

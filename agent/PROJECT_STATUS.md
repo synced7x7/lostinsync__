@@ -33,7 +33,7 @@ Built installer artifacts exist in `src-tauri/target/release/bundle/` (NSIS `.ex
 | Web app | Vite module swaps, IndexedDB + hash blob images, non-extractable AES-GCM credential vault, Cloudflare Worker IGDB proxy, Drive backup with conflict UI | `web/vite.config.ts:14-18`, `web/src/*`, `web/worker/src/index.ts` |
 | Error handling | Global error boundary + window error/unhandled-rejection banners | `src/main.tsx:1061-1095` |
 
-Note: `docs/roadmap.md` lists the Backloggd CSV importer as future, but `src/data/backloggd.ts:147-205` implements it (Tauri + IGDB credentials required).
+Note: `docs/roadmap.md` now correctly lists the Backloggd CSV importer under completed milestones; it is implemented in `src/data/backloggd.ts:147-205` (Tauri + IGDB credentials required).
 
 ---
 
@@ -41,7 +41,7 @@ Note: `docs/roadmap.md` lists the Backloggd CSV importer as future, but `src/dat
 
 | Feature | What works | What is missing / limited |
 |---|---|---|
-| Theme system | Single "Aurora" theme via CSS variables; `AppSettings.theme` literal `"aurora"` | No theme switching, no `data-theme`/provider, no light mode, many hard-coded colors, ECharts colors are JS constants. `docs/design-system.md` describes an unimplemented mechanism. |
+| Theme system | Single "Aurora" theme via CSS variables; `AppSettings.theme` literal `"aurora"` | No theme switching, no `data-theme`/provider, no light mode, many hard-coded colors, ECharts colors are JS constants. `docs/design-system.md` now marks its `[data-theme]` example as proposed. |
 | Gameplay time stats | `Game.totalSeconds` collected in AddGame and exported to CSV; IGDB time-to-beat fields stored and shown on details; hidden `length` section in `src/domain/stats.ts` | No dedicated playtime section; `stats.ts` never reads `totalSeconds`; no session logs; `length` commented out of `CATEGORIES` (`:21`). |
 | Fit All ordering | Chronological Fit All list and toolbar | No ascending/descending control; no Journey sort persistence (`session` is explicitly memory-only). |
 | Status changes | Fully changeable through the AddGame edit modal | No inline status/platinum/date control on cards or details; Details controls are `readOnly`. |
@@ -104,8 +104,8 @@ All of the above are documented individually in `future_implementation_guide.md`
 - **Full-document persistence** (`JSON.stringify` + IPC + UPSERT per mutation) has a scalability ceiling for large libraries.
 - **No normalized schema / no generic migrations**; only `app_state` + `schema_migrations`, version 1 hard-coded.
 - **Dead Rust domain structs** (`src-tauri/src/lib.rs:13-69`) plus file-level `#![allow(dead_code)]`; unused `tauri-plugin-log` and `log` crates.
-- **~34 MB uncompressed PNG assets** loaded eagerly in `src/features/trophies.tsx` (see `docs/performance-optimization-report.md` — rank 1; note its cache finding is outdated).
-- **Stale documentation** across most of `docs/` and `web/README.md` (schema, routes, filters, image sizes, Drive scopes, deploy target).
+- **~21 MB / 67 PNG assets** loaded eagerly in `src/features/trophies.tsx` (re-measured 2026-11-19; `docs/performance-optimization-report.md` was updated with current numbers and now marks the IGDB cache issue as resolved).
+- **Documentation drift remains in root `README.md` and `web/README.md`** (structure, deploy target, Drive scopes, missing `.env.example`); `docs/` was refreshed on 2026-11-19.
 - **Sparse testing:** one 2-test Vitest file, no React or Rust tests, no lint/format config, jsdom not configured in Vite config.
 - **Hard-coded colors** in feature CSS and ECharts options; partial-variable theming only.
 - **Web dead code** in `web/worker/src/`; `hasTauri = true` workaround couples web UI to desktop semantics.
@@ -137,7 +137,7 @@ All of the above are documented individually in `future_implementation_guide.md`
 4. **Import/sync:** reusable import pipeline extracted from `src/data/backloggd.ts` (CSV + pasted titles), then Steam import/refresh after authentication strategy is decided.
 5. **Presentation:** shareable profile/stats card after stats/badge data is stable.
 6. **Packaging/platform:** harden WebApp config/docs, then PWA (depends on web), and Android in an isolated directory (can run in parallel with PWA).
-7. **Housekeeping throughout:** refresh stale `docs/`, add tests for new pure logic, verify desktop + web builds after each change.
+7. **Housekeeping throughout:** keep `docs/` and this knowledge base in sync as code changes, add tests for new pure logic, verify desktop + web builds after each change.
 
 See `future_implementation_guide.md` for per-feature details and the full dependency/order analysis.
 

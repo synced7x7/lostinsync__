@@ -1,23 +1,24 @@
 # Feature Documentation
 
+> **Verified against source on 2026-11-19.** This describes what is implemented today, not planned functionality. The full status breakdown is in `agent/PROJECT_STATUS.md`.
+
 Lost in Sync is a personal game library OS built with desktop-first principles. It provides a cohesive interface to catalogue, discover, analyze, and reminisce about your gaming journey.
 
 ---
 
 ## 1. 📚 Library Management
 
-The Library view is the operational heart of the application.
+The Library view is the operational heart of the application (`src/main.tsx`).
 
-- **Status Workflow**: Games are assigned one of 7 statuses (`Playing`, `Completed`, `Backlog`, `Wishlist`, `Shelved`, `Abandoned`, `On hold`).
+- **Status Workflow**: Games are assigned one of 7 statuses (`Backlog`, `Wishlist`, `Playing`, `Completed`, `Shelved`, `Abandoned`, `On hold`).
 - **Display Modes**:
-  - **Cover Grid**: Card grid with customizable sizes (`compact`, `normal`, `large`) and smooth hover animations.
-  - **Catalog List**: Dense row-based display showing title, genre, platforms, playtime, rating, and status pill.
+  - **PS4 Shelf**: focused cover carousel with spring transitions, hover/arrow/wheel navigation, and optional fullscreen mode (default).
+  - **Catalog Grid**: sortable card grid with sizes `sm`, `md`, `lg` and incremental "load more".
 - **Filtering & Search**:
-  - Real-time search across titles, developers, genres, and notes.
-  - Filter pills for quick status toggling (`All`, `Playing`, `Completed`, etc.).
-  - Secondary filtering by genre and custom tags.
-- **Sorting Options**: Sort by title (A-Z), total playtime, user rating, last played timestamp, or release date.
-- **Game Details View**: Comprehensive inspection hero panel featuring backdrop artwork, IGDB review badge, Time-To-Beat breakdown, played platform tags, emulation flags, notes, and session logs.
+  - Real-time **title-substring** search only (developer/genre/note search is not implemented).
+  - Filter pills for status, an IGDB game-type filter, a favorites-only toggle, and a genre setting in defaults (the genre filter is declared but not consumed).
+  - Ten sort keys with an ascending/descending direction toggle (`recent`, `completion`, `playtime`, `rating`, `igdbRating`, `title`, `releaseDate`, `avgTime`, `mainTime`, `fullTime`).
+- **Game Details View**: `Details` in `src/main.tsx` features backdrop artwork, rating ring, IGDB score, Time-To-Beat tiles, played-platform chips, notes, series/bundle links, media, and a read-only journey panel. Status/date fields are edited by opening the `AddGame` modal; an inline Favorite toggle already updates directly.
 
 ---
 
@@ -25,67 +26,57 @@ The Library view is the operational heart of the application.
 
 The Game Journey visualizes your gaming life along an interactive, chronologically ordered timeline.
 
-- **Dynamic Vector & DOM Canvas**: High-performance rendering combining crisp SVG connecting strands with hardware-accelerated DOM nodes and Level-of-Detail (LOD) culling.
-- **Branching Layout**:
-  - Automatically slots games based on `startedAt` and `finishedAt` date bounds.
-  - Pillars represent single-day completions; branching strands represent long-form playthroughs.
-  - Color palettes dynamically assigned to visual lanes with smooth bezier connecting curves.
-- **Level of Detail (LOD)**: Automatically collapses nodes to single strands when zoomed below 40% to preserve fluid frame rates.
-- **Navigation Controls**:
-  - Smooth pan via pointer dragging or mouse wheel.
-  - Viewport zoom with pinch / wheel + slider (10% to 240%).
-  - Range presets: `All Time`, `Current Month`, or specific calendar years.
-  - `Fit All` overview mode for a high-density chronological list view.
-- **Interaction**: Hovering highlights corresponding timeline lanes; clicking opens the full game details drawer.
+- **Dynamic Vector & DOM Canvas**: Crisp SVG connecting strands plus hardware-accelerated DOM nodes with Level-of-Detail (LOD) culling.
+- **Branching Layout**: Games are slotted by `startedAt`/`finishedAt`; pillars represent single-day completions, branching strands represent long-form playthroughs, and lanes are color-coded.
+- **LOD**: Nodes collapse to single strands below 40% zoom (`LOD_Z = 0.4`).
+- **Navigation Controls**: Pointer/wheel pan, zoom 10–240% (slider/pinch/wheel), range presets (`All`, `Month`, year), and a virtualized `Fit All` chronological list.
+- **Preferences**: Zoom/range/fit state is session-only and is never persisted.
 
 ---
 
 ## 3. 🔍 Discover & IGDB Integration
 
-A deep integration with the IGDB (Internet Game Database) API via Tauri Rust backend proxy commands.
+IGDB integration runs through Tauri Rust commands on desktop and a stateless Cloudflare Worker in the web build.
 
-- **Curated Feeds**:
-  - Trending Now, Popular Releases, Top Rated of All Time, Personalized Recommendations.
-  - Latest Releases, Upcoming Releases, Most Anticipated, Hidden Gems, Indie Spotlights, Story-Rich Adventures.
-- **Search Capabilities**:
-  - Fuzzy text search across the IGDB catalog.
-  - Exact title prefix matching via `/ <title>`.
-  - Direct IGDB ID lookup via `& <id>`.
-- **One-Click Import**: Instant card ingestion into your library, fetching HD cover artwork, 1080p backdrops, summaries, release dates, platforms, genres, and HowLongToBeat completion times.
-- **Franchise & Series Explorer**: Explores franchise trees up and down 4 hierarchy levels, allowing complete series discovery directly from any game page.
+- **Curated Feeds**: 10 feeds — Trending, Latest, Upcoming, Top Rated, Anticipated, Hidden Gems, Indie, Story-rich, and personalized "For You" variants. The active loader is `igdb_discover_feed` (paginated); `igdb_discover` is a legacy snapshot still present but unused by the UI.
+- **Search Capabilities**: Fuzzy search, exact title prefix via `/ <title>`, and ID lookup via `& <id>`.
+- **One-Click Import**: `draftFromIgdb` creates an unsaved game from IGDB results with cover, backdrop, summary, release date, platforms, genres, themes, and Time-To-Beat metadata.
+- **Franchise Explorer**: Series tree traversal up to 4 levels up/down via `igdb_series`.
+- **Caching**: Bounded LRU caches with a 20-minute TTL; feed cards are prefetched on hover.
 
 ---
 
 ## 4. 🏆 Trophies & Platinum Tracking
 
-A dedicated space to celebrate games that have been fully conquered.
-
-- **Platinum Toggle**: Direct toggle from cards, details, and library views to designate 100% completion / platinum mastery.
-- **Showcase Gallery**: Filter and view completed versus platinumed titles.
-- **Completion Badges**: Custom rarity badges reflecting game mastery level.
+- **Six Rarity Tiers**: `common`, `uncommon`, `rare`, `legendary`, `mythic`, and `lostinsync__` (the top tier), evaluated by `src/domain/trophies.ts`.
+- **Platinum Toggle**: `TrophyToggle` is editable in the `AddGame` form and read-only in Details.
+- **Showcase Gallery**: Badge gallery with trophy backgrounds; profile banner shows the player's top badge via `RarityBadge`.
 
 ---
 
 ## 5. 📊 Statistics & Analytics
 
-A data visualization dashboard providing deep insights into gaming habits.
+`src/domain/stats.ts` builds 12 visible categories rendered as tiles and tabbed ECharts charts.
 
-- **Playtime Metrics**: Total hours logged, average playtime per title, longest ongoing playthroughs.
-- **Completion Funnel**: Breakdown of completed vs. backlogged vs. dropped titles.
-- **Genre & Platform Distribution**: Visual graphs showing genre affinities and preferred gaming hardware.
-- **Historical Activity**: Games completed year-over-year.
+- **Overview**: Library size, completion rate, total hours.
+- **Activity / eras**: Completion pace, year-over-year activity.
+- **Genres / platforms / franchises / developers / ratings / length**: Distribution and completion breakdowns.
+- **Milestones / records / insights**: Badge counts and taste traits.
+
+Important nuance: playtime charts use IGDB `timeAvgSeconds` (Time-To-Beat estimates), **not** the user-recorded `totalSeconds`. A `length` section exists but is currently commented out of the category list. There is no dedicated gameplay-time section yet.
 
 ---
 
 ## 6. 🗂️ Series & Custom Collections
 
-- **Series Detection**: Automated grouping of connected games using IGDB franchise metadata.
-- **Custom Collections**: Create user-curated bundles (e.g. "Spooky Halloween Games", "Favorites of 2025") with custom titles and cover artwork.
+- **Series Detection**: Franchise/tree exploration from IGDB `collection_relations` and `collections`, fetched on demand and cached in memory (not persisted).
+- **Custom Collections**: `Collection` records hold `items` referencing games by `gameId` or `igdbId`, with optional name/cover/image.
 
 ---
 
 ## 7. ⚙️ Settings & Data Governance
 
-- **API Configuration**: Secure local storage of Twitch Client ID and Secret for IGDB access.
-- **Appearance & Defaults**: Customize initial view, default sorting, card density, and animation levels.
-- **Local Data Portability**: Export entire database to a clean JSON document for backup or transfer. Single-click import restore.
+- **API Configuration**: Twitch Client ID/Secret for IGDB (plain fields on desktop; AES-GCM encrypted in the web vault).
+- **Appearance & Defaults**: Initial view, library layout, sort/filter defaults, grid size, and fullscreen preference. There is no theme selector or animation-level setting.
+- **Data Portability**: JSON export/import, CSV export, Backloggd CSV import, and IGDB metadata sync with progress reports.
+- **Web only**: Google Drive backup with connect/back up/restore/overwrite controls and conflict detection.
