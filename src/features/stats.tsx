@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { Activity, ArrowLeft, BarChart3, Building2, Compass, GitBranch, Hourglass, Layers, LayoutDashboard, Medal, Monitor, Sparkles, Star, Timer, Trophy } from "lucide-react";
+import { Activity, ArrowLeft, BarChart3, Building2, Clock3, Compass, GitBranch, Hourglass, Layers, LayoutDashboard, Medal, Monitor, Sparkles, Star, Timer, Trophy } from "lucide-react";
 import * as echarts from "echarts/core";
 import { BarChart, HeatmapChart, LineChart, PieChart, RadarChart, ScatterChart } from "echarts/charts";
 import { CalendarComponent, DataZoomComponent, GridComponent, LegendComponent, MarkPointComponent, RadarComponent, TooltipComponent, VisualMapComponent } from "echarts/components";
@@ -11,7 +11,7 @@ import "./stats.css";
 echarts.use([BarChart, LineChart, PieChart, RadarChart, ScatterChart, HeatmapChart, GridComponent, TooltipComponent, LegendComponent, DataZoomComponent, VisualMapComponent, CalendarComponent, MarkPointComponent, RadarComponent, CanvasRenderer]);
 
 const ICONS: Record<CategoryId, typeof Activity> = {
-    overview: LayoutDashboard, activity: Activity, genres: Layers, platforms: Monitor, eras: Hourglass, franchises: GitBranch, developers: Building2,
+    overview: LayoutDashboard, activity: Activity, playtime: Clock3, genres: Layers, platforms: Monitor, eras: Hourglass, franchises: GitBranch, developers: Building2,
     ratings: Star, length: Timer, exploration: Compass, milestones: Trophy, records: Medal, insights: Sparkles,
 };
 

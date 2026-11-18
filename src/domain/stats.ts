@@ -1,4 +1,5 @@
 import { STATUSES, type Game } from "./game";
+import { playtimeBuckets, playtimeHours, summarizePlaytime } from "./playtime";
 import { evaluate, RARITY_LABEL, type Rarity } from "./trophies";
 import { emulatedOn, PC } from "../data/platform";
 
@@ -7,11 +8,12 @@ type Tone = "violet" | "cyan" | "rose" | "gold" | "green" | "blue";
 export type Tile = { label: string; value: string; sub?: string; tone?: Tone };
 export type ChartSpec = { id: string; title: string; note?: string; option?: Opt; tabs?: { label: string; option: Opt }[]; height?: number; wide?: boolean };
 export type Section = { tiles: Tile[]; charts: ChartSpec[]; story?: { title: string; text: string }[] };
-export type CategoryId = "overview" | "activity" | "genres" | "platforms" | "eras" | "franchises" | "developers" | "ratings" | "length" | "exploration" | "milestones" | "records" | "insights";
+export type CategoryId = "overview" | "activity" | "playtime" | "genres" | "platforms" | "eras" | "franchises" | "developers" | "ratings" | "length" | "exploration" | "milestones" | "records" | "insights";
 
 export const CATEGORIES: { id: CategoryId; title: string; blurb: string; tone: Tone }[] = [
   { id: "overview", title: "Overview", blurb: "Library size, completion rate and total time played", tone: "violet" },
   { id: "activity", title: "Activity", blurb: "How fast you finish games and how busy each period gets", tone: "cyan" },
+  { id: "playtime", title: "Playtime", blurb: "The hours you've actually logged across your library", tone: "gold" },
   { id: "genres", title: "Genres", blurb: "What you collect, finish and love most", tone: "rose" },
   { id: "platforms", title: "Platforms", blurb: "Where you play, emulation included", tone: "blue" },
   { id: "eras", title: "Release Eras", blurb: "Which generations of gaming history you've explored", tone: "gold" },
@@ -29,7 +31,7 @@ export const CATEGORIES: { id: CategoryId; title: string; blurb: string; tone: T
 const DAY = 86_400_000;
 const ALL_GENRES = 23; // genres IGDB offers
 const OFF = ["Backlog", "Wishlist"];
-type R = { g: Game; id: string; s?: number; f?: number; days?: number; rel?: number; genres: string[]; platform: string; fr: string[]; dev?: string; rating?: number; len?: number; done: boolean; played: boolean; at: number };
+type R = { g: Game; id: string; s?: number; f?: number; days?: number; rel?: number; genres: string[]; platform: string; fr: string[]; dev?: string; rating?: number; len?: number; play?: number; done: boolean; played: boolean; at: number };
 const ts = (d?: string) => { const n = Date.parse(d ?? ""); return Number.isNaN(n) ? undefined : n; };
 
 export const index = (games: Game[]): R[] => games.map((g) => {
@@ -42,6 +44,7 @@ export const index = (games: Game[]): R[] => games.map((g) => {
     platform: p ? (p === "PC" ? PC : p) : "Unknown", // platform = where it was played (emulated or not)
     fr: g.franchises ?? [], dev: g.developer?.trim() || undefined, rating: g.rating || undefined,
     len: g.timeAvgSeconds ? g.timeAvgSeconds / 3600 : undefined, // IGDB average time to complete, in hours
+    play: playtimeHours(g.totalSeconds) || undefined, // user-recorded playtime, in hours
     done: g.status === "Completed", played: !OFF.includes(g.status), at: f ?? s ?? (Date.parse(g.createdAt) || 0),
   };
 });
@@ -293,6 +296,46 @@ function activity(r: R[]): Section {
   };
 }
 
+function playtime(r: R[]): Section {
+  const s = summarizePlaytime(r.map((x) => x.g));
+  const logged = r.filter((x) => x.play !== undefined).sort((a, b) => b.play! - a.play!);
+  const buckets = playtimeBuckets(logged.map((x) => x.play!));
+  const most = logged[0], least = logged[logged.length - 1];
+  const bars = (rows: R[]) => cartesian(rows.map((x) => cut(x.g.title, 18)), [{ name: "Your playtime (h)", data: rows.map((x) => Math.round(x.play! * 10) / 10), color: "#a495ff" }], { horizontal: true });
+
+  const byStatus = STATUSES.map((st) => ({ name: st, value: Math.round(r.filter((x) => x.g.status === st).reduce((t, x) => t + (x.play ?? 0), 0) * 10) / 10 })).filter((d) => d.value > 0);
+  const genreHours = new Map<string, number>();
+  logged.forEach((x) => x.genres.forEach((g) => genreHours.set(g, (genreHours.get(g) ?? 0) + x.play!)));
+  const topGenres = [...genreHours].sort((a, b) => b[1] - a[1]).slice(0, 8);
+
+  // IGDB numbers are community estimates — kept as a separate, muted series for comparison only.
+  const both = logged.filter((x) => x.len !== undefined).slice(0, 10);
+  const compare = cartesian(both.map((x) => cut(x.g.title, 18)), [
+    { name: "Your playtime", data: both.map((x) => Math.round(x.play! * 10) / 10), color: "#a495ff" },
+    { name: "IGDB average (estimate)", data: both.map((x) => Math.round(x.len! * 10) / 10), color: "#6b6f86" },
+  ], { horizontal: true });
+
+  return {
+    tiles: [
+      T("Total playtime", s.total ? hrs(s.total) : dash, `${s.tracked} game${s.tracked === 1 ? "" : "s"} with time logged`, "violet"),
+      T("Average per game", s.tracked ? hrs(s.average) : dash, "mean of logged games", "cyan"),
+      T("Median per game", s.tracked ? hrs(s.median) : dash, "typical logged game", "blue"),
+      T("Longest game", most ? hrs(most.play!) : dash, most?.g.title ?? "No playtime logged", "rose"),
+      T("Shortest game", least ? hrs(least.play!) : dash, least?.g.title ?? "", "green"),
+      T("In completed games", s.completedTotal ? hrs(s.completedTotal) : dash, "logged time on finished titles", "gold"),
+      T("Games tracked", String(s.tracked), `of ${r.length} in this view`, "violet"),
+      T("Not tracked", String(s.untracked), "no playtime recorded", "gold"),
+    ],
+    charts: [
+      { id: "dist", title: "Playtime distribution", note: "How your logged hours are spread across individual games.", option: cartesian(buckets.map((b) => b.label), [{ name: "Games", data: buckets.map((b) => b.games), color: "#a495ff" }, { name: "Hours", kind: "line", y2: true, data: buckets.map((b) => Math.round(b.hours)), color: "#67d8e6" }]) },
+      { id: "top", title: "Most time-consuming games", note: "Ranked by the playtime you logged, not by IGDB estimates.", height: 360, tabs: [{ label: "Longest 10", option: bars(logged.slice(0, 10)) }, { label: "Shortest 10", option: bars([...logged].reverse().slice(0, 10)) }] },
+      { id: "status", title: "Where your hours went", note: "Logged playtime grouped by the game's current status.", option: donut(byStatus, { unit: "h" }), height: 340 },
+      { id: "genres", title: "Hours per genre", note: "Your top genres by logged playtime.", option: cartesian(topGenres.map(([g]) => cut(g, 16)), [{ name: "Hours", data: topGenres.map(([, h]) => Math.round(h * 10) / 10), color: "#7bd88f" }], { horizontal: true }), height: 340 },
+      { id: "estimate", title: "Logged time vs IGDB estimate", note: "IGDB values are community 'time to beat' estimates, not recorded playtime — shown as a separate series for comparison.", wide: true, option: compare, height: 340 },
+    ],
+  };
+}
+
 function genres(r: R[]): Section {
   const a = agg(r, (x) => x.genres), spn = a.filter((x) => x.days > 0), rp = ratedPool(a);
   return {
@@ -502,5 +545,5 @@ function insights(r: R[]): Section {
   };
 }
 
-const BUILD: Record<CategoryId, (r: R[], all: Game[]) => Section> = { overview, activity, genres, platforms, eras, franchises, developers, ratings, length, exploration, milestones, records, insights };
+const BUILD: Record<CategoryId, (r: R[], all: Game[]) => Section> = { overview, activity, playtime, genres, platforms, eras, franchises, developers, ratings, length, exploration, milestones, records, insights };
 export const build = (id: CategoryId, rows: R[], all: Game[]) => BUILD[id](rows, all);
