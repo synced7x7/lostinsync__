@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { Gamepad2, Plus, X } from "lucide-react";
 import { formatCount, formatHours, STATUSES, validateGame, type Game, type Status } from "../domain/game";
 import { hasTauri, igdbDetails, igdbImages, igdbSearch, type IgdbCreds, type IgdbDebugImage, type IgdbGame, type IgdbHit } from "../data/igdb";
@@ -36,6 +36,12 @@ export function AddGame({ onClose, onAdd, igdb, initial }: { onClose: () => void
 
   const [hits, setHits] = useState<IgdbHit[]>([]);
   const [open, setOpen] = useState(false);
+  const titleBox = useRef<HTMLLabelElement>(null);
+  useEffect(() => {
+    const close = (e: MouseEvent) => { if (!titleBox.current?.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, []);
   const [searching, setSearching] = useState(false);
   const [picked, setPicked] = useState<IgdbGame>();
   const [pickedImages, setPickedImages] = useState<IgdbDebugImage[]>(initial?.igdbImages ?? []);
@@ -175,7 +181,7 @@ export function AddGame({ onClose, onAdd, igdb, initial }: { onClose: () => void
               {!cover && <Gamepad2 size={34} />}
             </div>
             <label className="button soft upload-btn">Cover image
-              <input type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) readImage(f, setCover, 480, 640, 0.88); }}/>
+              <input type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) readImage(f, setCover, 480, 640, 0.88); }} />
             </label>
             <div className="add-bg" style={backgroundCover ? { backgroundImage: `url(${backgroundCover})` } : undefined}>
               {!backgroundCover && <span>Large cover</span>}
@@ -187,10 +193,11 @@ export function AddGame({ onClose, onAdd, igdb, initial }: { onClose: () => void
 
           {/* Column 2: game info */}
           <div className="add-col">
-            <label style={{ position: "relative" }}>Title
+            <label ref={titleBox} style={{ position: "relative" }}>Title
               <input
                 autoFocus
                 value={title}
+                onKeyDown={(e) => { if (e.key === "Escape") setOpen(false); }}
                 onChange={(e) => { setTitle(e.target.value); setPicked(undefined); setOpen(true); }}
                 placeholder={canSearch ? "Search IGDB, type a title, or use & 12345…" : "What are you playing?"}
               />
