@@ -12,41 +12,7 @@
 
 ## 1. Played On and Completed Status Without Entry Screen
 
-**Objective:** When a user marks a game as played or completed, the game details should update immediately without navigating through the AddGame entry/edit modal.
-
-**Current Implementation:**
-- Statuses are `STATUSES = ["Backlog", "Wishlist", "Playing", "Completed", "Shelved", "Abandoned", "On hold"]` (`src/domain/game.ts:3`); there is no `"Played"` status and no `playedAt` field anywhere in `src/`.
-- "Played on" currently means **platform**: `PlatformPicker label="Played on"` in `src/features/library-components.tsx:218`, written to `platform` / `playedPlatforms` in `submit()` (`:123-125`), displayed as chips in `src/main.tsx:883-884,978-982`.
-- Status, `startedAt`, `finishedAt`, and platinum can only be changed through the `AddGame` modal: local draft state at `src/features/library-components.tsx:20,24-27`, validation/clamping and writes in `submit()` (`:110-161`), UI at `:226-248`, portal at `:163-258`.
-- `Details` (`src/main.tsx:848-1059`) is read-only for these fields: the "MY JOURNEY" panel (`:1007-1020`) shows status/playtime/started/completed, uses `<TrophyToggle ... readOnly>` (`:1017`) and `<StarRating ... readOnly>` (`:1019`), and every change button calls `setEditing(true)` (`:893,1010,1039`), which mounts `<AddGame initial={game} onAdd={...saveGame...} />` (`:1048-1055`).
-- Already available inline pattern: the "Favorite" button in `Details` calls `saveGame({ ...game, favorite: !game.favorite })` directly (`:894-896`). `ProfileSection.finishEditing()` in `src/features/overview.tsx:23-28` is another direct `update` example.
-- Reusable controls with `onChange`: `TrophyToggle` (`src/components/shared.tsx:171-194`), `DateField` (`:221-303`), `StarRating` (`:68-167`), `parseDate`/`formatDate` (`:200-219`).
-
-**Probable Files to Modify:**
-- `src/main.tsx` — add inline controls to `Details` and/or the PS4 featured panel; wire to existing `saveGame`/`update` (`:192-223`).
-- `src/domain/game.ts` — add `playedAt?: string` or a `"Played"` status **only if** product intent confirms it (`:3-21`).
-- `src/features/library-components.tsx` — keep `AddGame` as the full editor; reuse its validation rules in `submit()`.
-- `src/components/shared.tsx` — reuse `DateField`/`TrophyToggle`; a status picker may be added here.
-- `src/style.css` / `src/features/overview.css` — compact control styles.
-- `src/features/settings-data.tsx` — CSV columns (`:26-37`) if a new date field is introduced.
-- `src/features/dashboard.tsx`, `src/features/journey.tsx`, `src/domain/stats.ts`, `src/domain/trophies.ts` — only if a new status/date semantic changes recents, timeline eligibility, stats, or badges.
-- `src/data/repository.ts` — `normalizeStatuses` (`:8-16`) if a new status is added.
-
-**Potential New Files (proposed):**
-- **[proposed]** `src/components/status-controls.tsx` — small controlled status/date control for `Details`.
-- **[proposed]** `src/features/details-status.test.tsx` — component tests (requires configuring jsdom).
-
-**Implementation Approach:** Add a controlled status selector and date fields directly in the `Details` "MY JOURNEY" panel, committing each change through `saveGame({ ...game, ...patch })`; keep `AddGame` as the full editor. Mirror `submit()` invariants (start ≤ finish, date clamping). If "played" means a new status, update `STATUSES` and every consumer; prefer a `playedAt` date plus existing statuses if a New status would fragment filters.
-
-**Dependencies and Integrations:** `AppData` state/debounced save in `src/main.tsx`; status consumers in dashboard, Journey, Stats, trophies, CSV export, and `src/data/repository.ts:8-16`.
-
-**Database Changes:** None at SQL level — all fields live in the `app_state.data_json` / localStorage / IndexedDB JSON document. Additive optional fields merge through `defaultData` and repository normalization; update defaults in `src/domain/game.ts:61-77`.
-
-**Potential Challenges:** Ambiguous meaning of "Played On" (platform vs date vs new status); setting `Completed` without `finishedAt` creates inconsistent Journey/Stats data; two rapid `update` calls can overwrite each other because `update` uses the `data` captured in the current render; discovery drafts default to `Completed` (`src/features/discover.tsx:306`).
-
-**Testing Requirements:** Pure helpers for date clamping/status transitions in `src/domain/game.test.ts`; jsdom component test for `Details` (mock repository and `navigate`); manual QA of rapid clicks and save persistence.
-
-**Investigation Required:** Confirm the exact meaning of "Played On"; decide whether completing auto-fills `finishedAt` and whether un-completing clears it; decide whether unsaved IGDB detail drafts support inline changes.
+When a user enters or clicks the add a game from the library and after that when user types a name theres a suggestions of dropdowns of games that mmatches the igdb which is okay but the problem is when the user wants to add custom games he doesnt need the dropdown but still if the name matches the igdb game name then the dropdown persists . so what i am expecting that the dropdown should get removed when user clicks other parts of the screen.
 
 ---
 
