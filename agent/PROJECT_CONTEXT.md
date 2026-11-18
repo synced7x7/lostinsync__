@@ -21,7 +21,7 @@
 - Interactive Game Journey timeline with SVG strands, lane assignment, zoom/pan, LOD culling, and a virtualized "Fit All" overview (`src/features/journey.tsx`).
 - Discover: 10 IGDB feeds, search with `/ ` exact-name and `& ` ID syntax, one-click import of metadata/images (`src/features/discover.tsx`, `src-tauri/src/lib.rs`).
 - Trophies/badge gallery with six rarity tiers including `lostinsync` (`src/domain/trophies.ts`).
-- Statistics: 12 visible categories built from `src/domain/stats.ts` and rendered with Apache ECharts (`src/features/stats.tsx`).
+- Statistics: 13 visible categories built from `src/domain/stats.ts` (including a Playtime category aggregated from recorded `totalSeconds` by `src/domain/playtime.ts`) and rendered with Apache ECharts (`src/features/stats.tsx`).
 - Settings: defaults, IGDB credentials, JSON/CSV export, JSON import, Backloggd import, IGDB metadata sync; web build adds encrypted credential vault and Google Drive backup.
 - Media gallery (screenshots, YouTube embeds), franchise/series tree, bundle contents, profile banner editor.
 
@@ -124,9 +124,10 @@ Meaningful paths only (no build artifacts, no `node_modules`, no individual badg
 | `src/domain/gametype.ts` | IGDB game-type constants, `matchesGameType`, `isBundle`, `slimBundle`, `sameBundle` | Library filters, Discover, bundle UI | Game-type/bundle logic |
 | `src/domain/library-session.ts` | `LibraryPrefs`, `libraryDefaults`, `prefsToSettings`, `SORT_OPTIONS`, `librarySession` | `src/main.tsx` LibraryView | Library sort/filter changes |
 | `src/domain/journey-sort.ts` | `sortJourneyRows` — chronological comparator with `id` tie-break, reversible for Fit All | `src/features/journey.tsx` | Journey Fit All sort changes |
-| `src/domain/stats.ts` | Row index (`index`), `yearsOf`, `CATEGORIES`, 13 section builders, ECharts option builders, `build` | `src/features/stats.tsx` | Any analytics change |
+| `src/domain/playtime.ts` | `playtimeHours`, `summarizePlaytime`, `playtimeBuckets` — pure aggregation of recorded `totalSeconds` | `src/domain/stats.ts` | Playtime stats changes |
+| `src/domain/stats.ts` | Row index (`index`), `yearsOf`, `CATEGORIES`, 14 section builders (incl. `playtime()`), ECharts option builders, `build` | `src/features/stats.tsx`, `src/domain/playtime.ts` | Any analytics change |
 | `src/domain/trophies.ts` | Rarity tiers, `TROPHIES`, `DEV_FAVORITES`, `GOTY`, `evaluate`, `topBadge`, `RARITY_COLOR` | Trophy UI, sidebar badge, stats milestones | Badge/rarity work |
-| `src/domain/game.test.ts` | Only existing test file (2 Vitest tests) | `pnpm test` | Adding pure-function tests |
+| `src/domain/*.test.ts` | `game.test.ts` (2), `journey-sort.test.ts` (4), `playtime.test.ts` (8) — 14 Vitest tests total | `pnpm test` | Adding pure-function tests |
 | `src/data/repository.ts` | `AppRepository`, `LocalAppRepository`, `TauriAppRepository`, `createAppRepository()`, image externalization | `src/main.tsx`; swapped in web | Persistence changes |
 | `src/data/igdb.ts` | Typed wrappers for 11 IGDB commands, bounded LRU cached variants, `hasTauri`, `saveTextFile` | Discover, sync, importers, details | Adding IGDB calls (mirror in web!) |
 | `src/data/sync.ts` | `syncWithIgdb`, `FIELDS` allow-list, `buildPatch`, `applyPatches`, sync reports | Settings sync section | IGDB refresh behavior |
@@ -223,7 +224,7 @@ Utilities: `compareGames` (`src/main.tsx:300-314`), `formatSpan` (`:316-333`), `
 - **Details**: read-only journey panel with "Edit" buttons that open the modal; inline "Favorite" mutation already demonstrates direct `saveGame`.
 - **Journey**: lane allocation, LOD (cull below 40% zoom), zoom 10–240%, range presets, Fit All virtualized list with an ascending (oldest first) / descending (newest first) toggle that reorders only the overview rows.
 - **Discover**: 10 feeds loaded with 3 concurrent workers, 20 items each; "View all" pages of 30 up to 100; hover prefetch.
-- **Stats**: category tabs, year filter, tile grid, tabbed chart cards.
+- **Stats**: category tabs, year filter, tile grid, tabbed chart cards; the "Playtime" category shows logged hours with a note that the year filter selects games by date rather than splitting hours.
 - **Settings/Data**: export JSON (strips IGDB credentials), export CSV, import JSON (destructive replace), Backloggd import with progress/report, IGDB sync with report, library defaults, wipe library.
 - **Web additions**: Drive connect/back up/restore/overwrite panel with conflict handling.
 
@@ -466,7 +467,7 @@ cd web/worker && npx wrangler deploy                 # IGDB proxy
 - **Library/Journey prefs:** `librarySession` (`domain/library-session.ts:36`) and Journey `session` (`features/journey.tsx:135`) are memory-only; `queuePrefs` at `journey.tsx:409-414` explicitly says prefs are "never saved to the database". `AppSettings.journeyRange/zoom/fit` and `defaultView`, `libraryGenre` are declared but unused.
 - **Journey ordering:** `base.sorted` uses `sortJourneyRows(items, "asc")` (`src/domain/journey-sort.ts`, start + `id` tie-break); Fit All gets a separate `fitRows` array reversed by direction while timeline geometry, lane colours and palette stay chronological (`journey.tsx`).
 - **Journey LOD:** culling below `LOD_Z = 0.4`; Fit All uses a positional virtual window and resets `scrollTop` when `base` changes (`journey.tsx:298`).
-- **Stats:** `CATEGORIES` has 12 visible entries; the `"length"` category is implemented (`length()` at `:401-412`, registered in `BUILD` at `:505`) but commented out of `CATEGORIES` at `:21`. `totalSeconds` is **not** read by `stats.ts`; `len` comes from IGDB `timeAvgSeconds`.
+- **Stats:** `CATEGORIES` has 13 visible entries; the new `"playtime"` category aggregates `Game.totalSeconds` via `src/domain/playtime.ts` (`playtimeHours`/`summarizePlaytime`/`playtimeBuckets`) and is backed by `play` in the `index()` row. IGDB `timeAvgSeconds` still feeds `len` and appears only as a separate, muted "IGDB average (estimate)" series in the Playtime comparison chart. The older `"length"` category remains implemented (`length()`, registered in `BUILD`) but commented out of `CATEGORIES` — left intentionally untouched.
 - **Web `hasTauri = true`** (`web/src/igdb.web.ts:9`) deliberately enables desktop-looking IGDB UI in the browser; capability checks like `hasTauri && creds` gate import/sync in settings.
 - **Web build swap caveat:** `swapModules()` matches resolved module IDs globally; a web file may import the offline original it wraps (guarded at `web/vite.config.ts:30`), but any new shared import of those three paths will be swapped.
 - **Debug instrumentation:** `flushSave` logs payload size and a `console.table` of field sizes on every save (`src/main.tsx:173-188`); the former catch-block error reporting is commented out (`:169-171`).

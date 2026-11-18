@@ -6,7 +6,7 @@
 
 **Feature index:** A. Improvements — 1 Played/completed inline, 2 Fit All sort, 3 Gameplay time stats, 4 Discover algorithm, 5 Theme system, 6 WebApp, 7 Android, 8 Add Game search bug, 9 Steam sync, 10 Backlog priority / play next. B. Wishlist — 11 Wishlist extras, 12 Platform ownership, 13 Franchise completion. C. Import/export — 14 More import sources, 15 Shareable card. D. PWA — 16 Installation & offline caching.
 
-**Completed (2026-11-19):** feature 1 (Add Game IGDB dropdown closes on outside click / Escape) and feature 2 (Fit All ascending/descending toggle). Both are verified in source; see their entries below. Feature 1's heading is legacy — its tracked request was re-scoped to the dropdown issue, and inline Played/Completed editing was not implemented.
+**Completed (2026-11-19):** features 1 (Add Game IGDB dropdown closes on outside click / Escape), 2 (Fit All ascending/descending toggle) and 3 (dedicated Playtime stats category from recorded `totalSeconds`). All are verified in source; see their entries below. Feature 1's heading is legacy — its tracked request was re-scoped to the dropdown issue, and inline Played/Completed editing was not implemented.
 
 ---
 
@@ -44,42 +44,23 @@
 
 ---
 
-## 3. Gameplay Time Statistics Section
+## 3. Gameplay Time Statistics Section — COMPLETED
 
 **Objective:** Introduce a dedicated gameplay time statistics section.
 
-**Current Implementation:**
-- Personal playtime: `Game.totalSeconds` (`src/domain/game.ts:9`), entered as hours/minutes in `AddGame` (`src/features/library-components.tsx:26-27,118,135`), summed from Backloggd playthroughs (`src/data/backloggd.ts:88-90`), defaulted to 0 in `draftFromIgdb` (`src/features/discover.tsx:307`). No per-session timestamps exist anywhere.
-- IGDB estimates: `timeAvgSeconds`, `timeMainSeconds`, `timeFullSeconds` (`src/domain/game.ts:13`), displayed as TIME TO BEAT tiles in `Details` (`src/main.tsx:877-881,985-1004`).
-- `src/domain/stats.ts`: `index()` (`:35-47`) computes `len: g.timeAvgSeconds / 3600` (`:44`) but **never reads `totalSeconds`**; a `length` section exists (`:401-412`) and is registered in `BUILD` (`:505`) but is commented out of `CATEGORIES` (`:21`).
-- Stats UI: `StatsView` (`src/features/stats.tsx:46-113`), `ChartCard`/`Chart` (`:18-44`), ECharts registration (`:3-11`), ECharts canvas renderer; formatting helpers `formatPlaytime` (`game.ts:55-60`), `formatHours` (`:83-87`), `hrs`/`sum`/`avg`/`median` (`stats.ts:54-58`).
-- Hour-based trophy logic already uses `totalSeconds / 3600` (`src/domain/trophies.ts:186-188`).
+**Status: Completed (2026-11-19).** Verified with `pnpm typecheck`, `pnpm test` (14 tests total, 8 new), `pnpm build`, and `npx vite build --config web/vite.config.ts`.
 
-**Probable Files to Modify:**
-- `src/domain/stats.ts` — add a time category/aggregation or rework the hidden `length` builder.
-- `src/features/stats.tsx` — add an `ICONS` entry/new `CategoryId` and render the section; reuse `ChartCard`.
-- `src/features/stats.css` — tile/chart layout styles.
-- `src/domain/game.ts` — only if per-session data is added.
-- `src/features/library-components.tsx` / `src/main.tsx` — if users must enter per-session time.
-- `src/features/settings-data.tsx` — CSV already exports "Total hours" (`:29-37`).
-- `src/domain/trophies.ts` — only for new playtime badges.
+**Implementation (completed):**
+- `src/domain/playtime.ts` — pure helpers: `playtimeHours` (seconds → hours; missing, invalid, zero and negative values mean "untracked"), `summarizePlaytime` (total, tracked/untracked counts, mean, median, longest, shortest, completed-game hours), `playtimeBuckets` (distribution bands, boundaries in the higher band).
+- `src/domain/playtime.test.ts` — 8 Vitest cases: empty/single/many libraries, median vs mean, invalid/negative inputs, completed-only total, and bucket boundaries.
+- `src/domain/stats.ts` — added `"playtime"` to `CategoryId`, a third `CATEGORIES` entry (title "Playtime", tone gold), a `play` field in the `index()` row model fed by `totalSeconds`, a `playtime()` section builder, and its `BUILD` registration. The section has 8 tiles (total, average, median, longest/shortest game, completed time, tracked/untracked counts), 5 ECharts charts (playtime distribution, tabbed longest/shortest games, hours by status, hours by genre, logged vs IGDB estimate) and a story note about the year filter.
+- `src/features/stats.tsx` — `Clock3` icon mapped to the new `playtime` category. No CSS changes were needed; existing tile/chart styles were reused.
 
-**Potential New Files (proposed):**
-- **[proposed]** `src/domain/playtime.ts` — pure aggregation helpers.
-- **[proposed]** `src/features/playtime-section.tsx` — optional dedicated section.
-- **[proposed]** `src/domain/playtime.test.ts`.
+**Decisions resolved:** the section lives in Stats and aggregates existing `totalSeconds` — no new data fields, no session logs. IGDB TTB values are never mixed into playtime figures; they appear only as a separate, muted "IGDB average (estimate)" series in one clearly labelled chart. Games with zero/missing time count as untracked. Because playtime has no per-session dates, the Stats year filter selects games by start/finish/add date (`touchedIn`) rather than splitting hours, and a story card says so. The pre-existing hidden `length` section was intentionally left untouched and remains commented out of `CATEGORIES`.
 
-**Implementation Approach:** Prefer aggregating existing `totalSeconds` into a new Stats category (or un-comment and rework `length`). If time-series by year is required, approximate with existing `startedAt`/`finishedAt`/`createdAt` (`yearsOf`/`touchedIn`, `stats.ts:49-50`) or introduce explicit session records — a product decision. Keep IGDB estimates visually distinct from user-recorded playtime.
+**Database Changes:** None — pure aggregation over existing fields; no JSON or SQL fields were added.
 
-**Dependencies and Integrations:** Stats category plumbing (`CategoryId`, `CATEGORIES`, `BUILD`, `Tile`, `ChartSpec`), `index()` row model, ECharts option builders, CSV export, trophies.
-
-**Database Changes:** None for pure aggregation. Session logs would require an additive `Game` field (e.g. `playSessions?: { at: string; seconds: number }[]`) merged through repository defaults — still no SQL migration.
-
-**Potential Challenges:** `totalSeconds` has no timestamps, so "hours played in 2025" cannot be derived accurately; IGDB TTB values are estimates, not actual playtime; the hidden `length` section may have been disabled intentionally; ECharts colors are hard-coded (`stats.ts:101-114`); jsdom has no real canvas.
-
-**Testing Requirements:** Vitest tests for aggregation (zero/one/many games, missing values, grouping, median vs mean, invalid inputs); mock `echarts.init`/`ResizeObserver`/canvas if component tests are needed; manual QA of charts and year filter.
-
-**Investigation Required:** Whether the section belongs in Stats, Dashboard, or Details; whether session-level tracking is in scope; how to handle games with `totalSeconds = 0` but valid IGDB estimates; why `length` was disabled.
+**Verification still recommended:** manual QA of the new charts and the year filter in both desktop and web builds (jsdom has no real canvas; no component-test harness is configured).
 
 ---
 
@@ -604,7 +585,7 @@
 | **13 Franchise completion → series data + completion status** | `Game.franchises` (`src/domain/game.ts:17`), `igdbSeries`/`SeriesData` (`src/data/igdb.ts:94-102`; `src/features/series.tsx:52-57`), `done = status === "Completed"` (`src/domain/stats.ts:45`), `franchises()` (`:349-366`) | No new franchise data source needed if computed on the fly |
 | **10 What to play next → 4 Discover + backlog** | `STATUSES[0] = "Backlog"` (`src/domain/game.ts:3`); genres fed into `igdbDiscoverFeedCached` (`src/features/discover.tsx:57,71`); scoring inputs `rating`, `favorite`, `totalSeconds`, `timeAvgSeconds` (`game.ts:8-13`) | Reuse ranking concepts; keep local scorer separate from IGDB feeds |
 | **11 Wishlist extras → Stats + export + 15 share card** | Wishlist section (`src/features/dashboard.tsx:111,209-221`), `CATEGORIES`/`build` (`src/domain/stats.ts:12-26,505`), `toCsv` (`settings-data.tsx:29-37`) | Spending fields feed stats tiles and the card |
-| **3 Gameplay time → 15 / 13 / 9** | `len` from TTB (`src/domain/stats.ts:44`), hidden `length()` (`:401-412`), `BigStat` (`src/features/dashboard.tsx:38`) | Stabilize aggregation before exporting/consuming it |
+| **3 Gameplay time (completed) → 15 / 13 / 9** | `playtime()` + `play` row (`src/domain/stats.ts`), `summarizePlaytime` (`src/domain/playtime.ts`), `len` still from TTB (`stats.ts:44`), hidden `length()`, `BigStat` (`src/features/dashboard.tsx:38`) | Reuse `playtime.ts` helpers and the `playtime` category for share cards, franchise views or Steam playtime import |
 | **12 Ownership → 14 / 3** | Platform ID mapping (`src/data/backloggd.ts:69-77`), `platforms()` (`src/domain/stats.ts:311-327`) | Ownership fields affect import mapping and stats |
 | **8 Add Game search bug → 4 / 14 (shared search)** | Auto-search effect (`src/features/library-components.tsx:47-54`), `igdbSearch` shared with Discover (`:5,87`) and Backloggd (`src/data/backloggd.ts:184`) | Fixing the trigger benefits all search UX |
 | **15 Share card → 5 Theme + 3/11/13 stats** | `Profile` (`src/domain/game.ts:24`), `--accent` (`src/style.css:37`), `topBadge` (`src/domain/trophies.ts:262`) | Card should follow final theme/stats decisions |
@@ -635,7 +616,7 @@ No dates are assigned. Ordering is by dependency, complexity, and risk to existi
 4. **12** ownership fields (existing platform fields already present); **11** wishlist price/payment/reminder fields; **10** priority. Define defaults in `src/domain/game.ts:61-77` and normalization in `src/data/repository.ts` / `web/src/codec.ts:111-129`. Keep all new user-owned fields out of `src/data/sync.ts` `FIELDS` (`:28-47`).
 
 **Phase 3 — Domain/analytics built on those fields**
-5. **3** gameplay time stats (re-evaluate hidden `length` section).
+5. ~~**3** gameplay time stats~~ — completed (2026-11-19): new "Playtime" category in `src/domain/stats.ts` backed by `src/domain/playtime.ts`; hidden `length` section intentionally left alone.
 6. **13** franchise completion (reuse `stats.franchises()` + `igdbSeries`).
 7. **4** Discover relevance (change Rust and `web/src/igdb.web.ts` together).
 8. **10** What Should I Play Next (depends on 4 + backlog/priority fields).

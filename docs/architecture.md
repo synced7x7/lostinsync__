@@ -36,9 +36,10 @@ web/index.html ──> web/src/entry.tsx ──> init() Drive sync ──> impor
 | `game.ts` | `STATUSES`, `Status`, `View`, `Game`, `BundleGame`, `Profile`, `GridSize`, `LibraryLayout`, `LibrarySort`, `SortDirection`, `AppSettings`, `CollectionItem`, `Collection`, `AppData`, `defaultData`, and helpers `validateGame`, `formatPlaytime`, `formatCount`, `formatHours` |
 | `gametype.ts` | IGDB game-type constants (`GAME_TYPES`), `matchesGameType`, `isBundle`, `slimBundle`, `sameBundle` |
 | `library-session.ts` | `LibraryPrefs`, `libraryDefaults`, `SORT_OPTIONS`, module-level `librarySession` (memory only) |
-| `stats.ts` | `index()` row model, `CATEGORIES`, 13 section builders, ECharts option builders, `build()` |
+| `stats.ts` | `index()` row model, `CATEGORIES`, 14 section builders (incl. `playtime()`), ECharts option builders, `build()` |
+| `playtime.ts` | `playtimeHours`, `summarizePlaytime`, `playtimeBuckets` — pure aggregation of recorded `totalSeconds` for the Stats Playtime category |
 | `trophies.ts` | Six rarity tiers (`RARITY_RANK`, `RARITY_LABEL`), `TROPHIES`, `DEV_FAVORITES`, `GOTY`, `evaluate`, `topBadge`, `RARITY_COLOR` |
-| `game.test.ts` | The only existing test file (2 Vitest tests for `validateGame` / `formatPlaytime`) |
+| `game.test.ts`, `journey-sort.test.ts`, `playtime.test.ts` | Vitest tests for game rules (2), Journey Fit All sorting (4) and playtime aggregation (8) — 14 total |
 
 ### `src/data/`
 

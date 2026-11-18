@@ -56,14 +56,15 @@ IGDB integration runs through Tauri Rust commands on desktop and a stateless Clo
 
 ## 5. 📊 Statistics & Analytics
 
-`src/domain/stats.ts` builds 12 visible categories rendered as tiles and tabbed ECharts charts.
+`src/domain/stats.ts` builds 13 visible categories rendered as tiles and tabbed ECharts charts, including a Playtime category backed by `src/domain/playtime.ts`.
 
 - **Overview**: Library size, completion rate, total hours.
 - **Activity / eras**: Completion pace, year-over-year activity.
-- **Genres / platforms / franchises / developers / ratings / length**: Distribution and completion breakdowns.
+- **Playtime**: User-recorded `totalSeconds` — total/mean/median, longest and shortest games, distribution bands, hours by status and genre, plus a separate IGDB-estimate comparison.
+- **Genres / platforms / franchises / developers / ratings**: Distribution and completion breakdowns.
 - **Milestones / records / insights**: Badge counts and taste traits.
 
-Important nuance: playtime charts use IGDB `timeAvgSeconds` (Time-To-Beat estimates), **not** the user-recorded `totalSeconds`. A `length` section exists but is currently commented out of the category list. There is no dedicated gameplay-time section yet.
+Important nuance: the older length charts use IGDB `timeAvgSeconds` (Time-To-Beat estimates), while the dedicated Playtime section uses only the user-recorded `totalSeconds`; IGDB values appear there solely as a separate, labelled estimate series. A hidden `length` section remains commented out of the category list. Playtime has no per-session dates, so the Stats year filter selects games by start/finish/add date instead of splitting hours across years.
 
 ---
 
