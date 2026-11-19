@@ -25,6 +25,8 @@ npx wrangler deploy
 Put the printed `https://….workers.dev` URL in `VITE_IGDB_PROXY_URL`.
 Each user still enters their own IGDB Client ID/Secret in Settings; the worker stores nothing.
 
+The worker's `ENDPOINTS` allow-list includes `external_games` so the Details hero can show exact storefront links. After changing `web/worker/src/index.ts`, run `npx wrangler deploy` again from `web/worker`; until the deployed worker is updated, `web/src/igdb.web.ts` falls back to nested `games.external_games.*` if `/igdb/external_games` returns `404 / Not found`.
+
 ## 2. Google sign-in (OAuth) — one-time setup
 1. console.cloud.google.com → new project → **APIs & Services → Library → enable "Google Drive API"**.
 2. **OAuth consent screen** (External): add scopes `…/auth/drive.appdata` and `…/auth/userinfo.email`.

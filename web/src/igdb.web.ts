@@ -1,9 +1,9 @@
 // Web replacement for src/data/igdb.ts. Same exports, but instead of Tauri commands it talks to the
 // IGDB proxy (web/worker). The query building / parsing below is a port of the Rust commands in lib.rs.
 import type {
-  IgdbCreds, IgdbDebugImage, IgdbDiscover, IgdbDiscoverGame, IgdbFeed, IgdbGame, IgdbHit, IgdbImport, IgdbMedia, SeriesData,
+  IgdbCreds, IgdbDebugImage, IgdbDiscover, IgdbDiscoverGame, IgdbExternalGame, IgdbFeed, IgdbGame, IgdbHit, IgdbImport, IgdbMedia, SeriesData,
 } from "../../src/data/igdb";
-export type { IgdbCreds, IgdbDebugImage, IgdbDiscover, IgdbDiscoverGame, IgdbFeed, IgdbGame, IgdbHit, IgdbImport, IgdbMedia, SeriesData };
+export type { IgdbCreds, IgdbDebugImage, IgdbDiscover, IgdbDiscoverGame, IgdbExternalGame, IgdbFeed, IgdbGame, IgdbHit, IgdbImport, IgdbMedia, SeriesData };
 
 /** The offline UI enables import/sync/save-dialog features when this is true. The web build supports all of them. */
 export const hasTauri = true;
@@ -314,6 +314,38 @@ export async function igdbBundleContents(id: number, c: IgdbCreds): Promise<Igdb
   return rows(data).map(discoverItem);
 }
 
+const refId = (v: J): number | undefined =>
+  typeof v === "number" ? v : (v && typeof v === "object" && typeof v.id === "number" ? v.id : undefined);
+
+const externalGameRow = (g: J): IgdbExternalGame[] => {
+  const source = refId(g?.external_game_source) ?? refId(g?.category);
+  if (source === undefined) return [];
+  return [{
+    source,
+    url: typeof g?.url === "string" ? g.url : undefined,
+    name: typeof g?.name === "string" ? g.name : undefined,
+    platform: refId(g?.platform),
+    year: typeof g?.year === "number" ? g.year : undefined,
+  }];
+};
+
+export async function igdbExternalGames(id: number, c: IgdbCreds): Promise<IgdbExternalGame[]> {
+  try {
+    const data = await post("external_games", `fields external_game_source,category,url,name,platform,year; where game = ${id}; limit 100;`, c);
+    return rows(data).flatMap(externalGameRow);
+  } catch (err) {
+    if (!/not found|404/i.test(String(err))) throw err;
+    // The deployed proxy may not allow `external_games` yet. The same exact entries are
+    // available nested inside `games`, which the worker already allows.
+    const data = await post(
+      "games",
+      `fields external_games.external_game_source,external_games.category,external_games.url,external_games.name,external_games.platform,external_games.year; where id = ${id}; limit 1;`,
+      c
+    );
+    return rows(data).flatMap((g: J) => rows(g?.external_games)).flatMap(externalGameRow);
+  }
+}
+
 /** Browser "Save as": uses the native picker where available (Chrome/Edge), otherwise a normal download. */
 export async function saveTextFile(defaultName: string, contents: string, filterName: string, ext: string): Promise<string | null> {
   const mime = ext === "json" ? "application/json" : ext === "csv" ? "text/csv" : "text/plain";
@@ -350,3 +382,5 @@ export const igdbDiscoverCached = (g: string[], c: IgdbCreds) => memo(discoverCa
 export const igdbDiscoverFeedCached = (feed: IgdbFeed, g: string[], offset: number, limit: number, c: IgdbCreds) =>
   memo(feedCache, `${c.clientId}:${feed}:${g.join("|")}:${offset}:${limit}`, () => igdbDiscoverFeed(feed, g, offset, limit, c), 60);
 export const igdbBundleContentsCached = (id: number, c: IgdbCreds) => memo(bundleCache, `${c.clientId}:${id}`, () => igdbBundleContents(id, c), 40);
+const externalCache = new Map<string, Entry<IgdbExternalGame[]>>();
+export const igdbExternalGamesCached = (id: number, c: IgdbCreds) => memo(externalCache, `${c.clientId}:${id}`, () => igdbExternalGames(id, c), 60);

@@ -36,16 +36,18 @@ web/index.html ──> web/src/entry.tsx ──> init() Drive sync ──> impor
 | `game.ts` | `STATUSES`, `Status`, `View`, `Game`, `BundleGame`, `Profile`, `GridSize`, `LibraryLayout`, `LibrarySort`, `SortDirection`, `AppSettings`, `CollectionItem`, `Collection`, `AppData`, `defaultData`, and helpers `validateGame`, `formatPlaytime`, `formatCount`, `formatHours` |
 | `gametype.ts` | IGDB game-type constants (`GAME_TYPES`), `matchesGameType`, `isBundle`, `slimBundle`, `sameBundle` |
 | `library-session.ts` | `LibraryPrefs`, `libraryDefaults`, `SORT_OPTIONS`, module-level `librarySession` (memory only) |
-| `stats.ts` | `index()` row model, `CATEGORIES`, 13 section builders, ECharts option builders, `build()` |
+| `stats.ts` | `index()` row model, `CATEGORIES`, 14 section builders (incl. `playtime()`), ECharts option builders, `build()` |
+| `playtime.ts` | `playtimeHours`, `summarizePlaytime`, `playtimeBuckets` — pure aggregation of recorded `totalSeconds` for the Stats Playtime category |
+| `store-links.ts` | `storeLinksFromExternal`, `storeLabel` — de-duplicate IGDB `external_games` rows, validate URLs, order known storefronts, map source IDs to names |
 | `trophies.ts` | Six rarity tiers (`RARITY_RANK`, `RARITY_LABEL`), `TROPHIES`, `DEV_FAVORITES`, `GOTY`, `evaluate`, `topBadge`, `RARITY_COLOR` |
-| `game.test.ts` | The only existing test file (2 Vitest tests for `validateGame` / `formatPlaytime`) |
+| `game.test.ts`, `journey-sort.test.ts`, `playtime.test.ts`, `store-links.test.ts` | Vitest tests for game rules (2), Journey Fit All sorting (4), playtime aggregation (8) and store-link filtering/ordering (4) — 18 total |
 
 ### `src/data/`
 
 | File | Purpose |
 |---|---|
 | `repository.ts` | `AppRepository` interface, `LocalAppRepository` (localStorage), `TauriAppRepository` (IPC), `createAppRepository()`, image externalization, `normalizeStatuses` |
-| `igdb.ts` | Typed wrappers for all 11 IGDB commands plus `hasTauri`; `memo()` provides a **bounded LRU + 20-minute TTL** cache (`igdbDetailsCached`, `igdbImagesCached`, `igdbDiscoverCached`, `igdbDiscoverFeedCached`, bundle cache) |
+| `igdb.ts` | Typed wrappers for all 11 IGDB commands plus `hasTauri`; `memo()` provides a **bounded LRU + 20-minute TTL** cache (`igdbDetailsCached`, `igdbImagesCached`, `igdbDiscoverCached`, `igdbDiscoverFeedCached`, bundle cache, `igdbExternalGamesCached`) |
 | `sync.ts` | `syncWithIgdb`: refresh only IGDB-owned fields from an explicit `FIELDS` allow-list; chunked import with patch reports |
 | `backloggd.ts` | Backloggd CSV importer: `mapEntry`, `withRetry`, `importBackloggd`, dedupe by `igdbId`, abort/report helpers |
 | `platform.ts` | `ALL_PLATFORMS`, `PC`, aliases, `emulatedOn()` |
@@ -58,6 +60,7 @@ Shared presentational components reused across features:
 - `navigation.ts` — the 7-item `navigation` array
 - `shared.tsx` — `Header`, `Empty`, `StarRating`, `TrophyToggle`, `formatDate`, `parseDate`, `DateField`, `PlatformPicker`
 - `rarity-badge.tsx` — `RarityBadge`
+- `store-icons.tsx` — `StoreIcon`, transparent brand-logo SVGs keyed by IGDB `external_game_source` / `category` ID
 
 ### `src/features/`
 
@@ -86,14 +89,14 @@ The application root. Responsibilities:
 - Owns the single `data` state plus `update`, `addGame`, `saveGame`, `deleteGame`. `update` uses a **500 ms debounce** and flushes on `pagehide` / `visibilitychange` / unmount (`src/main.tsx:161-197`).
 - **Manual routing**: `view = location.pathname.slice(1) || "dashboard"` cast to `View`; `setView` calls `navigate()`. There are no `<Routes>`/`<Route>` declarations and no 404 fallback.
 - Renders `AppLayout` with the active view; lazy-loads Stats inside `Suspense`.
-- Defines the Library views and the `Details` hero (including inline Favorite updates and read-only journey fields that open the `AddGame` modal for editing).
+- Defines the Library views and the `Details` hero (including inline Favorite updates, the separate Time-To-Beat panel, exact IGDB storefront icon links with a `+N` popover, and read-only journey fields that open the `AddGame` modal for editing).
 - Hosts the global error boundary and window error handlers.
 
 ---
 
 ## Backend (Tauri Commands)
 
-All commands live in `src-tauri/src/lib.rs`; the binary entry is `src-tauri/src/main.rs`. There are no controllers, services, middleware, or background processes. All 15 commands are registered in `generate_handler!` at `lib.rs:1187-1204`.
+All commands live in `src-tauri/src/lib.rs`; the binary entry is `src-tauri/src/main.rs`. There are no controllers, services, middleware, or background processes. All 16 commands are registered in `generate_handler!` at `lib.rs:1214-1231`.
 
 ### Persistence / file commands
 
@@ -119,12 +122,13 @@ All commands live in `src-tauri/src/lib.rs`; the binary entry is `src-tauri/src/
 | `igdb_series` | Franchise tree traversal (4 levels up/down) → collections + games |
 | `igdb_bundle_contents` | Games in a bundle/edition (limit 50) |
 | `igdb_platforms` | Full IGDB platform list in 500-row pages |
+| `igdb_external_games` | Exact storefront entries for a game from `external_games` (source, URL, name, platform, year) |
 | `igdb_sync_check` | Bulk `updated_at` check (500 IDs/request) |
 | `igdb_import_batch` | Details + images + TTB in ~3 requests (bulk import/sync) |
 
 ### Web proxy
 
-`web/worker/src/index.ts` is a **stateless Cloudflare Worker**: `POST /igdb/<endpoint>` only, with an endpoint allow-list, exact-origin CORS (`ALLOWED_ORIGINS`), per-IP rate limit (40 req/10 s), credential headers, in-memory token cache, one 401 retry, and `Cache-Control: no-store`. It is not a browser service worker.
+`web/worker/src/index.ts` is a **stateless Cloudflare Worker**: `POST /igdb/<endpoint>` only, with an endpoint allow-list (including `external_games` for exact storefront links), exact-origin CORS (`ALLOWED_ORIGINS`), per-IP rate limit (40 req/10 s), credential headers, in-memory token cache, one 401 retry, and `Cache-Control: no-store`. It is not a browser service worker. The deployed worker must be redeployed for the allow-list change to take effect; until then `web/src/igdb.web.ts` falls back to nested `games.external_games.*`.
 
 ### Security / capabilities
 

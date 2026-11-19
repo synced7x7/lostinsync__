@@ -25,10 +25,11 @@ Built installer artifacts exist in `src-tauri/target/release/bundle/` (NSIS `.ex
 | Library | 7 statuses, PS4 shelf + fullscreen shelf + catalog grid, title search, status/game-type/favorites filters, 10-key sort with direction | `src/domain/game.ts:3`, `src/main.tsx:300-461,513-812`, `src/domain/library-session.ts:22-33` |
 | Add Game IGDB dropdown (feature 1) | Suggestion dropdown closes on outside click or Escape so custom titles can be typed freely | `src/features/library-components.tsx:1,39-44,196-203` (commit `c864403`) |
 | Journey Fit All sort (feature 2) | Ascending (oldest first) / descending (newest first) toolbar toggle; deterministic comparator with Vitest coverage; timeline layout stays chronological | `src/features/journey.tsx`, `src/features/journey.css`, `src/domain/journey-sort.ts`, `src/domain/journey-sort.test.ts` |
-| Game details | Cover/backdrop hero, rating, IGDB/TTB tiles, played-on platforms, notes, series/bundle links, media, read-only journey panel | `src/main.tsx:848-1059`, `src/features/{media,series,bundle}.tsx` |
+| Playtime stats (feature 3) | Dedicated "Playtime" Stats category aggregating recorded `totalSeconds`: total/mean/median, longest/shortest game, distribution, hours by status/genre, plus a separate labelled IGDB-estimate comparison | `src/domain/playtime.ts`, `src/domain/playtime.test.ts`, `src/domain/stats.ts`, `src/features/stats.tsx` |
+| Game details | Cover/backdrop hero, rating, dedicated TTB panel above Journey, exact IGDB storefront icon links with `+N` popover, IGDB ID pill, played-on platforms, notes, series/bundle links, media, read-only journey panel | `src/main.tsx:848-1110`, `src/components/store-icons.tsx`, `src/domain/store-links.ts`, `src/features/{media,series,bundle}.tsx` |
 | Journey timeline | SVG strands, lane allocation, LOD culling, zoom/pan, range presets, virtualized Fit All | `src/features/journey.tsx`, `journey.css` |
-| Discover / IGDB | 10 feeds, paginated feed loader, fuzzy/exact/ID search, one-click draft import, bounded LRU caches | `src/features/discover.tsx`, `src/data/igdb.ts:36-91`, `src-tauri/src/lib.rs:404-806` |
-| Stats | 12 visible categories, tiles, tabbed ECharts charts, year filter | `src/domain/stats.ts`, `src/features/stats.tsx` |
+| Discover / IGDB | 10 feeds, paginated feed loader, fuzzy/exact/ID search, one-click draft import, exact `external_games` storefronts, bounded LRU caches | `src/features/discover.tsx`, `src/data/igdb.ts:36-145`, `src-tauri/src/lib.rs:404-1003`, `web/src/igdb.web.ts` |
+| Stats | 13 visible categories (incl. Playtime), tiles, tabbed ECharts charts, year filter | `src/domain/stats.ts`, `src/domain/playtime.ts`, `src/features/stats.tsx` |
 | Trophies | Six rarity tiers including `lostinsync`, badge gallery, `evaluate`/`topBadge` | `src/domain/trophies.ts`, `src/features/trophies.tsx` |
 | Profile / dashboard | Banner editor with canvas image resize, collection actions, recents, wishlist, "pick up where you left" | `src/features/overview.tsx`, `src/features/dashboard.tsx` |
 | Settings / data | Defaults, IGDB credentials, wipe library, JSON/CSV export, JSON import, Backloggd importer, IGDB sync with report | `src/features/settings.tsx`, `settings-data.tsx`, `src/data/{backloggd,sync}.ts` |
@@ -46,7 +47,6 @@ Note: feature 1 was originally titled "Played On and Completed Status Without En
 | Feature | What works | What is missing / limited |
 |---|---|---|
 | Theme system | Single "Aurora" theme via CSS variables; `AppSettings.theme` literal `"aurora"` | No theme switching, no `data-theme`/provider, no light mode, many hard-coded colors, ECharts colors are JS constants. `docs/design-system.md` now marks its `[data-theme]` example as proposed. |
-| Gameplay time stats | `Game.totalSeconds` collected in AddGame and exported to CSV; IGDB time-to-beat fields stored and shown on details; hidden `length` section in `src/domain/stats.ts` | No dedicated playtime section; `stats.ts` never reads `totalSeconds`; no session logs; `length` commented out of `CATEGORIES` (`:21`). |
 | Status changes | Fully changeable through the AddGame edit modal | No inline status/platinum/date control on cards or details; Details controls are `readOnly`. |
 | IGDB sync | Field allow-list, chunking, report, staleness check | 401 clears token without retry; no HTTP timeout/429 handling in Rust; cannot run in plain browser dev mode. |
 | Web app | Full shared UI + local-first persistence + cloud backup | No PWA; no `web/.env.example`; stale dead frontend copies in `web/worker/src/`; deploy target docs conflict; `hasTauri = true` hack. |
@@ -72,7 +72,7 @@ From `docs/roadmap.md` and the current request list:
 - Automated playtime tracking, launcher integration, multi-session log.
 - Steam library sync + achievements; emulator deep links; additional CSV importers.
 - Year-in-review image, tier list creator, custom themes.
-- Inline played-on/completed status updates (original feature-1 idea; re-scoped to the dropdown fix, now complete); dedicated gameplay-time stats; improved Discover relevance; theme system.
+- Inline played-on/completed status updates (original feature-1 idea; re-scoped to the dropdown fix, still not implemented); improved Discover relevance; theme system.
 - Android app (isolated directory); Add Game search-appearance fix; backlog priority / "What Should I Play Next?".
 - Wishlist extras (price, reminders, bought-on, amount paid, spending stats); platform ownership; franchise completion.
 - More import sources (CSV, Steam, pasted titles); shareable profile/statistics card.
@@ -109,7 +109,7 @@ All of the above are documented individually in `future_implementation_guide.md`
 - **Dead Rust domain structs** (`src-tauri/src/lib.rs:13-69`) plus file-level `#![allow(dead_code)]`; unused `tauri-plugin-log` and `log` crates.
 - **~21 MB / 67 PNG assets** loaded eagerly in `src/features/trophies.tsx` (re-measured 2026-11-19; `docs/performance-optimization-report.md` was updated with current numbers and now marks the IGDB cache issue as resolved).
 - **Documentation drift remains in root `README.md` and `web/README.md`** (structure, deploy target, Drive scopes, missing `.env.example`); `docs/` was refreshed on 2026-11-19.
-- **Sparse testing:** one 2-test Vitest file, no React or Rust tests, no lint/format config, jsdom not configured in Vite config.
+- **Sparse testing:** four pure-function Vitest files (18 tests total: game 2, journey-sort 4, playtime 8, store-links 4); no React or Rust tests, no lint/format config, jsdom not configured in Vite config.
 - **Hard-coded colors** in feature CSS and ECharts options; partial-variable theming only.
 - **Web dead code** in `web/worker/src/`; `hasTauri = true` workaround couples web UI to desktop semantics.
 - **React 18 runtime / React 19 types** mismatch (`package.json:21-22,29-30`).
@@ -130,14 +130,16 @@ All of the above are documented individually in `future_implementation_guide.md`
 10. **Drive conflict model** (`remote.modifiedTime` vs `meta.remoteModified`) — never silently overwrite newer remote data.
 11. **Android must be isolated** in a separate directory with no changes to desktop/web dependencies or source (user requirement).
 12. **Fit All sort is session-only and presentation-only** — the direction reverses only the overview rows; timeline geometry, lane colours and palette stay chronological (`src/features/journey.tsx`, `src/domain/journey-sort.ts`).
+13. **Playtime stats use only user-recorded `totalSeconds`** — `src/domain/playtime.ts` ignores invalid/zero values and counts them as untracked; IGDB TTB values stay a separate, labelled estimate series; no session logs were added, so the Stats year filter attributes games by start/finish/add date (`touchedIn`). The old hidden `length` section remains untouched.
+14. **Store links come only from IGDB `external_games`** — no platform-based guessing: rows without an HTTP(S) URL are dropped, sources are deduplicated and priority-ordered, and only two icons plus a `+N` hover/focus popover are shown. Desktop uses `igdb_external_games`; web uses `external_games` with a nested `games.external_games.*` fallback for workers that have not been redeployed with the new allow-list.
 
 ---
 
 ## 9. Next Development Steps (logical, based on actual state)
 
-1. **Housekeeping:** remove/relocate save debug logs and clear the error toast (`src/main.tsx:164-208`). The former Phase 1 items — Add Game dropdown dismissal (feature 1) and Fit All asc/desc (feature 2) — are now complete.
+1. **Housekeeping:** remove/relocate save debug logs and clear the error toast (`src/main.tsx:164-208`). The former Phase 1 items — Add Game dropdown dismissal (feature 1), Fit All asc/desc (feature 2) and dedicated Playtime stats (feature 3) — are now complete.
 2. **Settle data-model extensions early** (all live in the JSON blob): ownership (12), wishlist price/payment/reminder fields (11), backlog priority (10) — keep them out of `src/data/sync.ts` `FIELDS`.
-3. **Domain/analytics:** dedicated playtime stats (re-evaluate the hidden `length` section at `src/domain/stats.ts:21,401-412`), franchise completion reusing `franchises()` + `igdbSeries`, discover ranking improvements mirrored in Rust and `web/src/igdb.web.ts`, then "What Should I Play Next?".
+3. **Domain/analytics:** franchise completion reusing `franchises()` + `igdbSeries`, discover ranking improvements mirrored in Rust and `web/src/igdb.web.ts`, then "What Should I Play Next?" (dedicated playtime stats are complete — `src/domain/playtime.ts` + the `playtime` Stats category; the hidden `length` section at `src/domain/stats.ts:21,401-412` was intentionally left alone).
 4. **Import/sync:** reusable import pipeline extracted from `src/data/backloggd.ts` (CSV + pasted titles), then Steam import/refresh after authentication strategy is decided.
 5. **Presentation:** shareable profile/stats card after stats/badge data is stable.
 6. **Packaging/platform:** harden WebApp config/docs, then PWA (depends on web), and Android in an isolated directory (can run in parallel with PWA).

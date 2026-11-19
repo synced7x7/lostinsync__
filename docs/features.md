@@ -18,7 +18,7 @@ The Library view is the operational heart of the application (`src/main.tsx`).
   - Real-time **title-substring** search only (developer/genre/note search is not implemented).
   - Filter pills for status, an IGDB game-type filter, a favorites-only toggle, and a genre setting in defaults (the genre filter is declared but not consumed).
   - Ten sort keys with an ascending/descending direction toggle (`recent`, `completion`, `playtime`, `rating`, `igdbRating`, `title`, `releaseDate`, `avgTime`, `mainTime`, `fullTime`).
-- **Game Details View**: `Details` in `src/main.tsx` features backdrop artwork, rating ring, IGDB score, Time-To-Beat tiles, played-platform chips, notes, series/bundle links, media, and a read-only journey panel. Status/date fields are edited by opening the `AddGame` modal; an inline Favorite toggle already updates directly.
+- **Game Details View**: `Details` in `src/main.tsx` features backdrop artwork, rating ring, IGDB score, a dedicated Time-To-Beat section above the read-only journey panel, played-platform chips, exact storefront icon links (with a `+N` hover popover), notes, series/bundle links, and media. Status/date fields are edited by opening the `AddGame` modal; an inline Favorite toggle already updates directly.
 
 ---
 
@@ -41,6 +41,7 @@ IGDB integration runs through Tauri Rust commands on desktop and a stateless Clo
 - **Curated Feeds**: 10 feeds — Trending, Latest, Upcoming, Top Rated, Anticipated, Hidden Gems, Indie, Story-rich, and personalized "For You" variants. The active loader is `igdb_discover_feed` (paginated); `igdb_discover` is a legacy snapshot still present but unused by the UI.
 - **Search Capabilities**: Fuzzy search, exact title prefix via `/ <title>`, and ID lookup via `& <id>`.
 - **One-Click Import**: `draftFromIgdb` creates an unsaved game from IGDB results with cover, backdrop, summary, release date, platforms, genres, themes, and Time-To-Beat metadata.
+- **Exact storefront links**: `igdbExternalGames` reads IGDB `external_games` for the game. The Details hero shows up to two brand-icon store links plus a `+N` hover/focus popover for the rest; `storeLinksFromExternal` drops rows without a URL, deduplicates by source, and orders known storefronts by priority. The web client falls back to nested `games.external_games.*` when the deployed worker has not yet allowed the direct endpoint.
 - **Franchise Explorer**: Series tree traversal up to 4 levels up/down via `igdb_series`.
 - **Caching**: Bounded LRU caches with a 20-minute TTL; feed cards are prefetched on hover.
 
@@ -56,14 +57,15 @@ IGDB integration runs through Tauri Rust commands on desktop and a stateless Clo
 
 ## 5. 📊 Statistics & Analytics
 
-`src/domain/stats.ts` builds 12 visible categories rendered as tiles and tabbed ECharts charts.
+`src/domain/stats.ts` builds 13 visible categories rendered as tiles and tabbed ECharts charts, including a Playtime category backed by `src/domain/playtime.ts`.
 
 - **Overview**: Library size, completion rate, total hours.
 - **Activity / eras**: Completion pace, year-over-year activity.
-- **Genres / platforms / franchises / developers / ratings / length**: Distribution and completion breakdowns.
+- **Playtime**: User-recorded `totalSeconds` — total/mean/median, longest and shortest games, distribution bands, hours by status and genre, plus a separate IGDB-estimate comparison.
+- **Genres / platforms / franchises / developers / ratings**: Distribution and completion breakdowns.
 - **Milestones / records / insights**: Badge counts and taste traits.
 
-Important nuance: playtime charts use IGDB `timeAvgSeconds` (Time-To-Beat estimates), **not** the user-recorded `totalSeconds`. A `length` section exists but is currently commented out of the category list. There is no dedicated gameplay-time section yet.
+Important nuance: the older length charts use IGDB `timeAvgSeconds` (Time-To-Beat estimates), while the dedicated Playtime section uses only the user-recorded `totalSeconds`; IGDB values appear there solely as a separate, labelled estimate series. A hidden `length` section remains commented out of the category list. Playtime has no per-session dates, so the Stats year filter selects games by start/finish/add date instead of splitting hours across years.
 
 ---
 

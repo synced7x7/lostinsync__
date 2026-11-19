@@ -21,7 +21,7 @@
 - Interactive Game Journey timeline with SVG strands, lane assignment, zoom/pan, LOD culling, and a virtualized "Fit All" overview (`src/features/journey.tsx`).
 - Discover: 10 IGDB feeds, search with `/ ` exact-name and `& ` ID syntax, one-click import of metadata/images (`src/features/discover.tsx`, `src-tauri/src/lib.rs`).
 - Trophies/badge gallery with six rarity tiers including `lostinsync` (`src/domain/trophies.ts`).
-- Statistics: 12 visible categories built from `src/domain/stats.ts` and rendered with Apache ECharts (`src/features/stats.tsx`).
+- Statistics: 13 visible categories built from `src/domain/stats.ts` (including a Playtime category aggregated from recorded `totalSeconds` by `src/domain/playtime.ts`) and rendered with Apache ECharts (`src/features/stats.tsx`).
 - Settings: defaults, IGDB credentials, JSON/CSV export, JSON import, Backloggd import, IGDB metadata sync; web build adds encrypted credential vault and Google Drive backup.
 - Media gallery (screenshots, YouTube embeds), franchise/series tree, bundle contents, profile banner editor.
 
@@ -118,17 +118,19 @@ Meaningful paths only (no build artifacts, no `node_modules`, no individual badg
 | Path | Purpose / contents | Depends on / depended on by | Inspect when |
 |---|---|---|---|
 | `index.html` | Desktop entry: `<div id="root">` + `/src/main.tsx` | Vite root config | Changing boot HTML/CSP |
-| `src/main.tsx` | App root: manual routing, `AppData` state, debounced save, Library/PS4 shelf/catalog grid/Details views, global error boundary | All features; `src/data/*`, `src/components/*`, `src/style.css` | Any cross-cutting UI or state change |
+| `src/main.tsx` | App root: manual routing, `AppData` state, debounced save, Library/PS4 shelf/catalog grid/Details views (separate TTB panel, exact storefront icon row, IGDB ID pill), global error boundary | All features; `src/data/*`, `src/components/*`, `src/style.css` | Any cross-cutting UI or state change |
 | `src/style.css` | Global theme tokens, layout, shared components (2486 lines) | Everything visual | Styling or theming work |
 | `src/domain/game.ts` | `STATUSES`, `Game`, `Profile`, `AppSettings`, `AppData`, `defaultData`, helpers (`formatPlaytime`, `formatHours`, `validateGame`, `formatCount`) | Nearly every module | Adding/changing data fields |
 | `src/domain/gametype.ts` | IGDB game-type constants, `matchesGameType`, `isBundle`, `slimBundle`, `sameBundle` | Library filters, Discover, bundle UI | Game-type/bundle logic |
 | `src/domain/library-session.ts` | `LibraryPrefs`, `libraryDefaults`, `prefsToSettings`, `SORT_OPTIONS`, `librarySession` | `src/main.tsx` LibraryView | Library sort/filter changes |
 | `src/domain/journey-sort.ts` | `sortJourneyRows` — chronological comparator with `id` tie-break, reversible for Fit All | `src/features/journey.tsx` | Journey Fit All sort changes |
-| `src/domain/stats.ts` | Row index (`index`), `yearsOf`, `CATEGORIES`, 13 section builders, ECharts option builders, `build` | `src/features/stats.tsx` | Any analytics change |
+| `src/domain/playtime.ts` | `playtimeHours`, `summarizePlaytime`, `playtimeBuckets` — pure aggregation of recorded `totalSeconds` | `src/domain/stats.ts` | Playtime stats changes |
+| `src/domain/store-links.ts` | `storeLinksFromExternal`, `storeLabel` — validate, deduplicate and priority-order IGDB `external_games` storefronts | `src/main.tsx` Details hero | Store-link filtering/order changes |
+| `src/domain/stats.ts` | Row index (`index`), `yearsOf`, `CATEGORIES`, 14 section builders (incl. `playtime()`), ECharts option builders, `build` | `src/features/stats.tsx`, `src/domain/playtime.ts` | Any analytics change |
 | `src/domain/trophies.ts` | Rarity tiers, `TROPHIES`, `DEV_FAVORITES`, `GOTY`, `evaluate`, `topBadge`, `RARITY_COLOR` | Trophy UI, sidebar badge, stats milestones | Badge/rarity work |
-| `src/domain/game.test.ts` | Only existing test file (2 Vitest tests) | `pnpm test` | Adding pure-function tests |
+| `src/domain/*.test.ts` | `game.test.ts` (2), `journey-sort.test.ts` (4), `playtime.test.ts` (8), `store-links.test.ts` (4) — 18 Vitest tests total | `pnpm test` | Adding pure-function tests |
 | `src/data/repository.ts` | `AppRepository`, `LocalAppRepository`, `TauriAppRepository`, `createAppRepository()`, image externalization | `src/main.tsx`; swapped in web | Persistence changes |
-| `src/data/igdb.ts` | Typed wrappers for 11 IGDB commands, bounded LRU cached variants, `hasTauri`, `saveTextFile` | Discover, sync, importers, details | Adding IGDB calls (mirror in web!) |
+| `src/data/igdb.ts` | Typed wrappers for 11 IGDB commands (including `igdbExternalGames`), bounded LRU cached variants, `hasTauri`, `saveTextFile` | Discover, sync, importers, Details store links | Adding IGDB calls (mirror in web!) |
 | `src/data/sync.ts` | `syncWithIgdb`, `FIELDS` allow-list, `buildPatch`, `applyPatches`, sync reports | Settings sync section | IGDB refresh behavior |
 | `src/data/backloggd.ts` | `importBackloggd`, `withRetry`, `mapEntry`, import reports | Settings Backloggd section | Import pipeline work |
 | `src/data/platform.ts` | `ALL_PLATFORMS`, `PC`, `emulatedOn` | Stats, AddGame, importers | Platform lists/derivation |
@@ -136,6 +138,7 @@ Meaningful paths only (no build artifacts, no `node_modules`, no individual badg
 | `src/components/layout.tsx` | `AppLayout`, collapsible `Sidebar`, error toast | `src/main.tsx` | Navigation/layout changes |
 | `src/components/navigation.ts` | `navigation` array (7 items) | Sidebar | Adding a route to the sidebar |
 | `src/components/rarity-badge.tsx` | `RarityBadge` | Sidebar, profile banner, trophies | Badge display |
+| `src/components/store-icons.tsx` | `StoreIcon` — transparent brand-logo SVGs keyed by IGDB `external_game_source` / `category` ID | Details store chips | Store icon/logo changes |
 | `src/features/dashboard.tsx` | Overview feed, recents, wishlist, "pick up where you left" | Route `/` | Dashboard changes |
 | `src/features/library-components.tsx` | `AddGame` modal (also used for editing) — only export | `src/main.tsx` | Add/edit form or IGDB search bug |
 | `src/features/journey.tsx` + `journey.css` | Timeline, `FitView`, LOD, zoom/pan, session prefs | Route `/journey` | Timeline and Fit All work |
@@ -148,7 +151,7 @@ Meaningful paths only (no build artifacts, no `node_modules`, no individual badg
 | `src/features/settings.tsx` | `SettingsView`, appearance defaults, static theme pill | Route `/settings` | Settings UI |
 | `src/features/settings-data.tsx` | `DataSection`, JSON/CSV export/import, Backloggd import, IGDB sync | Settings; wrapped by web | Import/export/sync |
 | `src/images/{badges,trophy-bg,logo}/` | PNG artwork loaded with `import.meta.glob` | Trophy views, sidebar logo | Asset optimization |
-| `src-tauri/src/lib.rs` | All 15 Tauri commands, SQLite migration, IGDB proxy, image storage, app setup | Desktop backend | Any native feature |
+| `src-tauri/src/lib.rs` | All 16 Tauri commands (incl. `igdb_external_games`), SQLite migration, IGDB proxy, image storage, app setup | Desktop backend | Any native feature |
 | `src-tauri/src/main.rs` | 5-line binary entry calling `app_lib::run()` | Rust build | Rarely |
 | `src-tauri/tauri.conf.json` | productName, identifier, window, CSP, asset protocol, bundle targets, Android suffix | Tauri build/runtime | Config/security changes |
 | `src-tauri/capabilities/default.json` | `core:default`, `opener:default`, `dialog:default` for window `main` | Tauri permissions | Adding plugin capabilities |
@@ -157,7 +160,7 @@ Meaningful paths only (no build artifacts, no `node_modules`, no individual badg
 | `web/vite.config.ts` | Three module swaps, build-time CSP, dev port 5174, output `web/dist` | Web build | Web/PWA changes |
 | `web/index.html`, `web/src/entry.tsx` | Web boot: cloud CSS, `init()` sync, dynamic import of shared app; F11 fullscreen monkey-patch | Web runtime | Web entry changes |
 | `web/src/db.ts`, `vault.ts`, `codec.ts`, `repository.web.ts`, `events.ts` | IndexedDB (v1: `kv`, `images`), AES-GCM credential vault, image hash blobs, repository, dirty-event pub/sub | Web persistence | Web data/storage work |
-| `web/src/igdb.web.ts` | IGDB client over Cloudflare Worker; mirrors every export of `src/data/igdb.ts` | Web IGDB UI | Any IGDB client change |
+| `web/src/igdb.web.ts` | IGDB client over Cloudflare Worker; mirrors every export of `src/data/igdb.ts`; `igdbExternalGames` falls back to nested `games.external_games.*` on worker 404 | Web IGDB UI | Any IGDB client change |
 | `web/src/sync.ts`, `drive.ts`, `cloud-panel.tsx`, `cloud.css` | Google Drive backup, conflict detection, sync UI | Web cloud | Cloud sync work |
 | `web/src/settings-data.web.tsx` | Re-exports offline `DataSection` and injects `CloudSection` | Settings | Web-only settings panel |
 | `web/worker/` | Cloudflare Worker: `src/index.ts` (stateless IGDB proxy), `wrangler.toml`; note stale dead frontend copies in `src/{entry.tsx,login-gate.tsx,sync.ts,cloud.css}` | Web IGDB | Proxy work |
@@ -223,7 +226,7 @@ Utilities: `compareGames` (`src/main.tsx:300-314`), `formatSpan` (`:316-333`), `
 - **Details**: read-only journey panel with "Edit" buttons that open the modal; inline "Favorite" mutation already demonstrates direct `saveGame`.
 - **Journey**: lane allocation, LOD (cull below 40% zoom), zoom 10–240%, range presets, Fit All virtualized list with an ascending (oldest first) / descending (newest first) toggle that reorders only the overview rows.
 - **Discover**: 10 feeds loaded with 3 concurrent workers, 20 items each; "View all" pages of 30 up to 100; hover prefetch.
-- **Stats**: category tabs, year filter, tile grid, tabbed chart cards.
+- **Stats**: category tabs, year filter, tile grid, tabbed chart cards; the "Playtime" category shows logged hours with a note that the year filter selects games by date rather than splitting hours.
 - **Settings/Data**: export JSON (strips IGDB credentials), export CSV, import JSON (destructive replace), Backloggd import with progress/report, IGDB sync with report, library defaults, wipe library.
 - **Web additions**: Drive connect/back up/restore/overwrite panel with conflict handling.
 
@@ -278,7 +281,7 @@ All are `async fn` returning `Result<T, String>`; `State<Database>` and `AppHand
 
 ### Web "backend"
 
-`web/worker/src/index.ts` is a stateless Cloudflare Worker: POST `/igdb/<endpoint>` only, allow-listed endpoints, exact-origin CORS from `ALLOWED_ORIGINS`, per-IP limit 40 req/10 s, credential header validation, in-memory token cache, one 401 retry, `Cache-Control: no-store`. It stores nothing persistently.
+`web/worker/src/index.ts` is a stateless Cloudflare Worker: POST `/igdb/<endpoint>` only, allow-listed endpoints (now including `external_games`, but a redeploy is required for the change to reach the deployed worker), exact-origin CORS from `ALLOWED_ORIGINS`, per-IP limit 40 req/10 s, credential header validation, in-memory token cache, one 401 retry, `Cache-Control: no-store`. It stores nothing persistently.
 
 ---
 
@@ -366,9 +369,9 @@ There is no public HTTP API for the desktop app. "API" means Tauri IPC commands 
 | Method | Path | Headers / body | Response |
 |---|---|---|---|
 | `OPTIONS` | `/igdb/<endpoint>` | `Origin` must match `ALLOWED_ORIGINS` | `204` with CORS headers, else `403` |
-| `POST` | `/igdb/{games\|game_time_to_beats\|image_types\|artworks\|covers\|screenshots\|popularity_primitives\|collection_relations\|collections\|platforms}` | `Content-Type: text/plain`, `X-Client-Id`, `X-Client-Secret`; raw Apicalypse body ≤ 6000 chars | IGDB JSON (`Cache-Control: no-store`), `401/413/429/502` on errors |
+| `POST` | `/igdb/{games\|game_time_to_beats\|image_types\|artworks\|covers\|screenshots\|popularity_primitives\|collection_relations\|collections\|platforms\|external_games}` | `Content-Type: text/plain`, `X-Client-Id`, `X-Client-Secret`; raw Apicalypse body ≤ 6000 chars | IGDB JSON (`Cache-Control: no-store`), `401/413/429/502` on errors |
 
-Client call shape: `web/src/igdb.web.ts:26-49` `post()` → `fetch(`${VITE_IGDB_PROXY_URL}/igdb/${endpoint}`, { cache: "no-store", referrerPolicy: "no-referrer" })` with a 260 ms request slot and one 1200 ms-delayed retry on 429.
+Client call shape: `web/src/igdb.web.ts:26-49` `post()` → `fetch(`${VITE_IGDB_PROXY_URL}/igdb/${endpoint}`, { cache: "no-store", referrerPolicy: "no-referrer" })` with a 260 ms request slot and one 1200 ms-delayed retry on 429. Store links use `igdbExternalGames`: try `/igdb/external_games`, then fall back to a `games` query with nested `external_games.*` fields if the deployed worker returns `404 / Not found`.
 
 **Tauri command invocation shape (examples):**
 
@@ -381,7 +384,7 @@ invoke("save_app_data", { data })                                 // ()
 
 Rust parameter names are snake_case (`client_id`), Tauri maps JS camelCase keys.
 
-**IGDB REST endpoints used by Rust** (all POST to `https://api.igdb.com/v4/<endpoint>`): `games`, `popularity_primitives`, `game_time_to_beats`, `image_types`, `artworks`, `covers`, `screenshots`, `collection_relations`, `collections`, `platforms`. Image CDN: `https://images.igdb.com/igdb/image/upload/t_{size}/{image_id}.jpg` (`cover_big_2x`, `1080p`, `screenshot_big`, `cover_small`). `docs/igdb-image-endpoints.md` was corrected; note the remaining divergence: desktop uses `cover_big_2x` for main covers while `web/src/igdb.web.ts` still uses `cover_big`.
+**IGDB REST endpoints used by Rust** (all POST to `https://api.igdb.com/v4/<endpoint>`): `games`, `popularity_primitives`, `game_time_to_beats`, `image_types`, `artworks`, `covers`, `screenshots`, `collection_relations`, `collections`, `platforms`, `external_games`. Image CDN: `https://images.igdb.com/igdb/image/upload/t_{size}/{image_id}.jpg` (`cover_big_2x`, `1080p`, `screenshot_big`, `cover_small`). `docs/igdb-image-endpoints.md` was corrected; note the remaining divergence: desktop uses `cover_big_2x` for main covers while `web/src/igdb.web.ts` still uses `cover_big`.
 
 ---
 
@@ -453,21 +456,22 @@ cd web/worker && npx wrangler deploy                 # IGDB proxy
 - **State:** Explicit updater functions with debounced persistence; module-level mutable session objects for non-persisted prefs; `useRef` for timers/DOM/RAF state.
 - **Async/errors:** `void promise.then().catch()`; per-feature `Notice`/`error` strings with `instanceof Error ? e.message : String(e)`; `withRetry` for network operations; `AbortController` for long imports/sync; global `window.error` / `unhandledrejection` banner and `GlobalErrorBoundary` (`src/main.tsx:1061-1095`).
 - **Formatting:** 2-space indent, double quotes, semicolons in most files; `data/*` and `stats.ts` use denser one-line style with fewer semicolons. No ESLint/Prettier config or script.
-- **Tests:** Vitest pure-function tests only; `src/domain/game.test.ts` is the single existing file. `jsdom` is installed but no `test.environment` is configured in `vite.config.ts`; DOM tests need `// @vitest-environment jsdom` or config.
+- **Tests:** Vitest pure-function tests only — `game.test.ts` (2), `journey-sort.test.ts` (4), `playtime.test.ts` (8), `store-links.test.ts` (4); 18 tests total. `jsdom` is installed but no `test.environment` is configured in `vite.config.ts`; DOM tests need `// @vitest-environment jsdom` or config.
 - **Architecture rule:** Prefer extending existing components/utilities over new abstractions; keep web changes under `web/`; keep new native commands in `lib.rs` and registered in `generate_handler!`.
 
 ---
 
 ## 13. Important Implementation Details
 
-- **Bounding IGDB caches:** `memo()` (`src/data/igdb.ts:39-52`) implements LRU + 20-minute TTL with failed-promise eviction; limits: details 150, images 60, feeds 60, legacy discover 10, bundle contents 40. Web mirrors this in `web/src/igdb.web.ts:328-352`.
+- **Bounding IGDB caches:** `memo()` (`src/data/igdb.ts:39-52`) implements LRU + 20-minute TTL with failed-promise eviction; limits: details 150, images 60, feeds 60, legacy discover 10, bundle contents 40, external games 60. Web mirrors this in `web/src/igdb.web.ts` including `igdbExternalGamesCached`.
 - **Image externalization:** `PFX = "img:"` (`src/data/repository.ts:41`); `externalize()` writes via `store_image`; `fileGame()`/`convertFileSrc()` produce `asset://` URLs; `DefaultHasher` filenames are non-cryptographic and have no orphan cleanup.
 - **Sync allow-list:** `FIELDS` (`src/data/sync.ts:28-47`) is the authoritative list of IGDB-owned fields; user-owned fields (status, rating, notes, priority-like fields) must never be added. `buildPatch` avoids blanking empty IGDB fields and preserves user-uploaded data: covers.
 - **Library/Journey prefs:** `librarySession` (`domain/library-session.ts:36`) and Journey `session` (`features/journey.tsx:135`) are memory-only; `queuePrefs` at `journey.tsx:409-414` explicitly says prefs are "never saved to the database". `AppSettings.journeyRange/zoom/fit` and `defaultView`, `libraryGenre` are declared but unused.
 - **Journey ordering:** `base.sorted` uses `sortJourneyRows(items, "asc")` (`src/domain/journey-sort.ts`, start + `id` tie-break); Fit All gets a separate `fitRows` array reversed by direction while timeline geometry, lane colours and palette stay chronological (`journey.tsx`).
 - **Journey LOD:** culling below `LOD_Z = 0.4`; Fit All uses a positional virtual window and resets `scrollTop` when `base` changes (`journey.tsx:298`).
-- **Stats:** `CATEGORIES` has 12 visible entries; the `"length"` category is implemented (`length()` at `:401-412`, registered in `BUILD` at `:505`) but commented out of `CATEGORIES` at `:21`. `totalSeconds` is **not** read by `stats.ts`; `len` comes from IGDB `timeAvgSeconds`.
+- **Stats:** `CATEGORIES` has 13 visible entries; the new `"playtime"` category aggregates `Game.totalSeconds` via `src/domain/playtime.ts` (`playtimeHours`/`summarizePlaytime`/`playtimeBuckets`) and is backed by `play` in the `index()` row. IGDB `timeAvgSeconds` still feeds `len` and appears only as a separate, muted "IGDB average (estimate)" series in the Playtime comparison chart. The older `"length"` category remains implemented (`length()`, registered in `BUILD`) but commented out of `CATEGORIES` — left intentionally untouched.
 - **Web `hasTauri = true`** (`web/src/igdb.web.ts:9`) deliberately enables desktop-looking IGDB UI in the browser; capability checks like `hasTauri && creds` gate import/sync in settings.
+- **Exact storefront links:** `igdb_external_games` / `igdbExternalGames` read IGDB `external_games`; `storeLinksFromExternal` drops invalid URLs, deduplicates by source and orders known storefronts. Details shows two icon-only chips plus a `+N` hover/focus popover; `StoreIcon` supplies transparent brand SVGs. The web client falls back to nested `games.external_games.*` when the deployed worker returns 404 for the direct endpoint.
 - **Web build swap caveat:** `swapModules()` matches resolved module IDs globally; a web file may import the offline original it wraps (guarded at `web/vite.config.ts:30`), but any new shared import of those three paths will be swapped.
 - **Debug instrumentation:** `flushSave` logs payload size and a `console.table` of field sizes on every save (`src/main.tsx:173-188`); the former catch-block error reporting is commented out (`:169-171`).
 - **Auto fullscreen:** `src/main.tsx:95-127` requests fullscreen on first interaction; web overrides `Element.prototype.requestFullscreen` to require F11.
@@ -491,7 +495,7 @@ cd web/worker && npx wrangler deploy                 # IGDB proxy
 11. **Declared-but-unused code:** `AppSettings` journey/default fields, Rust domain structs, `tauri-plugin-log` and `log` crates, `libraryGenre`, `length` stats category.
 12. **Web:** no `web/.env.example`; stale dead worker frontend copies; `new URL()` on a malformed proxy URL throws at config load; `opener:default` granted but plugin debug-only; Drive docs say `drive.appdata` but code uses `drive.file` and a visible root folder; deploy target docs conflict (Vercel vs Cloudflare Pages).
 13. **React runtime 18 vs types 19** mismatch (not verified as a build failure).
-14. **Sparse tests:** 2 pure-function tests; no React/Rust tests, no lint/format, jsdom not configured.
+14. **Sparse tests:** 4 pure-function test files / 18 tests; no React/Rust tests, no lint/format, jsdom not configured.
 15. **Documentation drift partially resolved:** all files in `docs/` were refreshed on 2026-11-19, but the root `README.md` and `web/README.md` still contain stale claims (structure, deploy target, Drive scopes); treat code as authoritative for those.
 
 ---

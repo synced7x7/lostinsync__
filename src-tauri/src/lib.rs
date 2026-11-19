@@ -972,6 +972,33 @@ async fn igdb_platforms(
     Ok(out)
 }
 
+/// Exact storefront entries for a game from IGDB `external_games` (real product URLs).
+#[tauri::command]
+async fn igdb_external_games(
+    auth: tauri::State<'_, IgdbAuth>,
+    game_id: i64,
+    client_id: String,
+    client_secret: String
+) -> Result<Vec<Value>, String> {
+    let rows = igdb_post(
+        &auth,
+        "external_games",
+        format!("fields external_game_source,category,url,name,platform,year; where game = {game_id}; limit 100;"),
+        &client_id,
+        &client_secret
+    ).await?;
+    Ok(rows.as_array().cloned().unwrap_or_default().iter().filter_map(|r| {
+        let source = r["external_game_source"].as_i64().or_else(|| r["category"].as_i64())?;
+        Some(json!({
+            "source": source,
+            "url": r["url"].as_str(),
+            "name": r["name"].as_str(),
+            "platform": r["platform"].as_i64(),
+            "year": r["year"].as_i64()
+        }))
+    }).collect())
+}
+
 /// Cheap check for sync: returns (id, updated_at) for up to thousands of ids, 500 per request.
 #[tauri::command]
 async fn igdb_sync_check(
@@ -1197,6 +1224,7 @@ pub fn run() {
                 igdb_discover,
                 igdb_discover_feed,
                 igdb_platforms,
+                igdb_external_games,
                 igdb_sync_check,
                 igdb_import_batch,
                 save_text_file
