@@ -20,7 +20,7 @@ This document outlines completed milestones and future enhancements for **Lost i
 - [x] 7 game lifecycle statuses (`Backlog`, `Wishlist`, `Playing`, `Completed`, `Shelved`, `Abandoned`, `On hold`).
 - [x] PS4 shelf (optionally fullscreen) and catalog grid with `sm`/`md`/`lg` sizing.
 - [x] Title search, status/game-type/favorites filters, and 10-key sorting with direction.
-- [x] Game detail hero with backdrop, rating ring, Time-To-Beat cards, played platforms, media, series, and bundles.
+- [x] Game detail hero with backdrop, rating ring, separate Time-To-Beat section above Journey, exact storefront icon links (`+N` for extras), played platforms, media, series, and bundles.
 - [x] Half-star rating system (1–10 scale) and `platinumed` trophy flag.
 - [x] `AddGame` modal shared by add and edit flows.
 
@@ -28,6 +28,7 @@ This document outlines completed milestones and future enhancements for **Lost i
 - [x] Rust IGDB proxy with Twitch OAuth2 token caching (300 s early refresh).
 - [x] Curated Discover feeds (10 feeds) via the paginated `igdb_discover_feed` command.
 - [x] Rich metadata: backdrops, release dates, genres, platforms, themes, perspectives, and Time-To-Beat.
+- [x] Exact storefront links from IGDB `external_games` with brand SVG icons; web falls back to nested `games.external_games.*` until the worker allow-list is redeployed.
 - [x] Franchise/series hierarchy tree explorer.
 - [x] Media gallery (covers, artworks, screenshots, YouTube embeds).
 - [x] Bounded LRU + TTL caches on all IGDB client calls.

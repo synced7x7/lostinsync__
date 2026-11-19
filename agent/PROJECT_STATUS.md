@@ -26,9 +26,9 @@ Built installer artifacts exist in `src-tauri/target/release/bundle/` (NSIS `.ex
 | Add Game IGDB dropdown (feature 1) | Suggestion dropdown closes on outside click or Escape so custom titles can be typed freely | `src/features/library-components.tsx:1,39-44,196-203` (commit `c864403`) |
 | Journey Fit All sort (feature 2) | Ascending (oldest first) / descending (newest first) toolbar toggle; deterministic comparator with Vitest coverage; timeline layout stays chronological | `src/features/journey.tsx`, `src/features/journey.css`, `src/domain/journey-sort.ts`, `src/domain/journey-sort.test.ts` |
 | Playtime stats (feature 3) | Dedicated "Playtime" Stats category aggregating recorded `totalSeconds`: total/mean/median, longest/shortest game, distribution, hours by status/genre, plus a separate labelled IGDB-estimate comparison | `src/domain/playtime.ts`, `src/domain/playtime.test.ts`, `src/domain/stats.ts`, `src/features/stats.tsx` |
-| Game details | Cover/backdrop hero, rating, IGDB/TTB tiles, played-on platforms, notes, series/bundle links, media, read-only journey panel | `src/main.tsx:848-1059`, `src/features/{media,series,bundle}.tsx` |
+| Game details | Cover/backdrop hero, rating, dedicated TTB panel above Journey, exact IGDB storefront icon links with `+N` popover, IGDB ID pill, played-on platforms, notes, series/bundle links, media, read-only journey panel | `src/main.tsx:848-1110`, `src/components/store-icons.tsx`, `src/domain/store-links.ts`, `src/features/{media,series,bundle}.tsx` |
 | Journey timeline | SVG strands, lane allocation, LOD culling, zoom/pan, range presets, virtualized Fit All | `src/features/journey.tsx`, `journey.css` |
-| Discover / IGDB | 10 feeds, paginated feed loader, fuzzy/exact/ID search, one-click draft import, bounded LRU caches | `src/features/discover.tsx`, `src/data/igdb.ts:36-91`, `src-tauri/src/lib.rs:404-806` |
+| Discover / IGDB | 10 feeds, paginated feed loader, fuzzy/exact/ID search, one-click draft import, exact `external_games` storefronts, bounded LRU caches | `src/features/discover.tsx`, `src/data/igdb.ts:36-145`, `src-tauri/src/lib.rs:404-1003`, `web/src/igdb.web.ts` |
 | Stats | 13 visible categories (incl. Playtime), tiles, tabbed ECharts charts, year filter | `src/domain/stats.ts`, `src/domain/playtime.ts`, `src/features/stats.tsx` |
 | Trophies | Six rarity tiers including `lostinsync`, badge gallery, `evaluate`/`topBadge` | `src/domain/trophies.ts`, `src/features/trophies.tsx` |
 | Profile / dashboard | Banner editor with canvas image resize, collection actions, recents, wishlist, "pick up where you left" | `src/features/overview.tsx`, `src/features/dashboard.tsx` |
@@ -109,7 +109,7 @@ All of the above are documented individually in `future_implementation_guide.md`
 - **Dead Rust domain structs** (`src-tauri/src/lib.rs:13-69`) plus file-level `#![allow(dead_code)]`; unused `tauri-plugin-log` and `log` crates.
 - **~21 MB / 67 PNG assets** loaded eagerly in `src/features/trophies.tsx` (re-measured 2026-11-19; `docs/performance-optimization-report.md` was updated with current numbers and now marks the IGDB cache issue as resolved).
 - **Documentation drift remains in root `README.md` and `web/README.md`** (structure, deploy target, Drive scopes, missing `.env.example`); `docs/` was refreshed on 2026-11-19.
-- **Sparse testing:** one 2-test Vitest file, no React or Rust tests, no lint/format config, jsdom not configured in Vite config.
+- **Sparse testing:** four pure-function Vitest files (18 tests total: game 2, journey-sort 4, playtime 8, store-links 4); no React or Rust tests, no lint/format config, jsdom not configured in Vite config.
 - **Hard-coded colors** in feature CSS and ECharts options; partial-variable theming only.
 - **Web dead code** in `web/worker/src/`; `hasTauri = true` workaround couples web UI to desktop semantics.
 - **React 18 runtime / React 19 types** mismatch (`package.json:21-22,29-30`).
@@ -131,6 +131,7 @@ All of the above are documented individually in `future_implementation_guide.md`
 11. **Android must be isolated** in a separate directory with no changes to desktop/web dependencies or source (user requirement).
 12. **Fit All sort is session-only and presentation-only** — the direction reverses only the overview rows; timeline geometry, lane colours and palette stay chronological (`src/features/journey.tsx`, `src/domain/journey-sort.ts`).
 13. **Playtime stats use only user-recorded `totalSeconds`** — `src/domain/playtime.ts` ignores invalid/zero values and counts them as untracked; IGDB TTB values stay a separate, labelled estimate series; no session logs were added, so the Stats year filter attributes games by start/finish/add date (`touchedIn`). The old hidden `length` section remains untouched.
+14. **Store links come only from IGDB `external_games`** — no platform-based guessing: rows without an HTTP(S) URL are dropped, sources are deduplicated and priority-ordered, and only two icons plus a `+N` hover/focus popover are shown. Desktop uses `igdb_external_games`; web uses `external_games` with a nested `games.external_games.*` fallback for workers that have not been redeployed with the new allow-list.
 
 ---
 

@@ -145,6 +145,9 @@ lostinsync__/
 │   │   ├── game.ts             # Game type, Status, AppData, helper functions
 │   │   ├── gametype.ts         # IGDB game-type filtering
 │   │   ├── library-session.ts  # Session-only Library filters and saved defaults
+│   │   ├── playtime.ts         # Recorded-totalSeconds aggregation for Stats
+│   │   ├── store-links.ts      # IGDB external_games filtering, dedupe, ordering
+│   │   ├── store-links.test.ts # Store-link unit tests
 │   │   ├── trophies.ts         # Trophy tiers, rarity, evaluation, profile badge
 │   │   └── stats.ts            # Statistics data builders
 │   ├── data/
@@ -154,6 +157,7 @@ lostinsync__/
 │   │   ├── layout.tsx          # App layout and collapsible sidebar
 │   │   ├── navigation.ts       # Sidebar navigation items
 │   │   ├── rarity-badge.tsx    # Profile badge shown in the sidebar and Overview
+│   │   ├── store-icons.tsx     # Transparent brand SVG icons for IGDB storefronts
 │   │   └── shared.tsx          # Header, StarRating, TrophyToggle, DateField, ...
 │   └── features/
 │       ├── overview.tsx        # Profile banner and collection actions
