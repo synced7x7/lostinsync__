@@ -5,7 +5,7 @@ export interface Env { ALLOWED_ORIGINS: string }
 
 const ENDPOINTS = new Set([
   "games", "game_time_to_beats", "image_types", "artworks", "covers", "screenshots",
-  "popularity_primitives", "collection_relations", "collections", "platforms",
+  "popularity_primitives", "collection_relations", "collections", "platforms", "external_games",
 ]);
 const ID_RE = /^[A-Za-z0-9]{10,64}$/;
 

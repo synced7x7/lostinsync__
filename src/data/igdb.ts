@@ -1,5 +1,6 @@
 export type IgdbCreds = { clientId: string; clientSecret: string };
 export type IgdbHit = { id: number; name: string; releaseTs?: number; developer?: string; cover?: string; gameType?: string };
+export type IgdbExternalGame = { source: number; url?: string; name?: string; platform?: number; year?: number };
 export type IgdbGame = {
   id: number; name: string; developer?: string; releaseTs?: number; description?: string;
   genres: string[]; platforms: string[]; rating?: number; ratingCount?: number;
@@ -133,3 +134,13 @@ export async function igdbBundleContents(id: number, c: IgdbCreds) {
 const bundleCache = new Map<string, Entry<IgdbDiscoverGame[]>>();
 export const igdbBundleContentsCached = (id: number, c: IgdbCreds) =>
   memo(bundleCache, `${c.clientId}:${id}`, () => igdbBundleContents(id, c), 40);
+
+/** Exact storefront entries for a game (IGDB external_games), including the real product URL. */
+export async function igdbExternalGames(id: number, c: IgdbCreds) {
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<IgdbExternalGame[]>("igdb_external_games", { gameId: id, clientId: c.clientId, clientSecret: c.clientSecret });
+}
+
+const externalCache = new Map<string, Entry<IgdbExternalGame[]>>();
+export const igdbExternalGamesCached = (id: number, c: IgdbCreds) =>
+  memo(externalCache, `${c.clientId}:${id}`, () => igdbExternalGames(id, c), 60);

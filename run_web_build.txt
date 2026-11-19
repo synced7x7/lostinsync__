@@ -1,1 +1,5 @@
 npx vite --config web/vite.config.ts
+
+cd web/worker
+npx wrangler whoami        # if not logged in: npx wrangler login
+npx wrangler deploy

@@ -28,6 +28,7 @@ import {
   Building2,
   CalendarDays,
   Star,
+  Link2,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { createAppRepository } from "./data/repository";
@@ -48,6 +49,8 @@ import {
 } from "./domain/game";
 import "./style.css";
 import { Empty, formatDate, TrophyToggle, StarRating } from "./components/shared";
+import { StoreIcon } from "./components/store-icons";
+import { storeLabel, storeLinksFromExternal } from "./domain/store-links";
 import { AppLayout } from "./components/layout";
 import { Dashboard } from "./features/dashboard";
 import { AddGame } from "./features/library-components";
@@ -59,7 +62,7 @@ import { SettingsView } from "./features/settings";
 import { TrophiesView } from "./features/trophies";
 import { DiscoverView } from "./features/discover";
 import { DiscoverGameDetails } from "./features/discover";
-import { igdbDetailsCached, type IgdbGame } from "./data/igdb";
+import { igdbDetailsCached, igdbExternalGamesCached, type IgdbExternalGame, type IgdbGame } from "./data/igdb";
 import { GAME_TYPES, UNSET_TYPE, matchesGameType } from "./domain/gametype";
 import { BundleContents, isBundle } from "./features/bundle";
 
@@ -311,6 +314,13 @@ function compareGames(a: Game, b: Game, sort: LibrarySort, direction: SortDirect
     case "mainTime": return m * ((a.timeMainSeconds ?? 0) - (b.timeMainSeconds ?? 0));
     case "fullTime": return m * ((a.timeFullSeconds ?? 0) - (b.timeFullSeconds ?? 0));
   }
+}
+
+async function openExternal(url: string) {
+  try {
+    const { openUrl } = await import("@tauri-apps/plugin-opener");
+    await openUrl(url);
+  } catch { window.open(url, "_blank"); }
 }
 
 const formatSpan = (from: string, to: string) => {
@@ -863,6 +873,21 @@ function Details({
   const [expanded, setExpanded] = useState(false);
   const descRef = useRef<HTMLParagraphElement>(null);
   const [canExpand, setCanExpand] = useState(false);
+  const [externalGames, setExternalGames] = useState<IgdbExternalGame[]>([]);
+  useEffect(() => {
+    let live = true;
+    if (!game.igdbId || !igdb.clientId || !igdb.clientSecret) {
+      setExternalGames([]);
+      return;
+    }
+    void igdbExternalGamesCached(game.igdbId, igdb)
+      .then((list) => { if (live) setExternalGames(list); })
+      .catch((err) => {
+        console.warn("Could not load IGDB store links:", err);
+        if (live) setExternalGames([]);
+      });
+    return () => { live = false; };
+  }, [game.igdbId, igdb.clientId, igdb.clientSecret]);
   useEffect(() => {
     const el = descRef.current;
     if (!el || expanded) return;
@@ -882,6 +907,9 @@ function Details({
   const genreList = game.genres?.length ? game.genres : game.genre ? game.genre.split(",").map((s) => s.trim()).filter(Boolean) : [];
   const playedOn = game.playedPlatforms ?? (game.platform ? [game.platform] : []);
   const emulated = game.emulatedOn ?? [];
+  const stores = storeLinksFromExternal(externalGames);
+  const primaryStores = stores.slice(0, 2);
+  const extraStores = stores.slice(2);
   const normalizedGameType = game.gameType?.trim().toLowerCase().replace(/[\s-]+/g, "_");
   const isGameOfTheYearWinner = normalizedGameType === "main_game"
     && GAME_OF_THE_YEAR_WINNERS.includes(game.title as typeof GAME_OF_THE_YEAR_WINNERS[number]);
@@ -925,6 +953,51 @@ function Details({
                   </div>
                 )}
               </div>
+            </div>
+          )}
+          {(game.igdbId != null || stores.length > 0) && (
+            <div className="hero-store-row">
+              {game.igdbId != null && (
+                <span className="igdb-id" title="IGDB ID">
+                  <Link2 size={13} />
+                  <span>IGDB ID:</span>
+                  <strong>{game.igdbId}</strong>
+                </span>
+              )}
+              {game.igdbId != null && stores.length > 0 && <span className="store-sep" />}
+              {stores.length > 0 && (
+                <div className="store-links">
+                  {primaryStores.map((s) => (
+                    <a
+                      key={s.source}
+                      className="store-chip"
+                      href={s.url}
+                      title={storeLabel(s.source)}
+                      onClick={(e) => { e.preventDefault(); void openExternal(s.url); }}
+                    >
+                      <StoreIcon source={s.source} size={16} />
+                    </a>
+                  ))}
+                  {extraStores.length > 0 && (
+                    <span className="store-more">
+                      <button className="store-chip store-more-chip" type="button" aria-label={`${extraStores.length} more stores`}>+{extraStores.length}</button>
+                      <span className="store-more-pop">
+                        {extraStores.map((s) => (
+                          <a
+                            key={s.source}
+                            className="store-chip"
+                            href={s.url}
+                            title={storeLabel(s.source)}
+                            onClick={(e) => { e.preventDefault(); void openExternal(s.url); }}
+                          >
+                            <StoreIcon source={s.source} size={16} />
+                          </a>
+                        ))}
+                      </span>
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           )}
           {isGameOfTheYearWinner && (
