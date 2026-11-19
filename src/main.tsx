@@ -981,43 +981,47 @@ function Details({
               </div>
             )}
           </div>
+        </section>
 
+        <div className="detail-side">
           {tiles.some((t) => t.sec) && (
-            <div className="ttb-wrap">
-              <p className="eyebrow">TIME TO BEAT</p>
-              <div className="ttb-tiles">
-                {tiles.map((t) => {
-                  const Icon = t.icon;
-                  const v = t.sec ? formatHours(t.sec).replace("h", "") : "—";
-                  return (
-                    <div className={`ttb-tile ${t.cls}`} key={t.label}>
-                      <div className="ttb-top">
-                        <span className="ttb-icon"><Icon size={16} /></span>
-                        <strong>{v}{t.sec ? <small>hrs</small> : null}</strong>
+            <section className="glass detail-panel ttb-panel">
+              <div className="ttb-wrap">
+                <p className="eyebrow">TIME TO BEAT</p>
+                <div className="ttb-tiles">
+                  {tiles.map((t) => {
+                    const Icon = t.icon;
+                    const v = t.sec ? formatHours(t.sec).replace("h", "") : "—";
+                    return (
+                      <div className={`ttb-tile ${t.cls}`} key={t.label}>
+                        <div className="ttb-top">
+                          <span className="ttb-icon"><Icon size={14} /></span>
+                          <strong>{v}{t.sec ? <small>hrs</small> : null}</strong>
+                        </div>
+                        <span className="ttb-label">{t.label}</span>
                       </div>
-                      <span className="ttb-label">{t.label}</span>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
-            </div>
+            </section>
           )}
-        </section>
 
-        <section className="glass detail-panel">
-          <div className="about-head">
-            <div><p className="eyebrow">MY JOURNEY</p><h2>Your progress</h2></div>
-            <button className="text-button" onClick={() => setEditing(true)}><PenLine size={14} /> Edit</button>
-          </div>
-          <div className="journey-grid">
-            <div><span>Status</span><strong>{game.status}</strong></div>
-            <div><span>Playtime</span><strong>{formatPlaytime(played)}</strong></div>
-            <div><span>Started</span><strong>{game.startedAt ? formatDate(game.startedAt) : "—"}</strong></div>
-            <div><span>Completed</span><strong>{game.finishedAt ? formatDate(game.finishedAt) : "—"}</strong></div>
-            {span && <div className="journey-grid-ttf"><div><span>Time to finish</span><strong>{span}</strong></div><TrophyToggle value={game.platinumed} readOnly /></div>}
-          </div>
-          <StarRating value={game.rating} readOnly size={16} />
-        </section>
+          <section className="glass detail-panel">
+            <div className="about-head">
+              <div><p className="eyebrow">MY JOURNEY</p><h2>Your progress</h2></div>
+              <button className="text-button" onClick={() => setEditing(true)}><PenLine size={14} /> Edit</button>
+            </div>
+            <div className="journey-grid">
+              <div><span>Status</span><strong>{game.status}</strong></div>
+              <div><span>Playtime</span><strong>{formatPlaytime(played)}</strong></div>
+              <div><span>Started</span><strong>{game.startedAt ? formatDate(game.startedAt) : "—"}</strong></div>
+              <div><span>Completed</span><strong>{game.finishedAt ? formatDate(game.finishedAt) : "—"}</strong></div>
+              {span && <div className="journey-grid-ttf"><div><span>Time to finish</span><strong>{span}</strong></div><TrophyToggle value={game.platinumed} readOnly /></div>}
+            </div>
+            <StarRating value={game.rating} readOnly size={16} />
+          </section>
+        </div>
       </div>
 
       {isBundle(game.gameType) && game.igdbId && (

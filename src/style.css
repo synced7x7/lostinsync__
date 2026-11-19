@@ -462,7 +462,6 @@ nav {
     background: var(--panel);
     border: 1px solid var(--line);
     box-shadow: var(--shadow);
-    backdrop-filter: blur(24px)
 }
 
 .section-title {
@@ -635,6 +634,17 @@ nav {
     background:rgba(0, 0, 0, 0.2);
     padding: 22px;
     border-radius: 15px
+}
+
+.detail-side {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0
+}
+
+.ttb-panel {
+    padding: 16px
 }
 
 .detail-panel textarea {
@@ -1020,7 +1030,6 @@ nav {
         position: fixed;
         inset: 0;
         background: rgba(0, 0, 0, .55);
-        backdrop-filter: blur(4px);
         z-index: 99
     }
 
@@ -2142,29 +2151,43 @@ nav {
 }
 
 .ttb-wrap {
-    margin-top: 22px;
-    padding-top: 18px;
-    border-top: 1px solid var(--line-soft)
+    margin: 0
 }
 
 .ttb-wrap .eyebrow {
-    margin-bottom: 12px
+    margin-bottom: 10px
 }
 
 .ttb-tiles {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 12px
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px
 }
 
 .ttb-tile {
     --c: var(--accent);
     position: relative;
-    border-radius: 14px;
-    padding: 16px;
-    border: 1px solid var(--line-soft);
-    background: linear-gradient(160deg, color-mix(in srgb, var(--c) 14%, transparent), rgba(255, 255, 255, .02));
-    overflow: hidden
+    min-width: 0;
+    border-radius: 12px;
+    padding: 10px 11px 11px;
+    border: 1px solid rgba(255, 255, 255, .1);
+    overflow: hidden;
+    transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease
+}
+
+.ttb-tile::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    box-shadow: inset 0 0 18px color-mix(in srgb, var(--c) 8%, transparent);
+    pointer-events: none
+}
+
+.ttb-tile:hover {
+    transform: translateY(-2px);
+    border-color: color-mix(in srgb, var(--c) 50%, transparent);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .16), 0 10px 22px color-mix(in srgb, var(--c) 14%, transparent)
 }
 
 .ttb-tile.avg {
@@ -2180,41 +2203,46 @@ nav {
 }
 
 .ttb-icon {
-    width: 30px;
-    height: 30px;
+    width: 24px;
+    height: 24px;
+    flex: 0 0 24px;
     display: grid;
     place-items: center;
-    border-radius: 9px;
+    border-radius: 8px;
     color: var(--c);
-    background: color-mix(in srgb, var(--c) 16%, transparent)
+    background: color-mix(in srgb, var(--c) 16%, transparent);
+    border: 1px solid color-mix(in srgb, var(--c) 22%, transparent)
 }
 
 .ttb-top {
     display: flex;
     align-items: center;
-    gap: 12px
+    gap: 8px
 }
 
 .ttb-top strong {
     margin: 0;
-    font-size: 28px;
-    line-height: 1
+    min-width: 0;
+    font-size: 19px;
+    line-height: 1;
+    letter-spacing: -.4px
 }
 
 .ttb-tile .ttb-label {
     display: block;
-    margin-top: 12px
+    margin-top: 8px;
+    font-size: 10px;
+    line-height: 1.25
 }
 
 .ttb-tile strong small {
-    font-size: 12px;
+    font-size: 10px;
     letter-spacing: 0;
-    margin-left: 4px;
+    margin-left: 2px;
     color: var(--muted)
 }
 
 .ttb-label {
-    font-size: 11px;
     color: var(--muted)
 }
 
@@ -2320,8 +2348,16 @@ nav {
 }
 
 @media (max-width: 750px) {
-    .ttb-tiles {
-        grid-template-columns: 1fr
+    .ttb-tile {
+        padding: 9px
+    }
+
+    .ttb-top {
+        gap: 6px
+    }
+
+    .ttb-top strong {
+        font-size: 17px
     }
 }
 
@@ -2519,7 +2555,6 @@ nav {
     display: grid;
     place-items: center;
     background: rgba(5, 6, 12, .92);
-    backdrop-filter: blur(8px)
 }
 
 .lightbox img {
@@ -2629,7 +2664,6 @@ nav {
     background: rgba(255, 255, 255, .05);
     border: 1px solid var(--line);
     border-left: 0;
-    backdrop-filter: blur(18px);
     z-index: 3
 }
 
@@ -2710,7 +2744,6 @@ nav {
     font-weight: 800;
     letter-spacing: 1.4px;
     text-transform: uppercase;
-    backdrop-filter: blur(14px);
     transition: .2s;
     z-index: 3
 }
@@ -2908,19 +2941,6 @@ textarea::-webkit-scrollbar-thumb:hover {
     }
 
     /* ── Scroll performance: no live blur on large/scrolling surfaces ── */
-.glass {
-    background: rgba(22, 24, 39, .92);
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, .28);
-
-}
-.sidebar {
-    background: rgba(9, 10, 18, .94);
-    backdrop-filter: none;
-}
-.hero-tab { background: rgba(14, 15, 26, .78); backdrop-filter: none }
-.series-marker { backdrop-filter: none; background: rgba(14, 15, 26, .78) }
 
 /* skip rendering off-screen detail panels until scrolled near */
 .detail-panel, .detail-grid > * {

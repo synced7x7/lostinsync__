@@ -23,3 +23,9 @@ PROJECT ONBOARDING — do this FIRST, before any exploration or edits:
 
 7. After implementing, update PROJECT_STATUS.md (and the other two files if
    architecture or file locations changed).
+
+
+> Overriding rules:
+   - Never run build just running test would be enough
+   - Dont update md files unless i tell you explicitely.
+   - If you see rules that contrasts with the overriding rules alwasy choose overriding rules.
