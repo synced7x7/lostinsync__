@@ -1,6 +1,6 @@
 # Feature Documentation
 
-> **Verified against source on 2026-11-19.** This describes what is implemented today, not planned functionality. The full status breakdown is in `agent/PROJECT_STATUS.md`.
+> **Verified against source on 2026-11-21.** This describes what is implemented today, not planned functionality. The full status breakdown is in `agent/PROJECT_STATUS.md`.
 
 Lost in Sync is a personal game library OS built with desktop-first principles. It provides a cohesive interface to catalogue, discover, analyze, and reminisce about your gaming journey.
 
@@ -78,7 +78,23 @@ Important nuance: the older length charts use IGDB `timeAvgSeconds` (Time-To-Bea
 
 ## 7. ⚙️ Settings & Data Governance
 
-- **API Configuration**: Twitch Client ID/Secret for IGDB (plain fields on desktop; AES-GCM encrypted in the web vault).
+- **API Configuration**: Twitch Client ID/Secret for IGDB (plain fields on desktop; AES-GCM encrypted in the web vault). Desktop also accepts a Steam Web API key and SteamID64; both are saved with settings and stripped from backups.
 - **Appearance & Defaults**: Initial view, library layout, sort/filter defaults, grid size, and fullscreen preference. There is no theme selector or animation-level setting.
-- **Data Portability**: JSON export/import, CSV export, Backloggd CSV import, and IGDB metadata sync with progress reports.
-- **Web only**: Google Drive backup with connect/back up/restore/overwrite controls and conflict detection.
+- **Data Portability**: JSON export/import, CSV export, Backloggd CSV import, desktop store import, and IGDB metadata sync with progress reports. JSON round-trips preserve optional store ids and never include store credentials.
+- **Web only**: Google Drive backup with connect/back up/restore/overwrite controls and conflict detection. The store settings panel is desktop-only and never renders in the web build.
+
+---
+
+## 8. 🛒 Desktop Store Library Import
+
+One-way store import is implemented in `src/features/stores-settings.tsx`, `src/data/stores/` and `src-tauri/src/stores.rs`. The web build receives store-derived games only through the normal JSON export/import path.
+
+- **Connectors**: Steam, Epic Games, GOG and Battle.net are exposed through one catalog with capability flags. Steam is the only official connector and has the complete mapping; Epic/GOG use unofficial OAuth/library endpoints and Battle.net scans the local Agent database for installed games only.
+- **Steam credentials and privacy**: Enter a Steam Web API key and 17-digit SteamID64 once in Settings. Game details must be Public. Wishlist titles require a public wishlist; a private or empty wishlist returns no titles and produces a warning rather than a failure.
+- **Owned, free and wishlist games**: `GetOwnedGames` requests `include_all_free_games`, `include_free_sub`, `include_played_free_games` and `skip_unvetted_apps=0` so claimed-but-never-launched free games are imported. The supported keyless `IWishlistService/GetWishlist/v1` endpoint supplies app ids; Rust resolves names from owned-game titles first and Steam app details second. Ownership wins if an app appears in both lists.
+- **Status and dates**: Wishlist → `Wishlist`; no real play/last-played date → `Backlog` (including free games with no launch history); `playtime_2weeks > 0` → `Playing`; played but not recent → `Completed`, with `rtime_last_played` as the completion date. The start date comes from the earliest achievement unlock, falling back to the earlier of add date and last-played date, and is clamped so it never follows completion.
+- **Achievements and mastery**: Steam achievements are always fetched for owned games. `success: false` (“Requested app has no stats”) means zero achievements, not an error. `platinumed` is set only when `total > 0 && achieved >= total`.
+- **Manual edits win**: Status is set on first import only. Re-sync refreshes store-owned identity, playtime, dates and achievements but leaves a status changed by the user alone.
+- **Matching and art**: Games match by `(store, storeId)` → strict `/ ` IGDB search → unique normalized title. Ambiguous titles go to a “needs review” report. Imported metadata and images come from IGDB remote URLs; no store artwork is saved to the desktop `images/` folder.
+- **Reports**: Fetch/import phases show progress and a report with imported, linked, refreshed, duplicate, needs-review, warning and failure sections. The report can be copied to the clipboard.
+- **Credential safety**: Steam keys live with app settings like IGDB credentials; Epic/GOG tokens live in a Rust-managed app-data credentials file. All store HTTP and token handling stays in Rust; credentials are stripped from JSON exports and web Drive snapshots.

@@ -1,6 +1,6 @@
 # Database Schema & Data Model
 
-> **Verified against source on 2026-11-19.** The persisted "database" is a single JSON document (`AppData`) stored in one SQLite row on desktop, in `localStorage` in browser dev mode, and in IndexedDB in the web build. There are **no per-game tables, no foreign keys, and no relations**. Additive TypeScript fields therefore need no SQL migration.
+> **Verified against source on 2026-11-21.** The persisted "database" is a single JSON document (`AppData`) stored in one SQLite row on desktop, in `localStorage` in browser dev mode, and in IndexedDB in the web build. There are **no per-game tables, no foreign keys, and no relations**. Additive TypeScript fields therefore need no SQL migration.
 
 Lost in Sync uses an offline-first storage model. On desktop (Tauri v2), data is persisted to a local SQLite database file named `lost-in-sync.sqlite` in the application data directory (`%APPDATA%/com.lostinsync.desktop/` on Windows).
 
@@ -87,6 +87,10 @@ export type Game = {
   gameType?: string; gameStatus?: string; franchises?: string[];
   themes?: string[]; playerPerspectives?: string[];
   igdbUpdatedAt?: number; backloggdId?: string; bundleGames?: BundleGame[];
+
+  // Optional desktop store-sync fields (one-way; never refreshed by IGDB sync)
+  storeLinks?: StoreLink[]; steamPlaytimeSeconds?: number;
+  lastPlayedAt?: string; storeAchievements?: StoreAchievements;
 };
 ```
 
@@ -97,9 +101,12 @@ export const STATUSES = ["Backlog", "Wishlist", "Playing", "Completed",
                          "Shelved", "Abandoned", "On hold"] as const;
 export type Status = typeof STATUSES[number];
 export type BundleGame = { id: number; name: string; cover?: string; releaseTs?: number };
+export type StoreId = "steam" | "epic" | "gog" | "battlenet";
+export type StoreLink = { store: StoreId; id: string };
+export type StoreAchievements = { achieved: number; total: number; firstUnlockUnix?: number };
 ```
 
-**Fields that do NOT exist** (often assumed): `lastPlayed`, `playedAt`, `order`, `priority`, `played`, ownership/store/medium fields, price/payment fields, and per-session play logs. `rating` is 1–10, not 0–5. `favorite` and `notes` are required (non-optional) fields.
+**Fields that do NOT exist** (often assumed): `lastPlayed`, `playedAt`, `order`, `priority`, `played`, full ownership/physical-medium fields, price/payment fields, and per-session play logs. Store sync adds only the optional `storeLinks`, `steamPlaytimeSeconds`, `lastPlayedAt` and `storeAchievements` fields above. `rating` is 1–10, not 0–5. `favorite` and `notes` are required (non-optional) fields.
 
 ### `Profile` (`game.ts:24`)
 
@@ -129,7 +136,10 @@ export type AppSettings = {
   journeyZoom?: number;                      // declared but currently unused
   journeyFit?: boolean;                      // declared but currently unused
   igdbClientId?: string; igdbClientSecret?: string;
+  // Desktop store sync; steamApiKey/steamId are credentials and are stripped from exports
+  steamApiKey?: string; steamId?: string;
   lastIgdbSyncAt?: string; libraryGameType?: string;
+  lastStoreSyncAt?: string; storeSyncSource?: StoreId;
 };
 ```
 
@@ -159,16 +169,18 @@ There are no SQL relationships. Application-level links are:
 
 - Desktop images are externalized: a `data:image/...` URI is written to `<app_data>/images/<hash>-<len>.<ext>` and the record stores an `img:` reference. Legacy embedded images are migrated on load (`src/data/repository.ts:58-105`). There is no image-deletion/orphan-cleanup command.
 - Every mutation serializes the whole `AppData` and writes one row (500 ms debounce in `src/main.tsx:164-197`). This is the main scalability constraint of the current design.
-- New optional fields are backward compatible automatically: add them to the type and to `defaultData`; old saved documents simply lack them. No SQL migration is required.
-- User-owned fields (status, rating, notes, playtime, any new fields such as priority/ownership/price) must **never** be added to the IGDB sync allow-list `FIELDS` in `src/data/sync.ts:28-47`.
+- New optional fields are backward compatible automatically: add them to the type and to `defaultData`; old saved documents simply lack them. No SQL migration was required for the store fields.
+- User-owned fields (status, rating, notes, playtime, any new fields such as priority/ownership/price) and store-owned fields (`storeLinks`, `steamPlaytimeSeconds`, `lastPlayedAt`, `storeAchievements`) must **never** be added to the IGDB sync allow-list `FIELDS` in `src/data/sync.ts`.
+- Store-imported games use IGDB remote image URLs rather than writing store art through `store_image`, so their covers stay portable between desktop and web.
 
 ## Backup & Portability
 
 From the **Settings → Data** view (`src/features/settings-data.tsx`):
 
-- **JSON export** — full portable document with images inlined as data URIs; IGDB credentials are stripped (`:70-72`).
-- **JSON import** — destructive replace of the library; current IGDB credentials are preserved from settings (`:97`).
+- **JSON export** — full portable document with images inlined as data URIs; IGDB and Steam credentials are stripped and store ids are kept.
+- **JSON import** — destructive replace of the library; current IGDB and Steam credentials are preserved from this device's settings.
 - **CSV export** — fixed header: `Title, Status, Rating, Platform, Genres, Developer, Release date, Started, Finished, Total hours, Favorite` (`:29-37`), BOM-prefixed and RFC-style quoted.
 - **Backloggd import** — CSV adapter in `src/data/backloggd.ts` (already implemented despite older roadmap claims).
+- **Desktop store import** — `src/data/stores/` links normalized store records to games and preserves store ids across JSON round-trips; credentials are never exported.
 - **IGDB metadata sync** — `src/data/sync.ts` refreshes only IGDB-owned fields.
 - **Web only** — Google Drive backup snapshot `lost-in-sync.snapshot.json.gz`, format version 1 (`web/src/sync.ts:14-16`), with conflict detection via `remote.modifiedTime`. Credentials are never included.

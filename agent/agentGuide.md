@@ -15,8 +15,9 @@ PROJECT ONBOARDING — do this FIRST, before any exploration or edits:
    and follow its documented structure, dependencies, and roadmap position.
 
 5. The source code is the source of truth. The docs/ folder and this knowledge
-   base were verified against source on 2026-11-19. The root README.md and
-   web/README.md are still partially stale — trust code over those.
+   base were verified against source on 2026-11-19 and refreshed for desktop
+   store import on 2026-11-21. The root README.md is updated for this feature;
+   web/README.md is still partially stale — trust code over those.
 
 6. Platform isolation: web work stays under web/; Android work stays in its own
    directory. Never add platform-specific deps to desktop or web builds.

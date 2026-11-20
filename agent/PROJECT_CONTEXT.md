@@ -1,6 +1,6 @@
 # PROJECT_CONTEXT.md — Lost in Sync (technical reference)
 
-> Generated from direct source inspection on 2026-11-19. **The code is the source of truth.** The `docs/` folder was refreshed to match this reference on 2026-11-19; the root `README.md` and `web/README.md` are still partially stale. This document is the permanent technical reference for AI agents; `PROJECT_STATUS.md` tracks changing progress and `future_implementation_guide.md` tracks planned features.
+> Generated from direct source inspection on 2026-11-19 and refreshed for desktop store import on 2026-11-21. **The code is the source of truth.** The `docs/` folder and root `README.md` were refreshed for store import; `web/README.md` is still partially stale. This document is the permanent technical reference for AI agents; `PROJECT_STATUS.md` tracks changing progress and `future_implementation_guide.md` tracks planned features.
 
 ---
 
@@ -23,6 +23,7 @@
 - Trophies/badge gallery with six rarity tiers including `lostinsync` (`src/domain/trophies.ts`).
 - Statistics: 13 visible categories built from `src/domain/stats.ts` (including a Playtime category aggregated from recorded `totalSeconds` by `src/domain/playtime.ts`) and rendered with Apache ECharts (`src/features/stats.tsx`).
 - Settings: defaults, IGDB credentials, JSON/CSV export, JSON import, Backloggd import, IGDB metadata sync; web build adds encrypted credential vault and Google Drive backup.
+- Desktop-only one-way store import (`src/data/stores/`, `src/features/stores-settings.tsx`, `src-tauri/src/stores.rs`): Steam owned/free games, public wishlist, playtime and achievements map into the existing library; Epic/GOG/Battle.net connectors share the same pipeline. Credentials never enter exports or web snapshots.
 - Media gallery (screenshots, YouTube embeds), franchise/series tree, bundle contents, profile banner editor.
 
 **Core application functionality:** CRUD over a single `AppData` JSON document; optional IGDB metadata enrichment; local image storage; analytics; timeline visualization; web variant with cloud backup.
@@ -72,7 +73,7 @@ index.html ──> src/main.tsx (React app root, all routes, single AppData stat
                    ▼                                       (web/src/db.ts, vault.ts, codec.ts)
         ┌───────────────────────────────────────┐
         │ src-tauri/src/lib.rs                  │
-        │  15 #[tauri::command] functions       │
+        │  23 #[tauri::command] functions       │
         │  SQLite: app_state.data_json (1 row)  │
         │  IGDB proxy: Twitch OAuth + REST      │
         │  images/ folder: content-addressed    │
@@ -104,6 +105,7 @@ User action → updater in src/main.tsx (addGame / saveGame / deleteGame / updat
 - **Single JSON document** in one SQLite row (`src-tauri/src/lib.rs:80-83`) avoids relational migrations while the model evolves; cost is full-document serialization on every save.
 - **Repository adapter** (`src/data/repository.ts:17`) keeps one UI for Tauri, browser dev (localStorage), and web (IndexedDB).
 - **Rust IGDB proxy** because browser CORS and credential handling; token cached with a 5-minute early refresh (`src-tauri/src/lib.rs:349-376`).
+- **Desktop store import** keeps all store HTTP, Steam keys/SteamID64 handling and Epic/GOG tokens in Rust; the shared UI only sees normalized records/status and hides the panel in web builds. Optional store fields survive JSON exports without credentials.
 - **Externalized images**: large base64 images are written to `images/` as content-addressed files; the saved record holds `img:<filename>` refs (`src/data/repository.ts:41-79`).
 - **Session-only UI prefs**: `librarySession` (`src/domain/library-session.ts:36`) and Journey `session` (`src/features/journey.tsx:135`) are deliberately not persisted.
 - **Bounded LRU + TTL caches** for IGDB (`src/data/igdb.ts:36-52`, 20 min TTL, max 10–150 entries depending on cache); `docs/performance-optimization-report.md` was corrected to reflect this.
@@ -128,11 +130,12 @@ Meaningful paths only (no build artifacts, no `node_modules`, no individual badg
 | `src/domain/store-links.ts` | `storeLinksFromExternal`, `storeLabel` — validate, deduplicate and priority-order IGDB `external_games` storefronts | `src/main.tsx` Details hero | Store-link filtering/order changes |
 | `src/domain/stats.ts` | Row index (`index`), `yearsOf`, `CATEGORIES`, 14 section builders (incl. `playtime()`), ECharts option builders, `build` | `src/features/stats.tsx`, `src/domain/playtime.ts` | Any analytics change |
 | `src/domain/trophies.ts` | Rarity tiers, `TROPHIES`, `DEV_FAVORITES`, `GOTY`, `evaluate`, `topBadge`, `RARITY_COLOR` | Trophy UI, sidebar badge, stats milestones | Badge/rarity work |
-| `src/domain/*.test.ts` | `game.test.ts` (2), `journey-sort.test.ts` (4), `playtime.test.ts` (8), `store-links.test.ts` (4) — 18 Vitest tests total | `pnpm test` | Adding pure-function tests |
+| `src/domain/*.test.ts`, `src/data/stores/*.test.ts` | 8 Vitest files / 57 tests: game 2, journey-sort 4, playtime 8, store-links 4, store sources 5, Steam parser 9, matcher 5, import pipeline 20 | `pnpm test` | Adding pure-function tests |
 | `src/data/repository.ts` | `AppRepository`, `LocalAppRepository`, `TauriAppRepository`, `createAppRepository()`, image externalization | `src/main.tsx`; swapped in web | Persistence changes |
 | `src/data/igdb.ts` | Typed wrappers for 11 IGDB commands (including `igdbExternalGames`), bounded LRU cached variants, `hasTauri`, `saveTextFile` | Discover, sync, importers, Details store links | Adding IGDB calls (mirror in web!) |
 | `src/data/sync.ts` | `syncWithIgdb`, `FIELDS` allow-list, `buildPatch`, `applyPatches`, sync reports | Settings sync section | IGDB refresh behavior |
 | `src/data/backloggd.ts` | `importBackloggd`, `withRetry`, `mapEntry`, import reports | Settings Backloggd section | Import pipeline work |
+| `src/data/stores/` | `ipc.ts`, `types.ts`, `steam.ts`, `battlenet.ts`, `match.ts`, `import.ts` plus 4 Vitest files; desktop-only connector catalog, parsers, IGDB matching and one-way import | `src/features/stores-settings.tsx`, Rust store commands | Store import/status/mapping work |
 | `src/data/platform.ts` | `ALL_PLATFORMS`, `PC`, `emulatedOn` | Stats, AddGame, importers | Platform lists/derivation |
 | `src/components/shared.tsx` | `Header`, `Empty`, `StarRating`, `TrophyToggle`, `formatDate`, `parseDate`, `DateField`, `PlatformPicker` | All features | Reusable form/display controls |
 | `src/components/layout.tsx` | `AppLayout`, collapsible `Sidebar`, error toast | `src/main.tsx` | Navigation/layout changes |
@@ -149,9 +152,11 @@ Meaningful paths only (no build artifacts, no `node_modules`, no individual badg
 | `src/features/media.tsx` | Screenshot carousel, YouTube embeds | Details | Media work |
 | `src/features/series.tsx`, `bundle.tsx` | `SeriesModal`/`SeriesButton`, `BundleContents` | Details | Franchise/bundle work |
 | `src/features/settings.tsx` | `SettingsView`, appearance defaults, static theme pill | Route `/settings` | Settings UI |
+| `src/features/stores-settings.tsx` | Desktop-only store connector UI: Steam fields, Epic/GOG sign-in, fetch/import phases, progress and copyable report | Settings; hidden when `isDesktop` is false | Store import UI/report work |
 | `src/features/settings-data.tsx` | `DataSection`, JSON/CSV export/import, Backloggd import, IGDB sync | Settings; wrapped by web | Import/export/sync |
 | `src/images/{badges,trophy-bg,logo}/` | PNG artwork loaded with `import.meta.glob` | Trophy views, sidebar logo | Asset optimization |
-| `src-tauri/src/lib.rs` | All 16 Tauri commands (incl. `igdb_external_games`), SQLite migration, IGDB proxy, image storage, app setup | Desktop backend | Any native feature |
+| `src-tauri/src/lib.rs` | All 23 Tauri commands (incl. `igdb_external_games`, `stores_*`), SQLite migration, IGDB proxy, image storage, app setup | Desktop backend | Any native feature |
+| `src-tauri/src/stores.rs` | Store endpoint constants, Rust HTTP/auth, Steam owned/wishlist/achievement parsing, Battle.net Agent scan, `store-credentials.json`, 3 Rust unit tests | `lib.rs` store commands | Store connector/API changes |
 | `src-tauri/src/main.rs` | 5-line binary entry calling `app_lib::run()` | Rust build | Rarely |
 | `src-tauri/tauri.conf.json` | productName, identifier, window, CSP, asset protocol, bundle targets, Android suffix | Tauri build/runtime | Config/security changes |
 | `src-tauri/capabilities/default.json` | `core:default`, `opener:default`, `dialog:default` for window `main` | Tauri permissions | Adding plugin capabilities |
@@ -165,7 +170,7 @@ Meaningful paths only (no build artifacts, no `node_modules`, no individual badg
 | `web/src/settings-data.web.tsx` | Re-exports offline `DataSection` and injects `CloudSection` | Settings | Web-only settings panel |
 | `web/worker/` | Cloudflare Worker: `src/index.ts` (stateless IGDB proxy), `wrangler.toml`; note stale dead frontend copies in `src/{entry.tsx,login-gate.tsx,sync.ts,cloud.css}` | Web IGDB | Proxy work |
 | `vercel.json`, `pnpm-workspace.yaml`, `scripts/check-environment.ps1` | SPA rewrite, build allowlist (not a package list), Windows env check | Deployment/setup | Deploy/setup |
-| `docs/*.md` | Architecture, schema, features, design, IGDB images, performance, roadmap, badge brief — **refreshed 2026-11-19 to match source** | Humans/agents | Concise human-readable overview; this knowledge base remains the exhaustive reference |
+| `docs/*.md` | Architecture, schema, features, design, IGDB images, performance, roadmap, badge brief — store-related docs **refreshed 2026-11-21** | Humans/agents | Concise human-readable overview; this knowledge base remains the exhaustive reference |
 
 ---
 
@@ -227,20 +232,20 @@ Utilities: `compareGames` (`src/main.tsx:300-314`), `formatSpan` (`:316-333`), `
 - **Journey**: lane allocation, LOD (cull below 40% zoom), zoom 10–240%, range presets, Fit All virtualized list with an ascending (oldest first) / descending (newest first) toggle that reorders only the overview rows.
 - **Discover**: 10 feeds loaded with 3 concurrent workers, 20 items each; "View all" pages of 30 up to 100; hover prefetch.
 - **Stats**: category tabs, year filter, tile grid, tabbed chart cards; the "Playtime" category shows logged hours with a note that the year filter selects games by date rather than splitting hours.
-- **Settings/Data**: export JSON (strips IGDB credentials), export CSV, import JSON (destructive replace), Backloggd import with progress/report, IGDB sync with report, library defaults, wipe library.
+- **Settings/Data**: export JSON (strips IGDB/Steam credentials and store tokens), export CSV, import JSON (destructive replace), Backloggd import with progress/report, desktop-only store import with progress/report, IGDB sync with report, library defaults, wipe library.
 - **Web additions**: Drive connect/back up/restore/overwrite panel with conflict handling.
 
 ---
 
 ## 6. Backend Architecture
 
-All native backend logic is in `src-tauri/src/lib.rs` (Rust) with binary entry `src-tauri/src/main.rs`. There are no controllers, services, middleware, or background daemon processes.
+Tauri command wiring and core backend logic are in `src-tauri/src/lib.rs` (Rust); desktop store connector logic is in `src-tauri/src/stores.rs`. The binary entry is `src-tauri/src/main.rs`. There are no controllers, services, middleware, or background daemon processes.
 
-### Tauri commands (registered at `src-tauri/src/lib.rs:1187-1204`)
+### Tauri commands (registered in `generate_handler!` at the end of `src-tauri/src/lib.rs`)
 
 All are `async fn` returning `Result<T, String>`; `State<Database>` and `AppHandle` are injected by Tauri and are not passed from JS.
 
-| Command | JS arguments (`src/data/igdb.ts`, `repository.ts`) | Rust result | Purpose |
+| Command | JS arguments (`src/data/igdb.ts`, `repository.ts`, `src/data/stores/ipc.ts`) | Rust result | Purpose |
 |---|---|---|---|
 | `load_app_data` | none | `Option<JsonValue>` | Read the single `app_state` row |
 | `save_app_data` | `data: AppData` JSON | `()` | UPSERT whole document |
@@ -256,7 +261,14 @@ All are `async fn` returning `Result<T, String>`; `State<Database>` and `AppHand
 | `igdb_sync_check` | `ids, clientId, clientSecret` | `[id, updated_at][]` | Bulk staleness check (500 IDs/request) |
 | `igdb_import_batch` | `ids, clientId, clientSecret` | JSON[] | ~3 requests for details + image metadata + TTB |
 | `igdb_bundle_contents` | `id, clientId, clientSecret` | JSON[] | Games in a bundle/edition (limit 50) |
+| `igdb_external_lookup` | `uid, source, clientId, clientSecret` | `Option<i64>` | Direct IGDB `external_games` lookup for store ids |
 | `save_text_file` | `defaultName, contents, filterName, ext` | `Option<String>` | Native save dialog (text only) |
+| `stores_status` | `steamConnected` | JSON flags | Connection status for all four stores |
+| `stores_auth_url` | `store` | `String` | Epic/GOG browser sign-in URL |
+| `stores_complete_auth` | `store, code, steamConnected` | JSON flags | Exchange OAuth code; store tokens in app-data credentials file |
+| `stores_fetch` | `store, steamKey?, steamId?` | JSON records | Fetch normalized owned/wishlist/installed records |
+| `stores_fetch_achievements` | `store, storeId, steamKey?, steamId?` | JSON counts | Steam achievement totals + earliest unlock |
+| `stores_scan_battlenet` | none | JSON rows | Read-only scan of local Battle.net Agent database |
 
 ### IGDB authentication
 
@@ -269,6 +281,8 @@ All are `async fn` returning `Result<T, String>`; `State<Database>` and `AppHand
 - Artwork priority selection: key art without logo → with logo → historical → concept → artwork → screenshot.
 - Genre matching for "For You" uses up to 3 library genre names.
 - Series graph traversal with `HashSet` dedupe and 500-ID chunks.
+- Store HTTP and token storage (`src-tauri/src/stores.rs`): Steam free-game flags, keyless wishlist app-id resolution, achievement aggregation, Epic/GOG OAuth token exchange, and Battle.net Agent row discovery.
+- Steam mapping lives in TypeScript (`src/data/stores/import.ts`): wishlist/backlog/playing/completed status, first-unlock start date, last-played completion date, and non-zero-total mastery.
 - `withRetry` for network errors lives in TypeScript (`src/data/backloggd.ts:137-145`), not Rust.
 
 ### Files and media
@@ -277,7 +291,7 @@ All are `async fn` returning `Result<T, String>`; `State<Database>` and `AppHand
 
 ### Security / capabilities
 
-`src-tauri/capabilities/default.json` grants only `core:default`, `opener:default`, `dialog:default` to window `main`. No `fs`, `shell`, `http`, `notification`, `clipboard`, or `log` permissions. CSP and `assetProtocol` scope `$APPDATA/images/**` are in `tauri.conf.json:23-26`. Note: the opener plugin is initialized **only in debug builds** (`lib.rs:1181-1183`) despite the unconditional capability; release builds fall back to `window.open` in `src/features/media.tsx`.
+`src-tauri/capabilities/default.json` grants only `core:default`, `opener:default`, `dialog:default` to window `main`. No `fs`, `shell`, `http`, `notification`, `clipboard`, or `log` permissions. CSP and `assetProtocol` scope `$APPDATA/images/**` are in `tauri.conf.json:23-26`. Note: the opener plugin is initialized **only in debug builds** (`lib.rs:1181-1183`) despite the unconditional capability; release builds fall back to `window.open` in `src/features/media.tsx`. Epic/GOG tokens are managed by Rust in `<app_data>/store-credentials.json`; Steam keys/SteamID64 are optional settings fields. None are exported or sent to the web build.
 
 ### Web "backend"
 
@@ -311,13 +325,14 @@ CREATE TABLE IF NOT EXISTS app_state (
 
 `AppData = { games: Game[]; profile: Profile; settings: AppSettings; collections?: Collection[] }` (`:50`).
 
-`Game` (`:6-21`) — key fields:
+`Game` — key fields:
 - Identity/tracking: `id`, `title`, `platform`, `genre`, `tags[]`, `status`, `notes`, `rating?`, `platinumed?`, `favorite`, `cover?`, `backgroundCover?`, `totalSeconds`, `activeSince?`, `createdAt`, `startedAt?`, `finishedAt?`.
 - IGDB metadata: `developer?`, `releaseDate?`, `description?`, `genres?[]`, `platforms?[]`, `igdbId?`, `igdbRating?`, `igdbRatingCount?`, `timeAvgSeconds?`, `timeMainSeconds?`, `timeFullSeconds?`, `playedPlatforms?[]`, `emulatedOn?[]`, `screenshots?[]`, `videos?`, `igdbImages?`, `igdbVideos?`, `gameType?`, `gameStatus?`, `franchises?[]`, `themes?[]`, `playerPerspectives?[]`, `igdbUpdatedAt?`, `backloggdId?`, `bundleGames?`.
-- **No** `playedAt`, `priority`, `played` status, ownership, price, bought-on, amount-paid, or session-log fields exist (verified by grep).
+- Desktop store sync: `storeLinks?: StoreLink[]`, `steamPlaytimeSeconds?`, `lastPlayedAt?`, `storeAchievements?`; `StoreId = "steam" | "epic" | "gog" | "battlenet"`, `StoreLink = { store, id }`, `StoreAchievements = { achieved, total, firstUnlockUnix? }`.
+- **No** `playedAt`, `priority`, `played` status, full ownership/medium, price, bought-on, amount-paid, or session-log fields exist (verified by grep).
 
 `Profile = { displayName, bio, accent, picture?, topFive? }` (`:24`).
-`AppSettings` (`:29-47`): `theme: "aurora"`, `defaultView`, `libraryLayout: "ps4"|"catalog"`, `libraryFullscreen`, `gridSize: "sm"|"md"|"lg"`, `librarySort` (10 keys), `librarySortDirection`, `libraryFilter`, `libraryGenre`, `libraryFavoritesOnly`, optional `journeyRange/journeyZoom/journeyFit` (declared but unused), `igdbClientId?`, `igdbClientSecret?`, `lastIgdbSyncAt?`, `libraryGameType?`.
+`AppSettings`: `theme: "aurora"`, `defaultView`, `libraryLayout: "ps4"|"catalog"`, `libraryFullscreen`, `gridSize: "sm"|"md"|"lg"`, `librarySort` (10 keys), `librarySortDirection`, `libraryFilter`, `libraryGenre`, `libraryFavoritesOnly`, optional `journeyRange/journeyZoom/journeyFit` (declared but unused), `igdbClientId?`, `igdbClientSecret?`, `steamApiKey?`, `steamId?`, `lastIgdbSyncAt?`, `libraryGameType?`, `lastStoreSyncAt?`, `storeSyncSource?`. Steam fields are credentials/settings, not game fields, and are stripped from exports.
 `Collection = { id, name, description?, items: CollectionItem[], image? }` (`:49`).
 
 ### Persistence strategy
@@ -325,7 +340,7 @@ CREATE TABLE IF NOT EXISTS app_state (
 - Desktop: externalized images (`img:<filename>`), converted to `asset://` URLs on load; one-shot migration of legacy embedded `data:image/` values (`src/data/repository.ts:58-105`).
 - Browser dev: `localStorage["lost-in-sync.data"]`; throws a friendly quota error advising the native app.
 - Web: IndexedDB `lostinsync-web` v1, stores `kv` (`data`, `sync.meta`, `vault.key`, `vault.creds`) and `images` (SHA-256-keyed Blobs); serialized writes; IGDB credentials encrypted with a non-extractable AES-GCM key and never stored in the library/backup/export (`web/src/db.ts`, `vault.ts`, `codec.ts`, `repository.web.ts`).
-- Import/export: portable JSON (images inline as data URIs), CSV export with fixed header (`src/features/settings-data.tsx:26-37`); credentials stripped on export (`:70-72`) and preserved from current settings on import (`:97`).
+- Import/export: portable JSON (images inline as data URIs), CSV export with fixed header; IGDB/Steam credentials and store tokens are stripped on export, current-device keys are preserved on import, and optional store ids survive round-trips (`src/features/settings-data.tsx`, `src/data/stores/types.ts`).
 - Web cloud snapshot: `lost-in-sync.snapshot.json.gz`, `FORMAT = 1` (`web/src/sync.ts:14-16`), with `img-<hash>` blobs and conflict detection via `remote.modifiedTime`.
 
 ### Important queries
@@ -353,6 +368,7 @@ All filtering/sorting/aggregation happens in TypeScript.
 | Import JSON | `StorageSection.importJson` replaces library, keeps current credentials | Implemented, destructive |
 | Export JSON/CSV | `exportJson`, `exportCsv`, `saveOrDownload` (`settings-data.tsx`) | Implemented |
 | Import Backloggd | `importBackloggd` with dedupe by `igdbId`, retry, abort, report | Implemented; Tauri + credentials only |
+| Desktop store import | `StoresSection` → `fetchStoreRecords`/`importFromStore` → Rust `stores_*`; dedupe by store id, IGDB match, status/date/mastery mapping, reports | Implemented; live Steam re-fetch QA pending |
 | IGDB search/details/import | `igdb.ts` wrappers + Rust proxy; `draftFromIgdb` creates unsaved game | Implemented |
 | IGDB metadata sync | `syncWithIgdb` → `igdbSyncCheck` → `igdbImportBatch` in chunks of 100 → `buildPatch`/`applyPatches`; writes `lastIgdbSyncAt` | Implemented; only IGDB-owned fields |
 | Image storage | data URI → `store_image` → `img:` ref (or IndexedDB blob on web) | Implemented; no deletion command |
@@ -410,7 +426,7 @@ Rust parameter names are snake_case (`client_id`), Tauri maps JS camelCase keys.
 - `vercel.json`: SPA rewrite to `/index.html` — **conflicts with `web/README.md` which says Cloudflare Pages**; actual production host must be verified.
 - `src-tauri/capabilities/default.json`, `src/data/repository.ts:3` (localStorage key `lost-in-sync.data`), `scripts/check-environment.ps1` (Windows tool check).
 
-**Secret handling:** Desktop IGDB credentials are plain fields in `app_state.data_json` (excluded from exported JSON). Web credentials are AES-GCM encrypted in IndexedDB with a non-extractable key and never appear in the library, Drive snapshot, or export. The worker receives them in request headers only and keeps no persistent store.
+**Secret handling:** Desktop IGDB credentials and the Steam Web API key/SteamID64 are plain fields in `app_state.data_json` (all excluded from exported JSON). Epic/GOG OAuth tokens are stored by Rust in `<app_data>/store-credentials.json`, never in `AppData`. Web credentials are AES-GCM encrypted in IndexedDB with a non-extractable key and never appear in the library, Drive snapshot, or export. The worker receives IGDB credentials in request headers only and keeps no persistent store; store settings are desktop-only.
 
 ---
 
@@ -456,7 +472,7 @@ cd web/worker && npx wrangler deploy                 # IGDB proxy
 - **State:** Explicit updater functions with debounced persistence; module-level mutable session objects for non-persisted prefs; `useRef` for timers/DOM/RAF state.
 - **Async/errors:** `void promise.then().catch()`; per-feature `Notice`/`error` strings with `instanceof Error ? e.message : String(e)`; `withRetry` for network operations; `AbortController` for long imports/sync; global `window.error` / `unhandledrejection` banner and `GlobalErrorBoundary` (`src/main.tsx:1061-1095`).
 - **Formatting:** 2-space indent, double quotes, semicolons in most files; `data/*` and `stats.ts` use denser one-line style with fewer semicolons. No ESLint/Prettier config or script.
-- **Tests:** Vitest pure-function tests only — `game.test.ts` (2), `journey-sort.test.ts` (4), `playtime.test.ts` (8), `store-links.test.ts` (4); 18 tests total. `jsdom` is installed but no `test.environment` is configured in `vite.config.ts`; DOM tests need `// @vitest-environment jsdom` or config.
+- **Tests:** 8 Vitest files / 57 pure-function tests — `game` 2, `journey-sort` 4, `playtime` 8, `store-links` 4, `stores/sources` 5, `stores/steam` 9, `stores/match` 5, `stores/import` 20 — plus 3 Rust unit tests in `src-tauri/src/stores.rs`. `jsdom` is installed but no `test.environment` is configured in `vite.config.ts`; DOM tests need `// @vitest-environment jsdom` or config.
 - **Architecture rule:** Prefer extending existing components/utilities over new abstractions; keep web changes under `web/`; keep new native commands in `lib.rs` and registered in `generate_handler!`.
 
 ---
@@ -491,12 +507,12 @@ cd web/worker && npx wrangler deploy                 # IGDB proxy
 7. **Unknown routes** render an empty page (no 404).
 8. **Search is title-only**; docs claim developer/genre/note search and genre/tag filters that do not exist.
 9. **Theme is static**; many hard-coded colors and ECharts JS constants prevent simple theming.
-10. **No notification/reminder infrastructure**, no currency handling, no PWA/service worker/manifest, no Android project, no Steam code.
+10. **No notification/reminder infrastructure**, no currency handling, no PWA/service worker/manifest, no Android project. Steam/store import is implemented but still needs live re-fetch QA.
 11. **Declared-but-unused code:** `AppSettings` journey/default fields, Rust domain structs, `tauri-plugin-log` and `log` crates, `libraryGenre`, `length` stats category.
 12. **Web:** no `web/.env.example`; stale dead worker frontend copies; `new URL()` on a malformed proxy URL throws at config load; `opener:default` granted but plugin debug-only; Drive docs say `drive.appdata` but code uses `drive.file` and a visible root folder; deploy target docs conflict (Vercel vs Cloudflare Pages).
 13. **React runtime 18 vs types 19** mismatch (not verified as a build failure).
-14. **Sparse tests:** 4 pure-function test files / 18 tests; no React/Rust tests, no lint/format, jsdom not configured.
-15. **Documentation drift partially resolved:** all files in `docs/` were refreshed on 2026-11-19, but the root `README.md` and `web/README.md` still contain stale claims (structure, deploy target, Drive scopes); treat code as authoritative for those.
+14. **Test coverage improved but still UI-light:** 8 Vitest files / 57 tests plus 3 Rust unit tests; no React tests, lint/format config, or configured jsdom environment.
+15. **Documentation drift partially resolved:** root `README.md` and store-related `docs/` files were refreshed on 2026-11-21, but `web/README.md` still contains stale claims (deploy target, Drive scopes, `.env.example`); treat code as authoritative for those.
 
 ---
 

@@ -10,6 +10,8 @@ use std::collections::HashSet;
 use std::hash::{ Hash, Hasher };
 use base64::{ engine::general_purpose::STANDARD, Engine };
 
+mod stores;
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 struct Game {
@@ -1193,6 +1195,72 @@ async fn igdb_bundle_contents(
     Ok(discover_games(&rows).iter().map(discover_item).collect())
 }
 
+// --- Store import commands (desktop only; credentials never enter AppData) ---
+
+#[tauri::command]
+async fn stores_status(app: tauri::AppHandle, steam_connected: bool) -> Result<Value, String> {
+    Ok(stores::status(&stores::read_credentials(&app)?, steam_connected))
+}
+
+#[tauri::command]
+async fn stores_auth_url(store: String) -> Result<String, String> {
+    stores::auth_url(&store)
+}
+
+#[tauri::command]
+async fn stores_complete_auth(app: tauri::AppHandle, store: String, code: String, steam_connected: bool) -> Result<Value, String> {
+    stores::complete_auth(&app, &store, &code, steam_connected).await
+}
+
+#[tauri::command]
+async fn stores_fetch(
+    app: tauri::AppHandle,
+    store: String,
+    steam_key: Option<String>,
+    steam_id: Option<String>,
+) -> Result<Vec<Value>, String> {
+    let credentials = stores::read_credentials(&app)?;
+    stores::fetch(&store, &credentials, steam_key.as_deref(), steam_id.as_deref()).await
+}
+
+#[tauri::command]
+async fn stores_fetch_achievements(
+    store: String,
+    store_id: String,
+    steam_key: Option<String>,
+    steam_id: Option<String>,
+) -> Result<Value, String> {
+    if store != "steam" { return Ok(json!({ "achieved": 0, "total": 0 })); }
+    stores::achievements(steam_key.as_deref(), steam_id.as_deref(), &store_id).await
+}
+
+#[tauri::command]
+async fn stores_scan_battlenet() -> Result<Vec<Value>, String> {
+    stores::battlenet_rows()
+}
+
+/// Direct IGDB `external_games` lookup by store uid. Tries the current field name, then the old one.
+#[tauri::command]
+async fn igdb_external_lookup(
+    auth: tauri::State<'_, IgdbAuth>,
+    uid: String,
+    source: i64,
+    client_id: String,
+    client_secret: String
+) -> Result<Option<i64>, String> {
+    let escaped = uid.replace('"', "");
+    let modern = format!("fields game; where uid = \"{}\" & external_game_source = {}; limit 1;", escaped, source);
+    let legacy = format!("fields game; where uid = \"{}\" & category = {}; limit 1;", escaped, source);
+    let rows = match igdb_post(&auth, "external_games", modern, &client_id, &client_secret).await {
+        Ok(rows) => rows,
+        Err(_) => igdb_post(&auth, "external_games", legacy, &client_id, &client_secret).await?,
+    };
+    Ok(rows.as_array()
+        .and_then(|array| array.first())
+        .and_then(|row| row.get("game"))
+        .and_then(Value::as_i64))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder
@@ -1227,7 +1295,14 @@ pub fn run() {
                 igdb_external_games,
                 igdb_sync_check,
                 igdb_import_batch,
-                save_text_file
+                save_text_file,
+                stores_status,
+                stores_auth_url,
+                stores_complete_auth,
+                stores_fetch,
+                stores_fetch_achievements,
+                stores_scan_battlenet,
+                igdb_external_lookup
             ]
         )
         .run(tauri::generate_context!())
