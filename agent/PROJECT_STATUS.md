@@ -29,7 +29,7 @@ Built installer artifacts exist in `src-tauri/target/release/bundle/` (NSIS `.ex
 | Game details | Cover/backdrop hero, rating, dedicated TTB panel above Journey, exact IGDB storefront icon links with `+N` popover, IGDB ID pill, played-on platforms, notes, series/bundle links, media, read-only journey panel | `src/main.tsx:848-1110`, `src/components/store-icons.tsx`, `src/domain/store-links.ts`, `src/features/{media,series,bundle}.tsx` |
 | Journey timeline | SVG strands, lane allocation, LOD culling, zoom/pan, range presets, virtualized Fit All | `src/features/journey.tsx`, `journey.css` |
 | Discover / IGDB | 10 feeds, paginated feed loader, fuzzy/exact/ID search, one-click draft import, exact `external_games` storefronts, bounded LRU caches | `src/features/discover.tsx`, `src/data/igdb.ts`, `src-tauri/src/lib.rs`, `web/src/igdb.web.ts` |
-| Desktop store import (feature 9) | One-way Steam/Epic/GOG/Battle.net connectors, all HTTP/token handling in Rust; Steam owned/free games, public wishlist, achievements, status/date/mastery mapping, IGDB matching, reports, desktop-only UI, credential-safe export | `src-tauri/src/stores.rs`, `src/data/stores/`, `src/features/stores-settings.tsx`, `src/domain/game.ts`, `src/features/settings-data.tsx` |
+| Desktop store import (feature 9) | One-way Steam and Epic Games connectors, all HTTP/token handling in Rust; Steam owned/free games, public wishlist, achievements, status/date/mastery mapping, Epic catalog-id matching, reports, desktop-only UI, credential-safe export, user guide | `src-tauri/src/stores.rs`, `src/data/stores/`, `src/features/stores-settings.tsx`, `src/domain/game.ts`, `src/features/settings-data.tsx`, `docs/store-import-guide.md` |
 | Stats | 13 visible categories (incl. Playtime), tiles, tabbed ECharts charts, year filter | `src/domain/stats.ts`, `src/domain/playtime.ts`, `src/features/stats.tsx` |
 | Trophies | Six rarity tiers including `lostinsync`, badge gallery, `evaluate`/`topBadge` | `src/domain/trophies.ts`, `src/features/trophies.tsx` |
 | Profile / dashboard | Banner editor with canvas image resize, collection actions, recents, wishlist, "pick up where you left" | `src/features/overview.tsx`, `src/features/dashboard.tsx` |
@@ -52,7 +52,7 @@ Note: feature 1 was originally titled "Played On and Completed Status Without En
 | IGDB sync | Field allow-list, chunking, report, staleness check | 401 clears token without retry; no HTTP timeout/429 handling in Rust; cannot run in plain browser dev mode. |
 | Web app | Full shared UI + local-first persistence + cloud backup | No PWA; no `web/.env.example`; stale dead frontend copies in `web/worker/src/`; deploy target docs conflict; `hasTauri = true` hack. |
 | Drive sync docs | Code uses `drive.file` and a normal root-level `"Lost in Sync"` folder | `web/README.md:30,43` claims hidden `appDataFolder` + `drive.appdata` scope. |
-| Tauri opener capability | Works in debug builds | Plugin initialized only under `cfg!(debug_assertions)`; release falls back to `window.open`. |
+| Tauri opener capability | Works in all desktop builds | `tauri_plugin_opener::init()` is registered unconditionally; store sign-in and media links use it, with a `window.open` fallback only when the plugin is unavailable. |
 | AppSettings fields | Declared and defaulted | `defaultView`, `libraryGenre`, `journeyRange`, `journeyZoom`, `journeyFit` have no consumers in `src/`. |
 
 ---
@@ -99,7 +99,7 @@ All of the above are documented individually in `future_implementation_guide.md`
 | `new URL(VITE_IGDB_PROXY_URL)` unguarded | `web/vite.config.ts:58` | Malformed env value crashes config evaluation |
 | `igdb_discover` uses `rating`/`rating_count` while the active feed path uses `total_rating`/`total_rating_count` | `src-tauri/src/lib.rs:642,652-656` vs `:757-761` | Legacy feed may return inconsistent data (runtime behavior not verified) |
 | Orphaned image files after game deletion | No delete command; `src-tauri/src/lib.rs` | Disk usage grows |
-| `opener:default` capability granted in all builds but plugin only initialized in debug | `src-tauri/capabilities/default.json:10`; `src-tauri/src/lib.rs:1181-1183` | External links rely on `window.open` fallback in release |
+| `opener:default` capability and plugin now registered in all desktop builds | `src-tauri/capabilities/default.json`; `src-tauri/src/lib.rs` | Store OAuth sign-in must open in the system browser |
 
 ---
 
@@ -111,7 +111,7 @@ All of the above are documented individually in `future_implementation_guide.md`
 - **Dead Rust domain structs** (`src-tauri/src/lib.rs:13-69`) plus file-level `#![allow(dead_code)]`; unused `tauri-plugin-log` and `log` crates.
 - **~21 MB / 67 PNG assets** loaded eagerly in `src/features/trophies.tsx` (re-measured 2026-11-19; `docs/performance-optimization-report.md` was updated with current numbers and now marks the IGDB cache issue as resolved).
 - **Documentation drift remains mainly in `web/README.md`** (deploy target, Drive scopes, missing `.env.example`); root `README.md` and `docs/` were refreshed for store import on 2026-11-21.
-- **Testing coverage:** eight Vitest files (57 tests: game 2, journey-sort 4, playtime 8, store-links 4, store sources 5, Steam parser 9, matcher 5, import pipeline 20) plus 3 Rust unit tests in `src-tauri/src/stores.rs`; still no React tests, lint/format config, or configured jsdom environment.
+- **Testing coverage:** eight Vitest files (63 tests: game 2, journey-sort 4, playtime 8, store-links 5, Epic parser 2, Steam parser 9, matcher 12, import pipeline 21) plus 9 Rust unit tests (`src-tauri/src/stores.rs` 4, IGDB/store helpers in `lib.rs` 5); still no React tests, lint/format config, or configured jsdom environment.
 - **Hard-coded colors** in feature CSS and ECharts options; partial-variable theming only.
 - **Web dead code** in `web/worker/src/`; `hasTauri = true` workaround couples web UI to desktop semantics.
 - **React 18 runtime / React 19 types** mismatch (`package.json:21-22,29-30`).
@@ -135,10 +135,11 @@ All of the above are documented individually in `future_implementation_guide.md`
 13. **Playtime stats use only user-recorded `totalSeconds`** — `src/domain/playtime.ts` ignores invalid/zero values and counts them as untracked; IGDB TTB values stay a separate, labelled estimate series; no session logs were added, so the Stats year filter attributes games by start/finish/add date (`touchedIn`). The old hidden `length` section remains untouched.
 14. **Store links come only from IGDB `external_games`** — no platform-based guessing: rows without an HTTP(S) URL are dropped, sources are deduplicated and priority-ordered, and only two icons plus a `+N` hover/focus popover are shown. Desktop uses `igdb_external_games`; web uses `external_games` with a nested `games.external_games.*` fallback for workers that have not been redeployed with the new allow-list.
 15. **Desktop store import is one-way and desktop-only** — connectors live in `src-tauri/src/stores.rs`, the webview receives only normalized records/status, and `StoresSection` returns `null` when `__TAURI_INTERNALS__` is absent. No web proxy or `web/*` store code was added.
-16. **Store credentials never enter backups** — Steam key/SteamID64 are optional `AppSettings` fields stripped like IGDB credentials; Epic/GOG tokens stay in `<app_data>/store-credentials.json`; all are removed from JSON exports and Drive snapshots.
+16. **Store credentials never enter backups** — Steam key/SteamID64 are optional `AppSettings` fields stripped like IGDB credentials; Epic tokens stay in `<app_data>/store-credentials.json`; all are removed from JSON exports and Drive snapshots.
 17. **Store game identity is `(store, storeId)`** — saved as optional `storeLinks` so re-sync links instead of duplicating, survives JSON round-trips, and is never overwritten by IGDB sync.
 18. **Steam mapping guardrails** — wishlist → `Wishlist`; no real play/last-played date → `Backlog`; recent play → `Playing`; played but not recent → `Completed` with `rtime_last_played` as completion date. Start date is the earliest achievement unlock (safe fallback/clamped), mastery requires a non-zero total, `success: false` means zero achievements, and re-sync never overwrites user status edits.
 19. **Free-to-play imports must include unlaunched licenses** — `GetOwnedGames` sends `include_all_free_games=1`, `include_free_sub=1`, `skip_unvetted_apps=0` and keeps `include_played_free_games=1`; zero playtime is never treated as a private-profile error. Wishlist uses `IWishlistService/GetWishlist/v1` with app-id title resolution.
+20. **OAuth controls follow connection status** — Epic's sign-in page/code/complete controls render only when the connector is not connected; switching tabs or a failed fetch refreshes status so a removed token brings them back.
 
 ---
 
@@ -147,7 +148,7 @@ All of the above are documented individually in `future_implementation_guide.md`
 1. **Housekeeping:** remove/relocate save debug logs and clear the error toast (`src/main.tsx:164-208`). The former Phase 1 items — Add Game dropdown dismissal (feature 1), Fit All asc/desc (feature 2) and dedicated Playtime stats (feature 3) — are now complete.
 2. **Settle data-model extensions early** (all live in the JSON blob): ownership (12), wishlist price/payment/reminder fields (11), backlog priority (10) — keep them out of `src/data/sync.ts` `FIELDS`.
 3. **Domain/analytics:** franchise completion reusing `franchises()` + `igdbSeries`, discover ranking improvements mirrored in Rust and `web/src/igdb.web.ts`, then "What Should I Play Next?" (dedicated playtime stats are complete — `src/domain/playtime.ts` + the `playtime` Stats category; the hidden `length` section at `src/domain/stats.ts:21,401-412` was intentionally left alone).
-4. **Import/sync:** re-fetch Steam in the running desktop app to confirm the free-game fix; reuse the already-extracted store pipeline for CSV/pasted-title adapters; do live QA for Epic/GOG/Battle.net only when real accounts/databases are available.
+4. **Import/sync:** re-fetch Steam in the running desktop app to confirm the free-game fix and Epic needs-review enrichment; reuse the already-extracted store pipeline for CSV/pasted-title adapters; do live QA for Epic only when a real account is available.
 5. **Presentation:** shareable profile/stats card after stats/badge data is stable.
 6. **Packaging/platform:** harden WebApp config/docs, then PWA (depends on web), and Android in an isolated directory (can run in parallel with PWA).
 7. **Housekeeping throughout:** keep `docs/` and this knowledge base in sync as code changes, add tests for new pure logic, verify desktop + web builds after each change.

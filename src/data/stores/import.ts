@@ -2,8 +2,7 @@ import type { AppData, Game, StoreId } from "../../domain/game";
 import { emulatedOn } from "../platform";
 import { withRetry } from "../backloggd";
 import { igdbImportBatch, igdbPlatforms, type IgdbCreds, type IgdbGame, type IgdbImport } from "../igdb";
-import { mapBattleNetRows } from "./battlenet";
-import { storesFetch, storesFetchAchievements, storesScanBattleNet, type SteamCreds } from "./ipc";
+import { storesFetch, storesFetchAchievements, type SteamCreds } from "./ipc";
 import { matchRecord } from "./match";
 import {
   emptyStoreReport, minutesToSeconds, norm, storeKey, unixToDate,
@@ -22,9 +21,8 @@ const cleanRecord = (r: StoreRecord): StoreRecord => ({
   wishlist: r.wishlist ?? undefined,
 });
 
-/** Fetch a store's library. Only Battle.net needs a different path (local file scan). */
+/** Fetch a store's library through the single Rust record path. */
 export async function fetchStoreRecords(store: StoreId, steam?: SteamCreds): Promise<StoreRecord[]> {
-  if (store === "battlenet") return mapBattleNetRows(await storesScanBattleNet());
   return (await storesFetch(store, steam)).map(cleanRecord);
 }
 
@@ -154,6 +152,41 @@ export function buildStoreGame(
   };
 }
 
+/** Fill IGDB metadata on a store game imported before a match was available. Never touches user-owned fields. */
+export function igdbEnrichmentPatch(g: Game, igdbId: number, hit: IgdbImport | undefined): Partial<Game> {
+  const ig = hit?.game;
+  if (!ig) return {};
+  const played = ig.platforms ?? [];
+  return {
+    igdbId,
+    title: ig.name,
+    platform: played[0] ?? g.platform,
+    playedPlatforms: played,
+    emulatedOn: emulatedOn(played, ig.platforms ?? []),
+    genre: (ig.genres ?? []).join(", "),
+    cover: ig.cover,
+    backgroundCover: ig.background,
+    developer: ig.developer,
+    releaseDate: ig.releaseTs ? new Date(ig.releaseTs * 1000).toISOString().slice(0, 10) : undefined,
+    description: ig.description,
+    genres: ig.genres,
+    platforms: ig.platforms,
+    igdbRating: ig.rating,
+    igdbRatingCount: ig.ratingCount,
+    timeAvgSeconds: ig.timeAvg,
+    timeMainSeconds: ig.timeMain,
+    timeFullSeconds: ig.timeFull,
+    igdbImages: hit.images,
+    igdbVideos: ig.videos.slice(0, 3).map((v) => ({ id: v.videoId, name: v.name })),
+    gameType: ig.gameType,
+    gameStatus: ig.gameStatus,
+    franchises: ig.franchises,
+    themes: ig.themes,
+    playerPerspectives: ig.playerPerspectives,
+    igdbUpdatedAt: ig.updatedAt,
+  };
+}
+
 export type StoreImportOptions = {
   store: StoreId;
   records: StoreRecord[];
@@ -222,6 +255,7 @@ export async function importFromStore(opts: StoreImportOptions): Promise<StoreIm
   // Match and dedupe in priority order: (store, storeId) -> igdbId -> normalized title.
   const matched = new Map<StoreRecord, Awaited<ReturnType<typeof matchRecord>>>();
   const linked = new Set<StoreRecord>();
+  const enrichments: { game: Game; igdbId: number }[] = [];
   progress("matching", 0, todo.length);
   for (let i = 0; i < todo.length; i++) {
     if (signal?.aborted) { report.cancelled = true; break; }
@@ -238,13 +272,18 @@ export async function importFromStore(opts: StoreImportOptions): Promise<StoreIm
       if (!byStore.has(storeKey(r))) report.linked++;
       byStore.set(storeKey(r), existing);
       if (m.igdbId !== undefined) byIgdb.set(m.igdbId, existing);
+      // A game imported before an IGDB match existed gains its metadata on the next sync.
+      if (!existing.igdbId && m.igdbId !== undefined) enrichments.push({ game: existing, igdbId: m.igdbId });
       linked.add(r);
     }
     progress("matching", i + 1, todo.length);
   }
 
   const pending = todo.filter((r) => !linked.has(r));
-  const ids = [...new Set(pending.map((r) => matched.get(r)?.igdbId).filter((id): id is number => typeof id === "number" && id > 0))];
+  const ids = [...new Set([
+    ...pending.map((r) => matched.get(r)?.igdbId),
+    ...enrichments.map((e) => e.igdbId),
+  ].filter((id): id is number => typeof id === "number" && id > 0))];
   const imports = new Map<number, IgdbImport>();
   let platformNames = new Map<number, string>();
   if (ids.length && creds.clientId && creds.clientSecret) {
@@ -261,6 +300,13 @@ export async function importFromStore(opts: StoreImportOptions): Promise<StoreIm
       }
       progress("details", Math.min(i + chunk.length, ids.length), ids.length);
     }
+  }
+
+  for (const { game: existing, igdbId } of enrichments) {
+    const patch = igdbEnrichmentPatch(existing, igdbId, imports.get(igdbId));
+    if (!Object.keys(patch).length) continue;
+    patches.set(existing.id, { ...patches.get(existing.id), ...patch });
+    report.updated++;
   }
 
   const ownByIgdb = new Map<number, Game>();

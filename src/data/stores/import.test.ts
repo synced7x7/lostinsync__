@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { AppData, Game } from "../../domain/game";
 import type { IgdbImport } from "../igdb";
-import { buildStoreGame, steamMapping, storePatch } from "./import";
+import { buildStoreGame, igdbEnrichmentPatch, steamMapping, storePatch } from "./import";
 import { emptyStoreReport, storeReportToText, stripStoreCredentials } from "./types";
 
 const game = (patch: Partial<Game> = {}): Game => ({
@@ -122,7 +122,7 @@ describe("steamMapping", () => {
   });
 
   it("leaves non-Steam stores untouched", () => {
-    expect(steamMapping({ store: "gog", storeId: "5", title: "X", playtimeMinutes: 10 })).toEqual({});
+    expect(steamMapping({ store: "epic", storeId: "5", title: "X", playtimeMinutes: 10 })).toEqual({});
   });
 });
 
@@ -192,11 +192,22 @@ describe("buildStoreGame", () => {
   });
 });
 
+describe("igdbEnrichmentPatch", () => {
+  it("adds IGDB metadata to a game imported before a match existed", () => {
+    const unlinked = game({ igdbId: undefined, title: "Rocket League®", cover: undefined });
+    const patch = igdbEnrichmentPatch(unlinked, 42, hit);
+    expect(patch).toMatchObject({ igdbId: 42, title: "Hades", cover: hit.game.cover });
+    expect(patch.status).toBeUndefined();
+    expect(patch.notes).toBeUndefined();
+    expect(patch.rating).toBeUndefined();
+  });
+});
+
 describe("backup safety", () => {
   it("keeps store ids across a JSON round trip and strips any credential keys", () => {
-    const data = { games: [buildStoreGame({ store: "gog", storeId: "5", title: "X" }, undefined, new Map())], profile: {}, settings: {} } as unknown as AppData;
+    const data = { games: [buildStoreGame({ store: "epic", storeId: "5", title: "X" }, undefined, new Map())], profile: {}, settings: {} } as unknown as AppData;
     const parsed = JSON.parse(JSON.stringify(data)) as AppData;
-    expect(parsed.games[0].storeLinks).toEqual([{ store: "gog", id: "5" }]);
+    expect(parsed.games[0].storeLinks).toEqual([{ store: "epic", id: "5" }]);
 
     const settings = { ...data.settings, steamApiKey: "secret", igdbClientId: "public" } as AppData["settings"];
     const cleaned = stripStoreCredentials(settings);

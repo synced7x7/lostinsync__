@@ -3,9 +3,10 @@
 //!
 //! Endpoint URLs are kept here so an unofficial API change is a one-file fix.
 
+use base64::{ engine::general_purpose::STANDARD, Engine };
 use reqwest::Client;
 use serde_json::{ json, Value };
-use std::collections::HashMap;
+use std::collections::{ HashMap, HashSet };
 use std::path::PathBuf;
 use tauri::Manager;
 
@@ -15,17 +16,13 @@ const STEAM_ACHIEVEMENTS: &str = "https://api.steampowered.com/ISteamUserStats/G
 const STEAM_WISHLIST: &str = "https://api.steampowered.com/IWishlistService/GetWishlist/v1/";
 /// The wishlist API returns app ids only; resolve names with the store's basic app-details endpoint.
 const STEAM_APP_DETAILS: &str = "https://store.steampowered.com/api/appdetails";
-/// Epic's public launcher OAuth client id (not a Steam credential).
-const EPIC_CLIENT_ID: &str = "34a02cf8f4414e29e1593316d79bb1e";
-const EPIC_AUTH_URL: &str = "https://api.epicgames.dev/epic/oauth/v2/authorize?client_id=34a02cf8f4414e29e1593316d79bb1e&response_type=code&scope=basic&redirect_uri=https%3A%2F%2Flegendary.gl%2Fepicauth";
-const EPIC_TOKEN: &str = "https://api.epicgames.dev/epic/oauth/v2/token";
-const EPIC_REDIRECT: &str = "https://legendary.gl/epicauth";
+/// Epic's public launcher credentials (widely published by Legendary; not user secrets).
+const EPIC_CLIENT_ID: &str = "34a02cf8f4414e29b15921876da36f9a";
+const EPIC_CLIENT_SECRET: &str = "daafbccc737745039dffe53d94fc76cf";
+const EPIC_AUTH_URL: &str = "https://www.epicgames.com/id/login?redirectUrl=https%3A%2F%2Fwww.epicgames.com%2Fid%2Fapi%2Fredirect%3FclientId%3D34a02cf8f4414e29b15921876da36f9a%26responseType%3Dcode";
+const EPIC_TOKEN: &str = "https://account-public-service-prod03.ol.epicgames.com/account/api/oauth/token";
 const EPIC_LIBRARY: &str = "https://library-service.live.use1a.on.epicgames.com/library/api/public/items";
-const GOG_CLIENT_ID: &str = "46899977096215655";
-const GOG_REDIRECT: &str = "https://embed.gog.com/on_login_success?origin=client";
-const GOG_AUTH_URL: &str = "https://auth.gog.com/auth?client_id=46899977096215655&redirect_uri=https%3A%2F%2Fembed.gog.com%2Fon_login_success%3Forigin%3Dclient&response_type=code&layout=client2";
-const GOG_TOKEN: &str = "https://auth.gog.com/token";
-const GOG_PRODUCTS: &str = "https://embed.gog.com/account/getFilteredProducts";
+const EPIC_CATALOG: &str = "https://catalog-public-service-prod06.ol.epicgames.com/catalog/api/shared/namespace";
 
 fn credentials_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     Ok(app.path().app_data_dir().map_err(|e| e.to_string())?.join("store-credentials.json"))
@@ -45,26 +42,6 @@ fn write_credentials(app: &tauri::AppHandle, credentials: &Value) -> Result<(), 
     std::fs::write(path, text).map_err(|e| e.to_string())
 }
 
-fn battlenet_path() -> Option<PathBuf> {
-    #[cfg(target_os = "windows")]
-    {
-        let path = PathBuf::from(r"C:\ProgramData\Battle.net\Agent\product.db");
-        if path.exists() { return Some(path); }
-    }
-    #[cfg(target_os = "macos")]
-    {
-        let path = PathBuf::from("/Users/Shared/Battle.net/Agent/product.db");
-        if path.exists() { return Some(path); }
-    }
-    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
-    {
-        let _ = PathBuf::new();
-    }
-    None
-}
-
-pub fn battlenet_available() -> bool { battlenet_path().is_some() }
-
 pub fn status(credentials: &Value, steam_connected: bool) -> Value {
     let connected = |store: &str| -> bool {
         credentials.get(store)
@@ -74,62 +51,41 @@ pub fn status(credentials: &Value, steam_connected: bool) -> Value {
     };
     json!({
         "steam": steam_connected,
-        "epic": connected("epic"),
-        "gog": connected("gog"),
-        "battlenet": battlenet_available()
+        "epic": connected("epic")
     })
 }
 
 pub fn auth_url(store: &str) -> Result<String, String> {
-    match store {
-        "epic" => Ok(EPIC_AUTH_URL.into()),
-        "gog" => Ok(GOG_AUTH_URL.into()),
-        _ => Err("This store does not use a browser sign-in.".into()),
-    }
+    if store == "epic" { Ok(EPIC_AUTH_URL.into()) }
+    else { Err("This store does not use a browser sign-in.".into()) }
 }
 
 pub async fn complete_auth(app: &tauri::AppHandle, store: &str, code: &str, steam_connected: bool) -> Result<Value, String> {
+    if store != "epic" { return Err("This store does not use a browser sign-in.".into()); }
     let code = code.trim();
     if code.is_empty() { return Err("Paste the authorization code first.".into()); }
-    let (access, refresh) = match store {
-        "gog" => {
-            let query = [
-                ("client_id", GOG_CLIENT_ID),
-                ("redirect_uri", GOG_REDIRECT),
-                ("code", code),
-                ("grant_type", "authorization_code"),
-            ];
-            let response = Client::new().post(GOG_TOKEN).query(&query).send().await.map_err(|e| e.to_string())?;
-            if !response.status().is_success() { return Err(format!("GOG sign-in failed (HTTP {})", response.status())); }
-            let body: Value = response.json().await.map_err(|e| e.to_string())?;
-            (
-                body.get("access_token").and_then(Value::as_str).unwrap_or("").to_string(),
-                body.get("refresh_token").and_then(Value::as_str).unwrap_or("").to_string(),
-            )
-        }
-        "epic" => {
-            let mut url = reqwest::Url::parse(EPIC_TOKEN).map_err(|e| e.to_string())?;
-            url.query_pairs_mut()
-                .append_pair("grant_type", "authorization_code")
-                .append_pair("code", code)
-                .append_pair("client_id", EPIC_CLIENT_ID)
-                .append_pair("redirect_uri", EPIC_REDIRECT)
-                .append_pair("token_type", "eg1");
-            let response = Client::new()
-                .post(url)
-                .header("content-type", "application/x-www-form-urlencoded")
-                .send().await
-                .map_err(|e| e.to_string())?;
-            if !response.status().is_success() { return Err(format!("Epic sign-in failed (HTTP {})", response.status())); }
-            let body: Value = response.json().await.map_err(|e| e.to_string())?;
-            (
-                body.get("access_token").and_then(Value::as_str).unwrap_or("").to_string(),
-                body.get("refresh_token").and_then(Value::as_str).unwrap_or("").to_string(),
-            )
-        }
-        _ => return Err("This store does not use a browser sign-in.".into()),
-    };
+
+    let basic = STANDARD.encode(format!("{}:{}", EPIC_CLIENT_ID, EPIC_CLIENT_SECRET));
+    let response = Client::new()
+        .post(EPIC_TOKEN)
+        .header("authorization", format!("Basic {basic}"))
+        .header("content-type", "application/x-www-form-urlencoded")
+        .form(&[
+            ("grant_type", "authorization_code"),
+            ("code", code),
+            ("token_type", "eg1"),
+        ])
+        .send().await
+        .map_err(|e| e.to_string())?;
+    if !response.status().is_success() { return Err(format!("Epic sign-in failed (HTTP {})", response.status())); }
+    let body: Value = response.json().await.map_err(|e| e.to_string())?;
+    if let Some(message) = body.get("errorMessage").and_then(Value::as_str) {
+        return Err(format!("Epic sign-in failed: {message}"));
+    }
+    let access = body.get("access_token").and_then(Value::as_str).unwrap_or("").to_string();
+    let refresh = body.get("refresh_token").and_then(Value::as_str).unwrap_or("").to_string();
     if access.is_empty() { return Err("The store did not return an access token.".into()); }
+
     let mut entry = serde_json::Map::new();
     entry.insert("accessToken".into(), json!(access));
     entry.insert("refreshToken".into(), json!(refresh));
@@ -152,8 +108,6 @@ pub async fn fetch(
             steam_fetch(key, id).await
         }
         "epic" => epic_fetch(credentials).await,
-        "gog" => gog_fetch(credentials).await,
-        "battlenet" => battlenet_rows(),
         _ => Err("Unknown store".into()),
     }
 }
@@ -283,30 +237,45 @@ fn first_unlock_unix(list: &[Value]) -> Option<i64> {
         .min()
 }
 
-async fn gog_fetch(credentials: &Value) -> Result<Vec<Value>, String> {
-    let token = credentials.get("gog").and_then(|s| s.get("accessToken")).and_then(Value::as_str)
-        .ok_or("GOG is not connected.")?;
-    let mut out = Vec::new();
-    for page in 1..=50i64 {
-        let page_text = page.to_string();
-        let query = [("mediaType", "1"), ("page", page_text.as_str())];
-        let response = Client::new().get(GOG_PRODUCTS).query(&query).bearer_auth(token).send().await.map_err(|e| e.to_string())?;
-        if !response.status().is_success() {
-            return Err(format!("GOG returned HTTP {} — this community API is fragile, try again later", response.status()));
-        }
-        let body: Value = response.json().await.map_err(|e| e.to_string())?;
-        let products = body.get("products").and_then(Value::as_array).ok_or("GOG returned no product list")?;
-        for product in products {
-            let id = product.get("id").and_then(Value::as_i64).unwrap_or(0);
-            let title = product.get("title").and_then(Value::as_str).unwrap_or("").trim().to_string();
-            if id > 0 && !title.is_empty() {
-                out.push(json!({ "store": "gog", "storeId": id.to_string(), "title": title, "installed": false }));
-            }
-        }
-        let total_pages = body.get("totalPages").and_then(Value::as_i64).unwrap_or(page);
-        if products.is_empty() || page >= total_pages { break; }
-    }
-    Ok(out)
+fn epic_title_from_catalog(body: &Value, id: &str) -> Option<String> {
+    body.get(id)
+        .and_then(|item| item.get("title"))
+        .and_then(Value::as_str)
+        .or_else(|| body.as_object()?.values().find_map(|item| item.get("title").and_then(Value::as_str)))
+        .map(str::trim)
+        .filter(|title| !title.is_empty())
+        .map(str::to_string)
+}
+
+/// Epic library records often contain only ids. Resolve display names through the public catalog
+/// endpoint, the same way the Legendary launcher does. Failures are cached so each item is tried once.
+async fn epic_catalog_title(
+    token: &str,
+    namespace: &str,
+    id: &str,
+    cache: &mut HashMap<String, Option<String>>,
+) -> Option<String> {
+    if namespace.is_empty() || namespace == "ue" || id.is_empty() { return None; }
+    let key = format!("{namespace}:{id}");
+    if let Some(cached) = cache.get(&key) { return cached.clone(); }
+
+    let mut url = reqwest::Url::parse(&format!("{EPIC_CATALOG}/{namespace}/bulk/items")).ok()?;
+    url.query_pairs_mut()
+        .append_pair("id", id)
+        .append_pair("includeDLCDetails", "true")
+        .append_pair("includeMainGameDetails", "true")
+        .append_pair("country", "US")
+        .append_pair("locale", "en");
+
+    let title = async {
+        let response = Client::new().get(url).bearer_auth(token).send().await.ok()?;
+        if !response.status().is_success() { return None; }
+        let body: Value = response.json().await.ok()?;
+        epic_title_from_catalog(&body, id)
+    }.await;
+
+    cache.insert(key, title.clone());
+    title
 }
 
 async fn epic_fetch(credentials: &Value) -> Result<Vec<Value>, String> {
@@ -314,6 +283,9 @@ async fn epic_fetch(credentials: &Value) -> Result<Vec<Value>, String> {
         .ok_or("Epic is not connected.")?;
     let mut cursor = String::new();
     let mut out = Vec::new();
+    let mut seen = HashSet::new();
+    let mut titles = HashMap::new();
+
     for _ in 0..50 {
         let response = (if cursor.is_empty() {
             Client::new().get(EPIC_LIBRARY).query(&[("includeMetadata", "true")]).bearer_auth(token).send().await
@@ -329,76 +301,34 @@ async fn epic_fetch(credentials: &Value) -> Result<Vec<Value>, String> {
             let id = item.get("catalogItemId").and_then(Value::as_str)
                 .or_else(|| item.get("itemId").and_then(Value::as_str))
                 .unwrap_or("").trim().to_string();
-            let title = item.get("title").and_then(Value::as_str)
+            let namespace = item.get("namespace").and_then(Value::as_str).unwrap_or("").trim();
+            if id.is_empty() || namespace == "ue" || !seen.insert(id.clone()) { continue; }
+
+            let mut title = item.get("title").and_then(Value::as_str)
                 .or_else(|| item.get("metadata").and_then(|m| m.get("title")).and_then(Value::as_str))
                 .or_else(|| item.get("metadata").and_then(|m| m.get("displayName")).and_then(Value::as_str))
                 .unwrap_or("").trim().to_string();
-            if !id.is_empty() && !title.is_empty() {
+            if title.is_empty() {
+                if let Some(resolved) = epic_catalog_title(token, namespace, &id, &mut titles).await { title = resolved; }
+            }
+            if !title.is_empty() {
                 out.push(json!({ "store": "epic", "storeId": id, "title": title, "installed": false }));
             }
         }
-        let next = body.get("nextCursor").and_then(Value::as_str).unwrap_or("").to_string();
+        let next = body.get("responseMetadata")
+            .and_then(|meta| meta.get("nextCursor"))
+            .and_then(Value::as_str)
+            .or_else(|| body.get("nextCursor").and_then(Value::as_str))
+            .unwrap_or("").to_string();
         if next.is_empty() || next == cursor { break; }
         cursor = next;
     }
     Ok(out)
 }
 
-fn ident(name: &str) -> String { name.replace('"', "\"\"") }
-
-/// Best-effort read of Battle.net's local Agent database. Schema is unverified, so discover
-/// tables/columns at runtime and hand raw rows to TypeScript for normalization.
-pub fn battlenet_rows() -> Result<Vec<Value>, String> {
-    let path = battlenet_path().ok_or("Battle.net Agent database not found on this computer.")?;
-    let flags = rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX;
-    let connection = rusqlite::Connection::open_with_flags(&path, flags)
-        .map_err(|e| format!("Could not read the Battle.net Agent database: {e}"))?;
-
-    let mut tables: Vec<String> = Vec::new();
-    {
-        let mut statement = connection.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").map_err(|e| e.to_string())?;
-        let rows = statement.query_map([], |row| row.get::<_, String>(0)).map_err(|e| e.to_string())?;
-        for row in rows { if let Ok(name) = row { tables.push(name); } }
-    }
-
-    let mut out = Vec::new();
-    for table in tables {
-        let mut columns: Vec<String> = Vec::new();
-        {
-            let pragma = format!("PRAGMA table_info(\"{}\")", ident(&table));
-            let mut statement = connection.prepare(&pragma).map_err(|e| e.to_string())?;
-            let rows = statement.query_map([], |row| row.get::<_, String>(1)).map_err(|e| e.to_string())?;
-            for row in rows { if let Ok(name) = row { columns.push(name); } }
-        }
-        let code_column = columns.iter().find(|c| {
-            let lower = c.to_lowercase();
-            lower.contains("code") || lower == "product"
-        }).cloned();
-        let name_column = columns.iter().find(|c| {
-            let lower = c.to_lowercase();
-            lower.contains("name") || lower.contains("title")
-        }).cloned();
-        let (Some(code_column), Some(name_column)) = (code_column, name_column) else { continue; };
-        let sql = format!(
-            "SELECT \"{}\", \"{}\" FROM \"{}\" LIMIT 200",
-            ident(&code_column), ident(&name_column), ident(&table)
-        );
-        let mut statement = connection.prepare(&sql).map_err(|e| e.to_string())?;
-        let rows = statement.query_map([], |row| Ok((
-            row.get::<_, String>(0).unwrap_or_default(),
-            row.get::<_, String>(1).unwrap_or_default(),
-        ))).map_err(|e| e.to_string())?;
-        for row in rows.flatten() {
-            if row.0.is_empty() { continue; }
-            out.push(json!({ "code": row.0, "name": row.1 }));
-        }
-    }
-    Ok(out)
-}
-
 #[cfg(test)]
 mod tests {
-    use super::{first_unlock_unix, steam_owned_query};
+    use super::{epic_title_from_catalog, first_unlock_unix, steam_owned_query};
     use serde_json::json;
 
     #[test]
@@ -425,5 +355,14 @@ mod tests {
         let list = vec![json!({ "achieved": 0, "unlocktime": 1_400_000_000 })];
         assert_eq!(first_unlock_unix(&list), None);
         assert_eq!(first_unlock_unix(&[]), None);
+    }
+
+    #[test]
+    fn resolves_epic_title_from_catalog_response() {
+        let body = json!({ "abc-123": { "title": "  Hades  " } });
+        assert_eq!(epic_title_from_catalog(&body, "abc-123").as_deref(), Some("Hades"));
+        // The catalog is queried with one id, so the first value is a safe fallback.
+        assert_eq!(epic_title_from_catalog(&body, "missing").as_deref(), Some("Hades"));
+        assert_eq!(epic_title_from_catalog(&json!({}), "abc-123"), None);
     }
 }

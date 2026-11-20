@@ -34,6 +34,19 @@ function NoticeBar({ notice, onClose }: { notice?: Notice; onClose: () => void }
 
 const errText = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
+async function openExternal(url: string) {
+  try {
+    const { openUrl } = await import("@tauri-apps/plugin-opener");
+    await openUrl(url);
+    return;
+  } catch {
+    // Tauri opener is unavailable in web dev; fall back to the browser.
+  }
+  if (!window.open(url, "_blank", "noopener,noreferrer")) {
+    throw new Error("Could not open your browser. Allow pop-ups for this app and try again.");
+  }
+}
+
 export function StoresSection({ data, update }: Props) {
   const [store, setStore] = useState<StoreId>("steam");
   const [status, setStatus] = useState<StoreStatus | null>(null);
@@ -53,20 +66,26 @@ export function StoresSection({ data, update }: Props) {
   const updateSettings = (partial: Partial<AppData["settings"]>) =>
     update({ ...data, settings: { ...data.settings, ...partial } });
 
-  useEffect(() => {
+  const refreshStatus = async () => {
     if (!isDesktop) return; // web shares this module but must never call store IPC
-    void storesStatus(hasSteam).then(setStatus).catch(() => setStatus(null));
+    try { setStatus(await storesStatus(hasSteam)); }
+    catch { setStatus({ steam: hasSteam, epic: false }); }
+  };
+
+  useEffect(() => {
+    void refreshStatus();
   }, [hasSteam]);
 
   const changeStore = (id: StoreId) => {
     setStore(id); setCode(""); setPhase({ kind: "idle" }); setNotice(undefined);
+    void refreshStatus();
   };
 
   const openAuth = async () => {
     try {
       const url = await storesAuthUrl(store);
-      window.open(url, "_blank", "noopener,noreferrer");
-      setNotice({ kind: "info", text: "Sign in in the new tab, then paste the authorizationCode from the page you land on into the box below." });
+      await openExternal(url);
+      setNotice({ kind: "info", text: "Sign in in the browser window, then paste the code from the page you land on into the box below." });
     } catch (e) { setNotice({ kind: "error", text: errText(e) }); }
   };
 
@@ -91,6 +110,7 @@ export function StoresSection({ data, update }: Props) {
       }
       setPhase({ kind: "ready", records });
     } catch (e) {
+      void refreshStatus(); // the stored token may have been removed elsewhere
       setPhase({ kind: "idle" });
       setNotice({ kind: "error", text: `${connector.name} could not be read: ${errText(e)}` });
     }
@@ -137,11 +157,11 @@ export function StoresSection({ data, update }: Props) {
   return (
     <section className="glass settings-panel settings-panel--full">
       <p className="eyebrow">DESKTOP ONLY · ONE-WAY IMPORT</p><h2>Import from game stores</h2>
-      <p className="muted">Steam maps everything it knows into your library: Wishlist → Wishlist, unplayed → Backlog, recently played → Playing (with a start date and no completion date), and played-but-not-recent → Completed (with last played as completion date). Full achievement sets set Mastery. Status is only set on first import; later syncs refresh playtime, dates and achievements but leave your own status edits alone.</p>
+      <p className="muted">Steam maps everything it knows into your library: Wishlist → Wishlist, unplayed → Backlog, recently played → Playing (with a start date and no completion date), and played-but-not-recent → Completed (with last played as completion date). Full achievement sets set Mastery. Epic imports ownership only — no playtime, dates or achievements — so its games start as Backlog. Status is only set on first import; later syncs refresh store-owned fields but leave your own status edits alone.</p>
       <div className="notice info" role="note">
         <Info size={15} />
         <span>
-          Steam uses its official Web API and public wishlist. Epic and GOG use unofficial endpoints that can break; Battle.net reads the local Agent database and can only list installed games. Steam keys are saved with your app settings like the IGDB keys and excluded from backups; Epic/GOG tokens stay on this device.
+          Steam uses its official Web API and public wishlist. Epic uses unofficial endpoints that can break. Steam keys are saved with your app settings like the IGDB keys and excluded from backups; Epic tokens stay on this device.
         </span>
       </div>
 
@@ -154,7 +174,7 @@ export function StoresSection({ data, update }: Props) {
       <div className="settings-credentials">
         <p className="muted"><strong>{connector.name}</strong> — {connector.blurb}</p>
         <p className="hint">
-          Status: {status ? (status[store] ? (connector.capabilities.installedOnly ? "Agent database found" : "Connected") : "Not connected") : "Checking…"}
+          Status: {status ? (status[store] ? "Connected" : "Not connected") : "Checking…"}
           {data.settings.lastStoreSyncAt && data.settings.storeSyncSource === store
             ? ` Last sync: ${new Date(data.settings.lastStoreSyncAt).toLocaleString()}.` : ""}
         </p>
@@ -174,13 +194,13 @@ export function StoresSection({ data, update }: Props) {
         </div>
       )}
 
-      {connector.capabilities.usesOAuth && (
+      {connector.capabilities.usesOAuth && status && !status[store] && (
         <div className="settings-credentials">
           <div className="detail-actions">
             <button type="button" className="button soft" disabled={!isDesktop} onClick={() => void openAuth()}>Open sign-in page</button>
           </div>
           <label>Authorization code
-            <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="Paste the authorizationCode from the redirect page" />
+            <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="Paste the code from the redirect page" />
           </label>
           <div className="detail-actions"><button type="button" className="button soft" disabled={!isDesktop || !code.trim()} onClick={() => void completeAuth()}>Complete sign-in</button></div>
         </div>
@@ -191,7 +211,7 @@ export function StoresSection({ data, update }: Props) {
       {phase.kind === "idle" && (
         <div className="detail-actions">
           <button type="button" className="button soft" disabled={!isDesktop || (store === "steam" ? !hasSteam : (connector.capabilities.needsSignIn && !status?.[store]))}
-            onClick={() => void scan()}><RefreshCw size={15} /> {connector.capabilities.installedOnly ? "Scan installed games" : "Fetch library"}</button>
+            onClick={() => void scan()}><RefreshCw size={15} /> Fetch library</button>
         </div>
       )}
 

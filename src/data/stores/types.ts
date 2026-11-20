@@ -7,7 +7,6 @@ export type StoreCapabilities = {
   needsSignIn: boolean;
   hasPlaytime: boolean;
   hasAchievements: boolean;
-  installedOnly: boolean;
   usesOAuth: boolean;
 };
 
@@ -40,35 +39,22 @@ export const STORES: StoreConnector[] = [
     id: "steam",
     name: "Steam",
     blurb: "Official Web API plus your public wishlist. Maps playtime, recently played, wishlist, dates and all achievements into library status, dates and mastery.",
-    capabilities: { needsSignIn: true, hasPlaytime: true, hasAchievements: true, installedOnly: false, usesOAuth: false },
+    capabilities: { needsSignIn: true, hasPlaytime: true, hasAchievements: true, usesOAuth: false },
     igdbSource: 1,
   },
   {
     id: "epic",
     name: "Epic Games",
     blurb: "Unofficial launcher API. Ownership only — Epic exposes no confirmed playtime endpoint.",
-    capabilities: { needsSignIn: true, hasPlaytime: false, hasAchievements: false, installedOnly: false, usesOAuth: true },
+    capabilities: { needsSignIn: true, hasPlaytime: false, hasAchievements: false, usesOAuth: true },
     igdbSource: 26,
-  },
-  {
-    id: "gog",
-    name: "GOG",
-    blurb: "Community-documented API. Ownership only; the endpoint can change without notice.",
-    capabilities: { needsSignIn: true, hasPlaytime: false, hasAchievements: false, installedOnly: false, usesOAuth: true },
-    igdbSource: 5,
-  },
-  {
-    id: "battlenet",
-    name: "Battle.net",
-    blurb: "Local scan of the Battle.net Agent database. Installed games only; Blizzard has no owned-games API.",
-    capabilities: { needsSignIn: false, hasPlaytime: false, hasAchievements: false, installedOnly: true, usesOAuth: false },
   },
 ];
 
 export const storeById = (id: StoreId) => STORES.find((s) => s.id === id);
 
 /** IGDB source ids used for the first matching pass (unverified live — strict title search is the backstop). */
-export const IGDB_SOURCE: Partial<Record<StoreId, number>> = { steam: 1, gog: 5, epic: 26 };
+export const IGDB_SOURCE: Partial<Record<StoreId, number>> = { steam: 1, epic: 26 };
 
 export type StoreImportProgress = {
   phase: "fetching" | "achievements" | "matching" | "details" | "done";
@@ -89,8 +75,8 @@ export type StoreImportReport = {
   warnings: string[];
 };
 
-/** Credentials are device-only: Epic/GOG tokens live in Rust storage, Steam keys live in settings like IGDB. */
-const STORE_CREDENTIAL_KEYS = ["steamKey", "steamApiKey", "steamId", "storeCredentials", "epicAccessToken", "gogAccessToken"];
+/** Credentials are device-only: Epic tokens live in Rust storage, Steam keys live in settings like IGDB. */
+const STORE_CREDENTIAL_KEYS = ["steamKey", "steamApiKey", "steamId", "storeCredentials", "epicAccessToken"];
 export function stripStoreCredentials(settings: AppSettings): AppSettings {
   const out = settings as unknown as Record<string, unknown>;
   for (const key of STORE_CREDENTIAL_KEYS) delete out[key];

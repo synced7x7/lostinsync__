@@ -129,6 +129,7 @@ All commands are declared in `src-tauri/src/lib.rs`; store implementations live 
 | `igdb_sync_check` | Bulk `updated_at` check (500 IDs/request) |
 | `igdb_import_batch` | Details + images + TTB in ~3 requests (bulk import/sync) |
 | `igdb_external_lookup` | Direct `external_games` lookup by store uid (modern field with legacy `category` fallback) |
+| `igdb_epic_lookup` | Epic catalog-id lookup by `external_games.uid`, with title tie-breaking |
 
 ### Desktop store commands
 
@@ -136,14 +137,13 @@ All commands are declared in `src-tauri/src/lib.rs`; store implementations live 
 
 | Command | Description |
 |---|---|
-| `stores_status` | Connection flags for Steam (from supplied key/ID), Epic/GOG (stored tokens), Battle.net (local Agent database) |
-| `stores_auth_url` | Returns the Epic or GOG browser sign-in URL |
-| `stores_complete_auth` | Exchanges an authorization code and stores Epic/GOG tokens locally |
-| `stores_fetch` | Fetches normalized owned/wishlist/installed records for the selected store |
+| `stores_status` | Connection flags for Steam (from supplied key/ID) and Epic (stored token) |
+| `stores_auth_url` | Returns the Epic browser sign-in URL |
+| `stores_complete_auth` | Exchanges an authorization code and stores the Epic token locally |
+| `stores_fetch` | Fetches normalized owned/wishlist records for the selected store |
 | `stores_fetch_achievements` | Steam achievement counts and earliest unlock; non-Steam stores return zero totals |
-| `stores_scan_battlenet` | Read-only, best-effort scan of the local Battle.net Agent SQLite database |
 
-Steam's owned-games request includes `include_all_free_games`, `include_free_sub`, `include_played_free_games` and `skip_unvetted_apps=0`, so free games claimed but never launched are returned. Wishlist titles come from the keyless `IWishlistService/GetWishlist/v1/` endpoint; Rust resolves its app ids with owned-game titles first and `store.steampowered.com/api/appdetails` second. Zero playtime is no longer treated as a private-profile error.
+Steam's owned-games request includes `include_all_free_games`, `include_free_sub`, `include_played_free_games` and `skip_unvetted_apps=0`, so free games claimed but never launched are returned. Wishlist titles come from the keyless `IWishlistService/GetWishlist/v1/` endpoint; Rust resolves its app ids with owned-game titles first and `store.steampowered.com/api/appdetails` second. Zero playtime is no longer treated as a private-profile error. User-facing setup and the full field mapping are documented in [`docs/store-import-guide.md`](store-import-guide.md).
 
 ### Web proxy
 
@@ -151,7 +151,7 @@ Steam's owned-games request includes `include_all_free_games`, `include_free_sub
 
 ### Security / capabilities
 
-`src-tauri/capabilities/default.json` grants `core:default`, `opener:default`, and `dialog:default` to window `main` only — no `fs`, `shell`, `http`, or `notification` permissions. CSP and the `$APPDATA/images/**` asset scope are in `src-tauri/tauri.conf.json:23-26`. The opener plugin is initialized only in debug builds (`lib.rs:1181-1183`). Epic/GOG tokens are written by Rust to `<app_data>/store-credentials.json`; Steam keys/SteamID64 remain optional `AppSettings` fields. Neither is included in JSON exports or web Drive snapshots.
+`src-tauri/capabilities/default.json` grants `core:default`, `opener:default`, and `dialog:default` to window `main` only — no `fs`, `shell`, `http`, or `notification` permissions. CSP and the `$APPDATA/images/**` asset scope are in `src-tauri/tauri.conf.json:23-26`. The opener plugin is registered for all desktop builds so store sign-in and media links open in the system browser. Epic tokens are written by Rust to `<app_data>/store-credentials.json`; Steam keys/SteamID64 remain optional `AppSettings` fields. Neither is included in JSON exports or web Drive snapshots.
 
 ---
 

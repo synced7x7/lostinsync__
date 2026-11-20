@@ -101,7 +101,7 @@ export const STATUSES = ["Backlog", "Wishlist", "Playing", "Completed",
                          "Shelved", "Abandoned", "On hold"] as const;
 export type Status = typeof STATUSES[number];
 export type BundleGame = { id: number; name: string; cover?: string; releaseTs?: number };
-export type StoreId = "steam" | "epic" | "gog" | "battlenet";
+export type StoreId = "steam" | "epic";
 export type StoreLink = { store: StoreId; id: string };
 export type StoreAchievements = { achieved: number; total: number; firstUnlockUnix?: number };
 ```

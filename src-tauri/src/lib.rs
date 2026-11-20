@@ -1234,11 +1234,6 @@ async fn stores_fetch_achievements(
     stores::achievements(steam_key.as_deref(), steam_id.as_deref(), &store_id).await
 }
 
-#[tauri::command]
-async fn stores_scan_battlenet() -> Result<Vec<Value>, String> {
-    stores::battlenet_rows()
-}
-
 /// Direct IGDB `external_games` lookup by store uid. Tries the current field name, then the old one.
 #[tauri::command]
 async fn igdb_external_lookup(
@@ -1261,11 +1256,103 @@ async fn igdb_external_lookup(
         .and_then(Value::as_i64))
 }
 
+/// Drop characters that would break an IGDB string literal. Store ids are opaque, so this is safe.
+fn igdb_literal(value: &str) -> String {
+    value.trim().replace('"', "")
+}
+
+/// Normalize store/IGDB titles for tie-breaking. Epic sometimes returns `Rocket League R` where
+/// the `R` is a mangled `®`, so a trailing standalone mark token is ignored as well as punctuation.
+fn epic_name_key(value: &str) -> String {
+    let mut tokens: Vec<&str> = value.split_whitespace().collect();
+    if let Some(last) = tokens.last() {
+        let clean = last.trim_matches(|c: char| !c.is_ascii_alphanumeric());
+        if clean.eq_ignore_ascii_case("r") || clean.eq_ignore_ascii_case("tm") || clean.eq_ignore_ascii_case("c") {
+            tokens.pop();
+        }
+    }
+    tokens.into_iter().collect::<String>().to_lowercase()
+        .chars().filter(|c| c.is_ascii_alphanumeric()).collect()
+}
+
+fn epic_names_match(left: &str, right: &str) -> bool {
+    let a = epic_name_key(left);
+    !a.is_empty() && a == epic_name_key(right)
+}
+
+fn epic_games_query(uid: &str) -> String {
+    format!("fields id,name; where external_games.uid = \"{}\"; limit 10;", igdb_literal(uid))
+}
+
+fn epic_external_query(uid: &str) -> String {
+    format!("fields game,external_game_source,category,name; where uid = \"{}\"; limit 10;", igdb_literal(uid))
+}
+
+/// Pick the IGDB id from `games` rows. The external uid is authoritative; names only break ties.
+fn epic_pick_game(rows: &[Value], title: &str) -> Option<i64> {
+    let ids: Vec<(i64, String)> = rows.iter().filter_map(|row| Some((
+        row.get("id")?.as_i64()?,
+        row.get("name").and_then(Value::as_str).unwrap_or("").to_string(),
+    ))).collect();
+    if ids.len() == 1 { return Some(ids[0].0); }
+    let mut matches = ids.iter().filter(|(_, name)| epic_names_match(name, title)).map(|(id, _)| *id);
+    let first = matches.next()?;
+    matches.all(|id| id == first).then_some(first)
+}
+
+/// Pick the IGDB id from `external_games` rows. Epic catalog ids are GUIDs, so a uid match is
+/// authoritative even if IGDB tagged the row with a non-Epic source; Epic/legacy sources win ties.
+fn epic_pick_external(rows: &[Value], title: &str) -> Option<i64> {
+    let ids: Vec<(i64, String, bool)> = rows.iter().filter_map(|row| {
+        let game = row.get("game")?.as_i64()?;
+        let source = row.get("external_game_source").and_then(Value::as_i64)
+            .or_else(|| row.get("category").and_then(Value::as_i64)).unwrap_or(-1);
+        let name = row.get("name").and_then(Value::as_str).unwrap_or("").to_string();
+        Some((game, name, source == 26 || source == 0))
+    }).collect();
+
+    // Prefer correctly-tagged Epic rows, then fall back to any GUID match.
+    for epic_only in [true, false] {
+        let candidates: Vec<&(i64, String, bool)> = ids.iter().filter(|row| row.2 == epic_only).collect();
+        if candidates.len() == 1 { return Some(candidates[0].0); }
+        if candidates.len() > 1 {
+            let mut matches = candidates.iter()
+                .filter(|row| row.1.is_empty() || epic_names_match(&row.1, title))
+                .map(|row| row.0);
+            if let Some(first) = matches.next() {
+                if matches.all(|id| id == first) { return Some(first); }
+            }
+        }
+    }
+    None
+}
+
+/// Resolve an Epic catalog item id straight to an IGDB game id. Epic's title can differ from
+/// IGDB's, so the external id is authoritative and the name is only used to break ties.
+#[tauri::command]
+async fn igdb_epic_lookup(
+    auth: tauri::State<'_, IgdbAuth>,
+    uid: String,
+    title: String,
+    client_id: String,
+    client_secret: String
+) -> Result<Option<i64>, String> {
+    if igdb_literal(&uid).is_empty() { return Ok(None); }
+
+    if let Ok(rows) = igdb_post(&auth, "games", epic_games_query(&uid), &client_id, &client_secret).await {
+        if let Some(id) = rows.as_array().and_then(|array| epic_pick_game(array, &title)) { return Ok(Some(id)); }
+    }
+
+    let rows = igdb_post(&auth, "external_games", epic_external_query(&uid), &client_id, &client_secret).await?;
+    Ok(rows.as_array().and_then(|array| epic_pick_external(array, &title)))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder
         ::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             let path = app.path().app_data_dir()?.join("lost-in-sync.sqlite");
             std::fs::create_dir_all(path.parent().expect("database path has a parent"))?;
@@ -1273,9 +1360,6 @@ pub fn run() {
             migrate(&connection)?;
             app.manage(Database(Mutex::new(connection)));
             app.manage(IgdbAuth(tauri::async_runtime::Mutex::new(None)));
-            if cfg!(debug_assertions) {
-                app.handle().plugin(tauri_plugin_opener::init())?;
-            }
             Ok(())
         })
         .invoke_handler(
@@ -1301,10 +1385,67 @@ pub fn run() {
                 stores_complete_auth,
                 stores_fetch,
                 stores_fetch_achievements,
-                stores_scan_battlenet,
-                igdb_external_lookup
+                igdb_external_lookup,
+                igdb_epic_lookup
             ]
         )
         .run(tauri::generate_context!())
         .expect("error while building tauri application");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        epic_external_query, epic_games_query, epic_name_key, epic_names_match,
+        epic_pick_external, epic_pick_game,
+    };
+    use serde_json::json;
+
+    #[test]
+    fn epic_name_normalization_handles_mangled_trademark() {
+        assert_eq!(epic_name_key("Rocket League R"), "rocketleague");
+        assert_eq!(epic_name_key("Rocket League®"), "rocketleague");
+        assert_eq!(epic_name_key("Monster Hunter"), "monsterhunter");
+        assert!(epic_names_match("Rocket League R", "Rocket League"));
+    }
+
+    #[test]
+    fn epic_games_query_filters_by_external_uid() {
+        assert_eq!(
+            epic_games_query("abc-123"),
+            "fields id,name; where external_games.uid = \"abc-123\"; limit 10;"
+        );
+    }
+
+    #[test]
+    fn epic_external_query_looks_up_by_uid() {
+        assert_eq!(
+            epic_external_query("abc-123"),
+            "fields game,external_game_source,category,name; where uid = \"abc-123\"; limit 10;"
+        );
+    }
+
+    #[test]
+    fn epic_pick_game_accepts_a_unique_uid_link() {
+        let rows = vec![json!({ "id": 100, "name": "Rocket League" })];
+        assert_eq!(epic_pick_game(&rows, "Rocket League R"), Some(100));
+        let ambiguous = vec![json!({ "id": 1, "name": "A" }), json!({ "id": 2, "name": "B" })];
+        assert_eq!(epic_pick_game(&ambiguous, "Rocket League R"), None);
+    }
+
+    #[test]
+    fn epic_pick_external_accepts_legacy_and_modern_sources() {
+        let modern = vec![json!({ "game": 42, "external_game_source": 26, "name": "Rocket League" })];
+        assert_eq!(epic_pick_external(&modern, "Rocket League R"), Some(42));
+        let legacy = vec![json!({ "game": 42, "category": 0, "name": "Rocket League" })];
+        assert_eq!(epic_pick_external(&legacy, "Rocket League R"), Some(42));
+        let other = vec![json!({ "game": 99, "external_game_source": 1, "name": "Rocket League" })];
+        assert_eq!(epic_pick_external(&other, "Rocket League R"), Some(99));
+        // Correctly tagged Epic rows still win when both sources share the same uid.
+        let mixed = vec![
+            json!({ "game": 99, "external_game_source": 1, "name": "Rocket League" }),
+            json!({ "game": 42, "external_game_source": 26, "name": "Rocket League" }),
+        ];
+        assert_eq!(epic_pick_external(&mixed, "Rocket League R"), Some(42));
+    }
 }

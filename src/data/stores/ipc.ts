@@ -26,8 +26,11 @@ export const storesFetch = (store: StoreId, steam?: SteamCreds) =>
   invokeStore<StoreRecord[]>("stores_fetch", { store, ...steamArgs(steam) });
 export const storesFetchAchievements = (store: StoreId, storeId: string, steam?: SteamCreds) =>
   invokeStore<StoreAchievements>("stores_fetch_achievements", { store, storeId, ...steamArgs(steam) });
-export const storesScanBattleNet = () => invokeStore<{ code: string; name: string }[]>("stores_scan_battlenet");
 
 /** Look up `(external source, uid)` directly on IGDB before falling back to title search. */
 export const igdbExternalLookup = (uid: string, source: number, creds: IgdbCreds) =>
   invokeStore<number | null>("igdb_external_lookup", { uid, source, clientId: creds.clientId, clientSecret: creds.clientSecret });
+
+/** Epic catalog item ids map to IGDB through `external_games.uid`, independent of the store title. */
+export const igdbEpicLookup = (uid: string, title: string, creds: IgdbCreds) =>
+  invokeStore<number | null>("igdb_epic_lookup", { uid, title, clientId: creds.clientId, clientSecret: creds.clientSecret });

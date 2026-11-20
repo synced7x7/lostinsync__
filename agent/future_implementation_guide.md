@@ -193,121 +193,111 @@
 
 ---
 
-# 9. Steam Synchronization (and multi-store library import)
+# 9. Steam and Epic Synchronization (one-way store library import)
 
-**Status: Implemented (2026-11-21).** Source-level checks pass; live Steam re-fetch QA is still pending. This entry is kept as the implementation record for feature 9.
+**Status: Implemented (2026-11-21).** Source-level checks pass; live Steam and Epic re-fetch QA is still pending. This entry is kept as the implementation record for feature 9.
 
-Objective: Import owned games, playtime and achievements from game stores (Steam, Epic, GOG, Battle.net) into the local library. DESKTOP ONLY. The web app gets the result only through the normal JSON export/import.
+Objective: Import owned games, playtime, wishlist data and achievements from Steam, and owned games from Epic Games, into the local library. DESKTOP ONLY. The web app gets the result only through the normal JSON export/import.
 
 DECISIONS (final, from owner)
 - Desktop-only feature. Do NOT add store connections to the web app. Skip all `web/*` items (worker allow-list, igdb.web.ts, vite config, env.d.ts). No web proxy.
-- Stores in scope: Steam, Epic Games, GOG, Battle.net. Xbox and PSN are dropped.
-- This relaxes the old "never touch the offline app" rule for this feature only. Changes must be additive: new files, new optional fields, no change to existing behaviour.
-- JSON export/import must stay interchangeable desktop <-> web. Store-imported games use the existing Game schema. New fields are optional so old builds and the web ignore them. (Verify the web import keeps unknown game fields; `web/src/codec.ts` spreads `...g`, believed to keep them.)
+- Stores in scope: Steam and Epic Games. Other stores are out of scope.
+- This relaxes the old "never touch the offline app" rule for this feature only. Changes are additive: new files, new optional fields, no change to existing behaviour.
+- JSON export/import stays interchangeable desktop <-> web. Store-imported games use the existing Game schema. New fields are optional so old builds and the web ignore them.
 - Never put store credentials/tokens in the export or the web Drive snapshot. Strip them exactly like the IGDB creds.
-- Store-imported games use remote IGDB image URLs for cover/screenshots. Do NOT save store art into the desktop `images/` folder (desktop export writes `asset.localhost` paths, not data URIs, which breaks transfer to the web).
+- Store-imported games use remote IGDB image URLs for cover/screenshots. Do NOT save store art into the desktop `images/` folder.
 - Two-way sync is out of scope. Stores are a one-way source.
+- Status is set on first import only. Re-sync refreshes store-owned fields but never overwrites manual status.
+- Epic sign-in controls follow connection status: they are hidden after a successful connection and reappear when the token is missing or removed.
 
-ARCHITECTURE (Playnite-style connector pattern)
-- One small connector contract per store: `id`, `name`, `capabilities`, `getGames()` returning normalized records `{ store, storeId, title, playtimeMinutes?, lastPlayed?, achievements?, installed? }`. Connectors do auth + listing only.
-- Shared, written once: normalize, match to IGDB, cache the match, dedupe/merge, build the `Game`, report + progress UI, "needs review" list for unmatched games.
-- Identity of a game = `(store, storeId)`. Save on the Game as an optional list (e.g. `storeLinks?: {store, id}[]`) so re-sync never duplicates and it survives export/import.
-- Capability flags per connector (needs sign-in, has playtime, has achievements, owned-vs-installed-only) so the UI adapts with no per-store special cases.
-- All store HTTP runs in Rust (`src-tauri/src/stores.rs`, called from Tauri commands in `lib.rs`). Epic/GOG tokens live in a Rust-managed credentials file; Steam keys/SteamID64 live in desktop settings like IGDB keys. The webview never sees tokens. No CSP change was needed.
-- Keep every endpoint URL in ONE constants file per connector. Unofficial endpoints change; a break must be a one-file fix.
+ARCHITECTURE (connector pattern)
+- One small connector contract per store: `id`, `name`, `capabilities`, normalized `StoreRecord`, one desktop-only settings UI.
+- Shared logic: normalize, match to IGDB, cache the match, dedupe/merge, build the `Game`, report + progress UI, and a "needs review" list for unmatched games.
+- Identity of a game = `(store, storeId)`. Saved as optional `storeLinks?: {store, id}[]` so re-sync never duplicates and it survives export/import.
+- Capability flags (needs sign-in, has playtime, has achievements, uses OAuth) let the UI adapt without store-specific branches.
+- All store HTTP runs in Rust (`src-tauri/src/stores.rs`, called from Tauri commands in `lib.rs`). Epic tokens live in a Rust-managed credentials file; Steam keys/SteamID64 live in desktop settings like IGDB keys. The webview never sees tokens.
+- Every endpoint URL lives in the Rust connector module so an unofficial API change is a one-file fix.
 
-STORE ENDPOINTS (researched; mark "unverified" = not confirmed in docs I read)
+STORE ENDPOINTS
 
 Steam (official Web API)
-- Owned games: `GET https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/` with `key`, `steamid`, `include_appinfo=1`, `include_played_free_games=1`, `include_all_free_games=1`, `include_free_sub=1`, `skip_unvetted_apps=0`, `format=json`
-  - Returns `response.game_count` and `response.games[]` with `appid`, `name`, `playtime_forever` (MINUTES), `playtime_2weeks` (only if played in last 2 weeks), `img_icon_url`, `has_community_visible_stats`, `playtime_windows/mac/linux_forever`, `rtime_last_played` (unix seconds).
-- Achievements: `GET https://api.steampowered.com/ISteamUserStats/GetPlayerAchievements/v1/?key&steamid&appid` (`achieved` 1/0, `unlocktime` unix, 0 if locked). Names/descriptions: `GET .../ISteamUserStats/GetSchemaForGame/v2/?key&appid`.
-- Store metadata, no key: `GET https://store.steampowered.com/api/appdetails?appids=ID&filters=basic` (~200 requests / 5 min per IP; cache it).
-- Vanity URL -> SteamID64: `ISteamUser/ResolveVanityURL/v1` (unverified). SteamID is the 17-digit number.
-- Auth: user's own free Web API key + SteamID. A key does NOT override privacy. Profile "Game details" must be Public. A private profile returns no game list; zero playtime is **not** a private-profile signal. Newly claimed free games legitimately have `playtime_forever = 0` and must still be imported as `Backlog`.
-- Wishlist: the old `wishlistdata/` page 302s to the store home. Use keyless `GET https://api.steampowered.com/IWishlistService/GetWishlist/v1/?steamid=STEAMID64&format=json`; private/empty responses are `{"response":{}}`. The API returns app ids only, so Rust resolves titles from owned-game names first, then `https://store.steampowered.com/api/appdetails?appids=ID&l=english`.
-- Optional no-key fallback: public community profile XML (not implemented).
+- Owned games: `GET https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/` with `key`, `steamid`, `include_appinfo=1`, `include_played_free_games=1`, `include_all_free_games=1`, `include_free_sub=1`, `skip_unvetted_apps=0`, `format=json`.
+  - Returns `response.game_count` and `response.games[]` with `appid`, `name`, `playtime_forever` (MINUTES), `playtime_2weeks`, `rtime_last_played` (unix seconds), and related fields.
+- Achievements: `GET https://api.steampowered.com/ISteamUserStats/GetPlayerAchievements/v1/?key&steamid&appid`. `achieved` and `unlocktime` feed achievement counts and start date; `success: false` is treated as zero achievements, not an error.
+- Store metadata, no key: `GET https://store.steampowered.com/api/appdetails?appids=ID&filters=basic`.
+- Auth: user's free Web API key + 17-digit SteamID64. A key does NOT override privacy. Profile "Game details" must be Public; zero playtime is not a private-profile signal. Claimed free games with no launch history are imported as `Backlog`.
+- Wishlist: `GET https://api.steampowered.com/IWishlistService/GetWishlist/v1/?steamid=STEAMID64&format=json`. It returns app ids only, so Rust resolves names from owned-game titles first, then appdetails. Private/empty wishlists produce a warning, not a failure. Ownership wins when an app is in both lists.
 
-Epic Games (unofficial; there is no official library API)
-- Auth: OAuth2 with Epic's public launcher client id. User opens the authorization URL in a browser, logs in, is redirected to a JSON page showing an `authorizationCode`, which the app exchanges for tokens (same flow Legendary and the `egs-api` crate use). Tokens: `account-public-service-prod03.ol.epicgames.com/account/api/oauth/...` (exact token path unverified).
-- Library: `GET https://library-service.live.use1a.on.epicgames.com/library/api/public/items?includeMetadata=true&cursor=CURSOR` (paginated by cursor; Bearer token).
-- Catalog details: `GET https://catalog-public-service-prod06.ol.epicgames.com/catalog/api/shared/namespace/{namespace}/bulk/items?id={catalogItemId}&includeDLCDetails=true&includeMainGameDetails=true&country=US&locale=en`.
-- Entitlements (games, DLC, subscriptions) also exist in the same unofficial API (path unverified).
-- Playtime: no confirmed endpoint. Treat Epic as ownership-only unless a source is found.
-- Alternative: shell out to the Legendary CLI after the user runs `legendary auth` once (same data, less code to maintain).
-- IGDB `external_games` source for Epic ~26, uid format needs checking (likely a catalog/namespace-style id, unverified).
-
-GOG (unofficial, community-documented: gogapidocs)
-- Auth: send the user to `https://auth.gog.com/auth?client_id=46899977096215655&redirect_uri=https%3A%2F%2Fembed.gog.com%2Fon_login_success%3Forigin%3Dclient&response_type=code&layout=client2` (needs a real browser/webview, CAPTCHA possible). After login the redirect URL contains `&code=...`. Exchange at `https://auth.gog.com/token` for access + refresh token (refresh with `grant_type=refresh_token`). Use `Authorization: Bearer <access_token>`.
-- Owned ids only: `GET https://embed.gog.com/user/data/games` -> `{ "owned": [ids] }`. Includes bundles/packs and DLC.
-- Owned games with details, paged: `GET https://embed.gog.com/account/getFilteredProducts?mediaType=1&page=N` -> `page`, `totalPages`, `products[]`. Individual games only (no packs/DLC). Prefer this one.
-- Product info: `GET https://api.gog.com/products/{id}?expand=...`.
-- Known fragility: community reports of 403s and a dead game-details endpoint after GOG changes (some calls wanted a `csrf=true` cookie). Expect breakage.
-- Playtime/achievements: GOG Galaxy has them, but no confirmed public endpoint. Achievements path under `/users/{id}/achievements` seen in a client crate (unverified).
-- Desktop alternative: read the local Galaxy SQLite DB `C:\ProgramData\GOG.com\Galaxy\storage\galaxy-2.0.db` (owned + play time; schema unverified). Needs Galaxy installed.
-- IGDB `external_games` source for GOG ~5.
-
-Battle.net (NO owned-games endpoint)
-- Blizzard's official API (develop.battle.net) only exposes per-game data: WoW profile and game data, Diablo 3, StarCraft 2, Hearthstone game data, plus `GET /oauth/userinfo`. Protected endpoints need the OAuth authorization-code flow with the user's token; public ones use client-credentials (needs a registered client id/secret). None of it lists which games an account owns.
-- So the connector is a LOCAL SCAN on desktop: read the Battle.net Agent database `C:\ProgramData\Battle.net\Agent\product.db` on Windows (macOS: `/Users/Shared/Battle.net/Agent`). Ignore the `agent` and `bna` product codes. Existing parsers (GameCollector, game-scanner) read installs and an installed/playable state from it. File format and fields: unverified, inspect a real file first.
-- Result is installed games only (capability `installedOnly`), with no playtime and no purchase data. Owned-but-not-installed titles cannot be listed.
-- No confirmed IGDB external source id for Battle.net: match by normalized title + platform (PC) + year, with the review list as backstop.
+Epic Games (unofficial; no official public library API)
+- Auth: OAuth2 with Epic's public launcher client id. The user opens the browser sign-in URL, signs in, copies the `authorizationCode`, and Rust exchanges it for an access token. Tokens are stored only in `<app_data>/store-credentials.json`.
+- Library: `GET https://library-service.live.use1a.on.epicgames.com/library/api/public/items?includeMetadata=true&cursor=CURSOR`, paginated by cursor with a Bearer token.
+- Catalog details: `GET https://catalog-public-service-prod06.ol.epicgames.com/catalog/api/shared/namespace/{namespace}/bulk/items?id={catalogItemId}&includeDLCDetails=true&includeMainGameDetails=true&country=US&locale=en`, used to resolve missing display names and to provide a direct IGDB lookup key.
+- `ue` namespace items are skipped and catalog ids are de-duplicated.
+- Playtime, last played and achievements are not inferred; Epic is ownership-only.
+- IGDB `external_games` source for Epic is 26.
 
 IGDB MATCHING ORDER (shared)
-1. `external_games` lookup by `(source, uid)` (Steam appid is the uid). The Rust command tries `external_game_source` first and falls back to legacy `category`. Source ids used: Steam 1, GOG 5, Epic 26.
-2. Fallback: strict `/ ` title search (existing Backloggd pattern), then a unique normalized-title match.
-3. Ambiguous or none: "needs review" list. Never auto-guess.
-4. Cache `(store, storeId) -> igdbId` for the current session so each game is matched once; the stored `storeLinks` survive across sessions.
+1. Epic: direct `igdb_epic_lookup` by catalog item id / `external_games.uid`, with title tie-breaking. Steam: direct `igdb_external_lookup` by `(source, uid)`; source ids are Steam 1 and Epic 26.
+2. Fallback: cleaned Epic titles strip trademark marks and common edition suffixes. Strict `/ ` title search, then a unique normalized-title match.
+3. Ambiguous or missing matches go to the "needs review" list; no fuzzy guess is made.
+4. Cache `(store, storeId) -> igdbId` for the current session. Stored `storeLinks` survive across sessions and later syncs can enrich a previously unmatched game.
 
 MAPPING (what stores can fill)
-- Owned list, title, store id: Steam, Epic, GOG. Battle.net: installed only.
-- Total playtime: Steam (convert minutes -> `totalSeconds`). Others unconfirmed.
+- Owned list, title, store id: Steam and Epic. Wishlist: Steam only.
+- Total playtime: Steam (`playtime_forever` minutes -> `totalSeconds`). Epic does not provide it.
 - Last played: Steam `rtime_last_played`.
-- Achievements: Steam. Others unconfirmed.
-- Purchase date: not reliably available anywhere.
-- Start date: never provided directly. Use the earliest unlocked achievement time (Rust returns `firstUnlockUnix`); otherwise fall back to the earlier of add date and last-played date, then clamp so it never follows completion.
-- Status: wishlist → `Wishlist`; no real play/last-played date → `Backlog`; `playtime_2weeks > 0` → `Playing`; played but not recent → `Completed`, with `rtime_last_played` as completion date. Status is set on first import only.
-- Mastery: `platinumed = true` only when achievements exist and `achieved >= total`; zero-total games are never mastered.
+- Achievements: Steam only.
+- Purchase date: not reliably available.
+- Start date: earliest unlocked achievement time, otherwise the earlier of add date and last-played date, clamped so it never follows completion.
+- Status: wishlist -> `Wishlist`; no real play/last-played date -> `Backlog`; `playtime_2weeks > 0` -> `Playing`; played but not recent -> `Completed`, with `rtime_last_played` as the completion date. Epic first imports as `Backlog`.
+- Mastery: `platinumed = true` only when `total > 0 && achieved >= total`; zero-total games are never mastered.
 - Never overwrite user-entered fields. Re-sync refreshes only store-owned fields (playtime, last played, achievement counts, store ids) and leaves manual status edits alone.
 
 CURRENT IMPLEMENTATION
-- `src/domain/game.ts` — optional `storeLinks`, `steamPlaytimeSeconds`, `lastPlayedAt`, `storeAchievements`; `StoreId`/`StoreLink`/`StoreAchievements`; `AppSettings.steamApiKey`, `steamId`, `lastStoreSyncAt`, `storeSyncSource`. No SQL migration was needed.
-- `src-tauri/src/stores.rs` — endpoint constants, all store HTTP, Epic/GOG OAuth exchange, `store-credentials.json`, Steam owned/wishlist/achievement fetching, `first_unlock_unix`, Battle.net Agent SQLite scan. Rust `steam_owned_query()` sends the free-game flags; zero playtime is kept, not rejected as privacy.
-- `src-tauri/src/lib.rs` — registers `stores_status`, `stores_auth_url`, `stores_complete_auth`, `stores_fetch`, `stores_fetch_achievements`, `stores_scan_battlenet` and `igdb_external_lookup`.
+- `src/domain/game.ts` — optional `storeLinks`, `steamPlaytimeSeconds`, `lastPlayedAt`, `storeAchievements`; `StoreId = "steam" | "epic"`; `AppSettings.steamApiKey`, `steamId`, `lastStoreSyncAt`, `storeSyncSource`. No SQL migration was needed.
+- `src-tauri/src/stores.rs` — endpoint constants, Rust HTTP/auth, Steam owned/wishlist/achievement parsing, Epic library/catalog title resolution, `store-credentials.json`, and Epic token exchange. Rust `steam_owned_query()` sends the free-game flags; zero playtime is kept.
+- `src-tauri/src/lib.rs` — registers `stores_status`, `stores_auth_url`, `stores_complete_auth`, `stores_fetch`, `stores_fetch_achievements`, `igdb_external_lookup` and `igdb_epic_lookup`.
 - `src/data/stores/ipc.ts` — typed dynamic Tauri IPC wrappers; `__TAURI_INTERNALS__` gates desktop usage.
-- `src/data/stores/types.ts` — connector catalog/capabilities, normalized `StoreRecord`, report types and `stripStoreCredentials`.
-- `src/data/stores/steam.ts` — pure parsers for owned games, keyless wishlist app ids, and achievements (`success: false` → zero totals).
-- `src/data/stores/battlenet.ts` — normalizes raw Agent rows produced by Rust.
-- `src/data/stores/match.ts` — session-cached IGDB matching: `(source, uid)` → strict `/ ` search → unique normalized title; ambiguous/none becomes “needs review”.
+- `src/data/stores/types.ts` — Steam/Epic connector catalog, capabilities, normalized `StoreRecord`, report types and `stripStoreCredentials`.
+- `src/data/stores/steam.ts` — pure parsers for owned games, keyless wishlist app ids, and achievements.
+- `src/data/stores/epic.ts` — pure parser for cursor-paged library records.
+- `src/data/stores/match.ts` — session-cached IGDB matching and Epic title cleanup.
 - `src/data/stores/import.ts` — `steamMapping`, `storePatch`, `buildStoreGame`, `fetchStoreRecords`, `importFromStore`; dedupe by `(store, storeId)` first, then IGDB id, then normalized title. Stores use only remote IGDB images.
-- `src/features/stores-settings.tsx` — one desktop-only settings panel for all stores, with Steam credential fields, OAuth sign-in, fetch/import phases, progress, cancellation and a copyable report.
+- `src/features/stores-settings.tsx` — desktop-only settings panel with Steam fields, status-driven Epic sign-in, fetch/import phases, progress, cancellation and a copyable report.
 - `src/features/settings-data.tsx` — strips IGDB/Steam credentials and store tokens from JSON export/import and preserves current-device keys.
+- `src/domain/store-links.ts` and `src/components/store-icons.tsx` — display IGDB storefront links/icons, hiding the removed source id.
+- `docs/store-import-guide.md` — user-facing setup and full field mapping.
 - `src/data/sync.ts` `FIELDS` was left unchanged; store-owned and user-owned fields are not refreshed by IGDB sync.
 
 Steam behavior (implemented)
 - Owned games include all free licenses, including claimed-but-never-launched titles; *Game of Thrones Kingsroad* (app 4214820) is the regression case.
-- Wishlist uses `IWishlistService/GetWishlist/v1`, resolves app-id titles from owned games or appdetails, and yields to ownership when duplicated. A private/empty wishlist yields a warning, not a failure.
+- Wishlist uses `IWishlistService/GetWishlist/v1`, resolves app-id titles from owned games or appdetails, and yields to ownership when duplicated.
 - Achievements are always fetched for owned games; `success: false` means no achievements. Earliest unlocked time feeds `startedAt`; all-unlocked with a non-zero total sets `platinumed`.
 - Played requires both `playtimeMinutes > 0` and a real `lastPlayedUnix`; otherwise the game is `Backlog` (or `Wishlist` when wishlist-only).
-- Recently played (`playtime_2weeks > 0`) → `Playing` with no completion date. Played but not recent → `Completed` with `finishedAt = rtime_last_played`.
+- Recently played (`playtime_2weeks > 0`) -> `Playing` with no completion date. Played but not recent -> `Completed` with `finishedAt = rtime_last_played`.
 - `totalSeconds` is replaced only when it is still Steam's value or untouched; user-entered playtime and status survive later syncs.
+
+Epic behavior (implemented)
+- Sign-in controls are shown only while the panel is not connected; tab changes and failed fetches refresh connection status.
+- Library records are de-duplicated by catalog id; `ue` namespace items are skipped; missing titles are resolved through the public catalog endpoint.
+- Matching tries the catalog id against IGDB first, then a cleaned strict/unique title search. Previously unmatched games can be enriched on a later re-sync.
+- First import sets `Backlog`. No playtime, dates, achievements or mastery are guessed.
 
 Connector coverage and limits
 - Steam: official API, fully implemented; live QA still needed after the free-game fix.
-- Epic/GOG: OAuth + ownership fetch implemented with unofficial endpoints; live behavior can break without notice. No confirmed playtime endpoint, so they are ownership-only.
-- Battle.net: local Agent database scan implemented with runtime table/column discovery; installed games only, no owned-games/purchase API and no confirmed IGDB source id.
-- IGDB source ids used for the first pass: Steam 1, GOG 5, Epic 26. Unmatched or ambiguous games are imported locally with a reason and listed for review.
+- Epic: unofficial launcher API, ownership-only; live behavior can break without notice.
+- IGDB source ids: Steam 1 and Epic 26. Unmatched or ambiguous games are imported locally with a reason and listed for review.
 - No community-XML/SteamID vanity fallback was added; users enter a 17-digit SteamID64.
 
 Testing (implemented, mocked only)
-- Vitest: 8 files / 57 tests, including Steam owned/wishlist/achievement parsers, connector catalog, dedupe priority, IGDB matching, `steamMapping` status/date/mastery rules, free-game flags, user-field preservation and report generation.
-- Rust: 3 unit tests in `stores.rs` for free-game query flags, earliest unlocked achievement, and locked/empty achievement handling.
-- Verification run on 2026-11-21: `pnpm test`, `pnpm typecheck`, `pnpm build`, `cargo check --all-targets`, `cargo test`, `cargo build` all passed.
+- Vitest: 8 files / 63 tests covering parsers, connector catalog, dedupe priority, IGDB matching, title cleanup, status/date/mastery rules, user-field preservation and report generation.
+- Rust: 9 unit tests (4 in `stores.rs`, 5 in `lib.rs`) for free-game flags, achievement handling, Epic token/title resolution and IGDB helper queries.
+- Verification run on 2026-11-21: `pnpm test`, `pnpm typecheck`, `pnpm build`, `cargo check --all-targets` and `cargo test` pass.
 
 Open items / risks
 - Live re-fetch in `pnpm tauri:dev` must confirm that *Game of Thrones Kingsroad* appears as `Backlog`.
-- Epic/GOG endpoints and Battle.net Agent schema remain unofficial/unverified live; no credentials should be logged during QA.
-- CSV/pasted-title import remains a separate pending feature (14) and can now reuse this pipeline.
+- Live Epic QA must confirm that previously needs-review games are now linked/enriched; no credentials should be logged during QA.
+- CSV/pasted-title import remains a separate pending feature and can now reuse this pipeline.
 ---
 
 ## 10. Backlog Priority and "What Should I Play Next?"
@@ -593,6 +583,6 @@ The original task that produced this guide was documentation-only ("Only the thr
 
 # PART 7 — VERIFICATION NOTES AND UNCERTAIN ASSUMPTIONS
 
-- **Verified directly:** file paths, route table, `AppData`/`Game` field lists (including optional store fields), 23 Tauri command names (IGDB + `stores_*` + `igdb_external_lookup`), `app_state` schema, `FIELDS` sync allow-list, LRU cache implementation, module-swap map, env var names, absence of PWA/manifest/service worker, and current test counts (57 Vitest + 3 Rust).
-- **Uncertain / needs investigation at implementation time:** exact Add Game search bug reproduction; "Played On" semantics; authoritative franchise total source; live Steam re-fetch result after the free-game fix; live Epic/GOG/Battle.net behavior; share-card image/CORS feasibility; authoritative web deploy target (Vercel vs Cloudflare Pages); whether stale `web/worker/src/*` duplicates are intentional; exact Tauri Android generated layout and mobile capability schema; product definitions for mood/time/genre recommendation scoring and "total wishlist spending".
+- **Verified directly:** file paths, route table, `AppData`/`Game` field lists (including optional store fields), 23 Tauri command names (IGDB + `stores_*` + `igdb_external_lookup` + `igdb_epic_lookup`), `app_state` schema, `FIELDS` sync allow-list, LRU cache implementation, module-swap map, env var names, absence of PWA/manifest/service worker, and current test counts (63 Vitest + 9 Rust).
+- **Uncertain / needs investigation at implementation time:** exact Add Game search bug reproduction; "Played On" semantics; authoritative franchise total source; live Steam re-fetch result after the free-game fix; live Epic launcher behavior and needs-review enrichment; share-card image/CORS feasibility; authoritative web deploy target (Vercel vs Cloudflare Pages); whether stale `web/worker/src/*` duplicates are intentional; exact Tauri Android generated layout and mobile capability schema; product definitions for mood/time/genre recommendation scoring and "total wishlist spending".
 - **Documentation status:** store-related files in `docs/`, the root `README.md` and this knowledge base were refreshed against source on 2026-11-21. `web/README.md` still contains stale claims (deploy target, Drive scopes, `.env.example`); use code and this guide for those.

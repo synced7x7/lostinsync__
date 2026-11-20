@@ -25,7 +25,7 @@ export type Game = {
 export type BundleGame = { id: number; name: string; cover?: string; releaseTs?: number };
 
 /** Store sync is desktop-only; the ids are optional so old builds and the web app ignore them. */
-export type StoreId = "steam" | "epic" | "gog" | "battlenet";
+export type StoreId = "steam" | "epic";
 export type StoreLink = { store: StoreId; id: string };
 export type StoreAchievements = { achieved: number; total: number; firstUnlockUnix?: number };
 export type Profile = { displayName: string; bio: string; accent: string; picture?: string; topFive?: string[] }; export type GridSize = "sm" | "md" | "lg";

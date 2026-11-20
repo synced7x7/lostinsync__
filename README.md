@@ -11,7 +11,7 @@
   <br />
   Track your collection, explore new games, and visualize your gaming history.
   <br />
-  On desktop, import your Steam library, wishlist, playtime and achievements directly into your collection.
+  On desktop, import your Steam and Epic Games libraries, wishlist, playtime and achievements directly into your collection.
 </p>
 
 > [!IMPORTANT]
@@ -57,7 +57,7 @@
 | Persistence | SQLite via `rusqlite` (Tauri managed state); browser localStorage in web dev mode |
 | Images | Stored as files in the app data folder and referenced by name |
 | External data | IGDB API (Twitch OAuth2 client credentials); Steam Web API on desktop |
-| Desktop store import | One-way Steam/Epic/GOG/Battle.net connectors; all store HTTP and token storage stays in Rust |
+| Desktop store import | One-way Steam and Epic Games connectors; all store HTTP and token storage stays in Rust |
 | Styling | Custom CSS variables, Aurora Glass dark theme |
 
 ---
@@ -134,8 +134,9 @@ Notes:
 - Large images (screenshots and background art) are written to an `images` folder next to the database. The saved data holds only short file references, which keeps saves small and fast.
 - Existing libraries that contain embedded images are migrated automatically on first launch. Back up your database before upgrading.
 - Store-imported games use IGDB remote image URLs; store art is never written to the local `images` folder.
-- Steam API keys/SteamID64 are saved with app settings like the IGDB keys and are stripped from JSON backups. Epic/GOG OAuth tokens stay in a Rust-managed credentials file and never enter exports or Drive snapshots.
+- Steam API keys/SteamID64 are saved with app settings like the IGDB keys and are stripped from JSON backups. Epic OAuth tokens stay in a Rust-managed credentials file and never enter exports or Drive snapshots.
 - Use **Settings, Export** to create a JSON backup at any time. Store ids survive export/import so repeat imports link to the same games.
+- See `docs/store-import-guide.md` for Steam/Epic setup and the exact status, date, playtime and mastery mapping.
 
 ---
 
@@ -180,7 +181,7 @@ lostinsync__/
 │
 ├── src-tauri/                  # Rust / Tauri backend
 │   ├── src/lib.rs              # Tauri commands (SQLite, images, IGDB and store IPC)
-│   ├── src/stores.rs           # Store HTTP, Steam achievements/wishlist, token file, Battle.net scan
+│   ├── src/stores.rs           # Store HTTP, Steam achievements/wishlist, Epic token file
 │   ├── Cargo.toml
 │   └── tauri.conf.json
 │
@@ -192,7 +193,8 @@ lostinsync__/
 │   ├── features.md
 │   ├── igdb-image-endpoints.md
 │   ├── performance-optimization-report.md
-│   └── roadmap.md
+│   ├── roadmap.md
+│   └── store-import-guide.md
 │
 └── scripts/
     └── check-environment.ps1   # Verify Node, pnpm, and Rust are on PATH
