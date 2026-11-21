@@ -94,7 +94,7 @@ The items below are **planned, not implemented**. See `agent/future_implementati
 - [ ] Emulator deep links and playtime hooks.
 
 ### Phase 5 — Packaging & platform
-- [x] Consistent application-wide theme system with persisted selection (Aurora/Ember/Moonlight/Rose/Solarized, `data-theme`, normalized fallback, theme-aware stats charts).
+- [x] Consistent application-wide theme system with persisted selection (Aurora/Moonlight/Rose/Solarized/Graphite/Merlot, `data-theme`, normalized fallback, theme-aware stats charts).
 - [ ] WebApp hardening and documentation/deployment cleanup.
 - [ ] PWA installation, manifest, service worker, and offline caching.
 - [ ] Android application in an isolated directory (must not affect desktop or web).
