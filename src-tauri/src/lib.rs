@@ -1911,6 +1911,218 @@ async fn igdb_epic_lookup(
     Ok(rows.as_array().and_then(|array| epic_pick_external(array, &title)))
 }
 
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct BacklogRecommendation {
+    game_id: String,
+    score: f64,
+    similarity_score: f64,
+    quality_score: f64,
+    reasons: Vec<String>,
+    similar_played_games: Vec<String>,
+}
+
+fn parse_ts(s: &str) -> Option<i64> {
+    let s = s.trim();
+    if s.is_empty() { return None; }
+    // Accept YYYY-MM-DD or full ISO; parse date portion.
+    let date = s.get(0..10)?;
+    let parts: Vec<i64> = date.split('-').filter_map(|p| p.parse().ok()).collect();
+    if parts.len() != 3 { return None; }
+    let (y, m, d) = (parts[0], parts[1], parts[2]);
+    if !(1..=12).contains(&m) || !(1..=31).contains(&d) { return None; }
+    // Days since epoch (civil date algorithm).
+    let (y, m) = if m <= 2 { (y - 1, m + 9) } else { (y, m - 3) };
+    let era = if y >= 0 { y } else { y - 399 } / 400;
+    let yoe = y - era * 400;
+    let doy = (153 * m + 2) / 5 + d - 1;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    let days = era * 146097 + doe - 719468;
+    Some(days * 86_400)
+}
+
+fn last_touched_ts(g: &Value) -> i64 {
+    ["lastPlayedAt", "activeSince", "finishedAt", "startedAt", "createdAt"]
+        .iter()
+        .filter_map(|k| g[k].as_str().and_then(parse_ts))
+        .max()
+        .unwrap_or(0)
+}
+
+fn game_features(g: &Value) -> Vec<String> {
+    let mut out = Vec::new();
+    let push_names = |out: &mut Vec<String>, prefix: &str, v: &Value| {
+        if let Some(arr) = v.as_array() {
+            for x in arr { if let Some(s) = x.as_str() { let t = s.trim(); if !t.is_empty() { out.push(format!("{prefix}:{t}")); } } }
+        }
+    };
+    push_names(&mut out, "genre", &g["genres"]);
+    if g["genres"].as_array().map(|a| a.is_empty()).unwrap_or(true) {
+        if let Some(s) = g["genre"].as_str() {
+            for part in s.split(',') { let t = part.trim(); if !t.is_empty() { out.push(format!("genre:{t}")); } }
+        }
+    }
+    push_names(&mut out, "theme", &g["themes"]);
+    push_names(&mut out, "perspective", &g["playerPerspectives"]);
+    if let Some(s) = g["gameType"].as_str() { let t = s.trim(); if !t.is_empty() { out.push(format!("type:{t}")); } }
+    out.sort();
+    out.dedup();
+    out
+}
+
+fn normalize_profile(map: &HashMap<String, f64>) -> HashMap<String, f64> {
+    let max = map.values().copied().fold(0.0_f64, f64::max);
+    if max <= 0.0 { return HashMap::new(); }
+    map.iter().map(|(k, v)| (k.clone(), (v / max).clamp(0.0, 1.0))).collect()
+}
+
+#[tauri::command]
+async fn get_backlog_recommendations(
+    database: tauri::State<'_, Database>,
+    limit: Option<usize>
+) -> Result<Vec<BacklogRecommendation>, String> {
+    let limit = limit.unwrap_or(6).clamp(1, 20);
+    let json: Option<String> = {
+        let connection = database.0.lock().map_err(|_| "Database lock failed".to_string())?;
+        connection
+            .query_row("SELECT data_json FROM app_state WHERE id = 1", [], |row| { row.get(0) })
+            .optional()
+            .map_err(|error| error.to_string())?
+    };
+    let Some(json) = json else { return Ok(vec![]); };
+    let data: Value = serde_json::from_str(&json).map_err(|e| e.to_string())?;
+    let games = data["games"].as_array().cloned().unwrap_or_default();
+    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs() as i64).unwrap_or(0);
+
+    let is_history = |g: &Value| {
+        let status = g["status"].as_str().unwrap_or("");
+        matches!(status, "Completed" | "Playing" | "Abandoned" | "On hold")
+            || g["rating"].as_f64().is_some()
+            || g["totalSeconds"].as_f64().unwrap_or(0.0) > 0.0
+            || g["startedAt"].as_str().is_some()
+            || g["finishedAt"].as_str().is_some()
+            || g["lastPlayedAt"].as_str().is_some()
+    };
+
+    let mut long_raw: HashMap<String, f64> = HashMap::new();
+    let mut recent_raw: HashMap<String, f64> = HashMap::new();
+    for g in &games {
+        if !is_history(g) { continue; }
+        let rating = g["rating"].as_f64().filter(|r| *r > 0.0);
+        let r = rating.map(|v| (v / 10.0).clamp(0.0, 1.0)).unwrap_or(0.5);
+        let hours = (g["totalSeconds"].as_f64().unwrap_or(0.0) / 3600.0).max(0.0);
+        let p = if hours > 0.0 { ((1.0 + hours).ln() / (1.0_f64 + 100.0_f64).ln()).min(1.0) } else { 0.0 };
+        let engagement = if hours > 0.0 { 0.4 + 0.6 * p } else { 0.4 };
+        let days = ((now - last_touched_ts(g)).max(0) as f64) / 86_400.0;
+        let t = 2.0_f64.powf(-days / 60.0);
+        let w_long = r * engagement;
+        let w_recent = r * engagement * t;
+        for f in game_features(g) {
+            *long_raw.entry(f.clone()).or_insert(0.0) += w_long;
+            *recent_raw.entry(f).or_insert(0.0) += w_recent;
+        }
+    }
+    let long_p = normalize_profile(&long_raw);
+    let recent_p = normalize_profile(&recent_raw);
+    let has_profile = !long_p.is_empty() || !recent_p.is_empty();
+
+    let mut candidates: Vec<(f64, f64, f64, Vec<String>, Vec<String>, String, Value)> = Vec::new();
+    for g in &games {
+        let status = g["status"].as_str().unwrap_or("");
+        if status != "Backlog" { continue; }
+        let gid = g["id"].as_str().unwrap_or("").to_string();
+        if gid.is_empty() { continue; }
+        let feats = game_features(g);
+        let feat_set: HashSet<String> = feats.iter().cloned().collect();
+
+        let mut sim_sum = 0.0;
+        let mut sim_w = 0.0;
+        let mut matched: Vec<(f64, String)> = Vec::new();
+        for f in &feats {
+            let lp = long_p.get(f).copied().unwrap_or(0.0);
+            let rp = recent_p.get(f).copied().unwrap_or(0.0);
+            let pref = 0.7 * lp + 0.3 * rp;
+            let weight = 1.0 + pref;
+            sim_sum += weight * pref;
+            sim_w += weight;
+            if pref > 0.15 { matched.push((pref, f.clone())); }
+        }
+        let similarity = if sim_w > 0.0 { (sim_sum / sim_w).clamp(0.0, 1.0) } else { 0.0 };
+
+        let igdb_rating = g["igdbRating"].as_f64().unwrap_or(0.0);
+        let igdb_count = g["igdbRatingCount"].as_f64().unwrap_or(0.0);
+        let quality = if igdb_rating > 0.0 && igdb_count > 0.0 {
+            (bayes(igdb_rating, igdb_count, 50.0, 72.0) / 100.0).clamp(0.0, 1.0)
+        } else if igdb_rating > 0.0 { (igdb_rating / 100.0).clamp(0.0, 1.0) } else { 0.45 };
+
+        // Small diversity/exploration bonus for candidates with at least some overlap but not identical.
+        let diversity = if has_profile {
+            let overlap = feats.iter().filter(|f| long_p.contains_key(*f) || recent_p.contains_key(*f)).count() as f64;
+            let total = feats.len().max(1) as f64;
+            let ratio = overlap / total;
+            if ratio > 0.2 && ratio < 0.95 { 0.15 } else if ratio >= 0.95 { 0.05 } else { 0.02 }
+        } else { 0.0 };
+
+        let (ws, wq, wd) = if has_profile { (0.70, 0.20, 0.10) } else { (0.0, 0.85, 0.15) };
+        let final_score = ws * similarity + wq * quality + wd * diversity;
+
+        matched.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+        let mut reasons: Vec<String> = Vec::new();
+        for (_, f) in matched.iter().take(3) {
+            if let Some((cat, name)) = f.split_once(':') {
+                let label = match cat { "genre" => "genre", "theme" => "theme", "perspective" => "perspective", "type" => "type", _ => cat };
+                reasons.push(format!("Matches your {label} preference: {name}"));
+            }
+        }
+        if reasons.is_empty() && has_profile { reasons.push("A good quality pick to explore from your backlog".to_string()); }
+        if !has_profile { reasons.push("Ranked by game quality (add ratings/playtime for personalized picks)".to_string()); }
+
+        // Find similar played games that contributed most.
+        let mut contrib: Vec<(f64, String)> = Vec::new();
+        for pg in &games {
+            if !is_history(pg) { continue; }
+            let pid = pg["id"].as_str().unwrap_or("").to_string();
+            if pid.is_empty() || pid == gid { continue; }
+            let pfeats = game_features(pg);
+            let mut overlap_score = 0.0;
+            for f in &pfeats {
+                if feat_set.contains(f) {
+                    let lp = long_p.get(f).copied().unwrap_or(0.0);
+                    let rp = recent_p.get(f).copied().unwrap_or(0.0);
+                    overlap_score += 0.7 * lp + 0.3 * rp;
+                }
+            }
+            let pr = pg["rating"].as_f64().unwrap_or(5.0) / 10.0;
+            overlap_score *= 0.5 + 0.5 * pr;
+            if overlap_score > 0.0 { contrib.push((overlap_score, pid)); }
+        }
+        contrib.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+        let similar_played_games: Vec<String> = contrib.into_iter().take(3).map(|(_, id)| id).collect();
+
+        candidates.push((final_score, similarity, quality, reasons, similar_played_games, gid, g.clone()));
+    }
+
+    // Sort by score desc, apply light diversity: avoid 3 same dominant genre in a row.
+    candidates.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+    let mut pool: Vec<(String, String, f64, f64, f64, Vec<String>, Vec<String>)> = candidates
+        .into_iter()
+        .map(|(s, sim, q, reasons, similar, gid, g)| {
+            let dom = game_features(&g).into_iter().find(|f| f.starts_with("genre:")).unwrap_or_default();
+            (gid, dom, s, sim, q, reasons, similar)
+        })
+        .collect();
+    let mut out: Vec<BacklogRecommendation> = Vec::new();
+    let mut tail_genres: Vec<String> = Vec::new();
+    while !pool.is_empty() && out.len() < limit {
+        let blocked = |g: &str| tail_genres.len() >= 2 && tail_genres[tail_genres.len() - 1] == g && tail_genres[tail_genres.len() - 2] == g && !g.is_empty();
+        let pick = pool.iter().position(|(_, dom, _, _, _, _, _)| !blocked(dom)).unwrap_or(0);
+        let (gid, dom, s, sim, q, reasons, similar) = pool.remove(pick);
+        tail_genres.push(dom);
+        out.push(BacklogRecommendation { game_id: gid, score: s, similarity_score: sim, quality_score: q, reasons, similar_played_games: similar });
+    }
+    Ok(out)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder
@@ -1930,6 +2142,7 @@ pub fn run() {
             tauri::generate_handler![
                 load_app_data,
                 save_app_data,
+                get_backlog_recommendations,
                 franchise_cache_load,
                 franchise_cache_save,
                 images_path,

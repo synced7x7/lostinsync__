@@ -15,7 +15,7 @@ index.html ──> src/main.tsx (React root: manual routing, AppData state, Libr
                     │ Tauri IPC (invoke)
                     ▼
       src-tauri/src/lib.rs
-        23 #[tauri::command] functions
+        28 #[tauri::command] functions
         SQLite: app_state.data_json (1 row)
         IGDB proxy: Twitch OAuth + REST
         Desktop store commands -> stores.rs (HTTP + token file)
@@ -53,6 +53,7 @@ web/index.html ──> web/src/entry.tsx ──> init() Drive sync ──> impor
 | `franchiseCache.ts` | Key-scoped adapter for `franchise_cache_load` / `franchise_cache_save`; no-ops in the web build, leaving the in-memory session cache as the only store |
 | `sync.ts` | `syncWithIgdb`: refresh only IGDB-owned fields from an explicit `FIELDS` allow-list; chunked import with patch reports |
 | `backloggd.ts` | Backloggd CSV importer: `mapEntry`, `withRetry`, `importBackloggd`, dedupe by `igdbId`, abort/report helpers |
+| `recommendations.ts` | Desktop-only Tauri wrapper for `get_backlog_recommendations`; returns session-scored backlog picks for the Dashboard |
 | `stores/` | Desktop store IPC wrappers, connector catalog, Steam parsers, shared IGDB matcher, one-way import pipeline, and the generic CSV importer (`import.ts`: `parseCsv`, `parsePlaytimeSeconds`, `importCsv`, report helpers) |
 | `platform.ts` | `ALL_PLATFORMS`, `PC`, aliases, `emulatedOn()` |
 
@@ -72,7 +73,7 @@ Self-contained view components with co-located CSS:
 
 | Feature | Description |
 |---|---|
-| `dashboard.tsx` | Overview feed, recents, wishlist, "pick up where you left"; `useReveal` IntersectionObserver hook, `Odometer` digit reels, `BigStat`, favorites mouse-spotlight and `--d` slot stagger |
+| `dashboard.tsx` | Overview feed, "Find My Next Game" backlog recommender (desktop, session-cached), recents, wishlist, "pick up where you left"; `useReveal` IntersectionObserver hook, `Odometer` digit reels, `BigStat`, favorites mouse-spotlight and `--d` slot stagger |
 | `library-components.tsx` | `AddGame` portal modal — also used for editing games |
 | `journey.tsx` | Interactive timeline: SVG strands, lanes, LOD, zoom/pan, Fit All |
 | `franchises.tsx` / `franchises.css` | Franchise completion ribbons, 30-day SQLite cache for visible rows, 100-game chunk loader, per-row progress, Retry/Refresh controls, virtualized rows/slots and smooth wheel/arrow scrolling |
@@ -102,7 +103,7 @@ The application root. Responsibilities:
 
 ## Backend (Tauri Commands)
 
-All commands are declared in `src-tauri/src/lib.rs`; store implementations live in `src-tauri/src/stores.rs`. The binary entry is `src-tauri/src/main.rs`. There are no controllers, services, middleware, or background processes. All 27 commands are registered in `generate_handler!` at the end of `lib.rs`.
+All commands are declared in `src-tauri/src/lib.rs`; store implementations live in `src-tauri/src/stores.rs`. The binary entry is `src-tauri/src/main.rs`. There are no controllers, services, middleware, or background processes. All 28 commands are registered in `generate_handler!` at the end of `lib.rs`.
 
 ### Persistence / file commands
 
@@ -151,6 +152,12 @@ All commands are declared in `src-tauri/src/lib.rs`; store implementations live 
 | `stores_fetch_achievements` | Steam achievement counts and earliest unlock; non-Steam stores return zero totals |
 
 Steam's owned-games request includes `include_all_free_games`, `include_free_sub`, `include_played_free_games` and `skip_unvetted_apps=0`, so free games claimed but never launched are returned. Wishlist titles come from the keyless `IWishlistService/GetWishlist/v1/` endpoint; Rust resolves its app ids with owned-game titles first and `store.steampowered.com/api/appdetails` second. Zero playtime is no longer treated as a private-profile error. User-facing setup and the full field mapping are documented in [`docs/store-import-guide.md`](store-import-guide.md).
+
+### Recommendation command
+
+| Command | Description |
+|---|---|
+| `get_backlog_recommendations` | Scores backlog games against local play history and returns the top picks with similarity/quality scores, reasons, and similar played-game IDs. Desktop-only; the Dashboard caches the result once per app session. |
 
 ### Web proxy
 

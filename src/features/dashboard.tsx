@@ -3,8 +3,10 @@ import { createPortal } from "react-dom";
 import { ChevronRight, Gamepad2, Heart, Plus, Search, Star, X } from "lucide-react";
 import type { ReactNode } from "react";
 import type { AppData, Game } from "../domain/game";
+import { getBacklogRecommendations, hasTauri as hasTauriDesktop, type BacklogRecommendation } from "../data/recommendations";
 import { CollectionShowcase } from "./overview";
 
+let recsSession: BacklogRecommendation[] | null = null;
 const DAY = 86_400_000;
 
 const lastTouched = (g: Game) =>
@@ -151,6 +153,18 @@ export function Dashboard({
   const wishlist = data.games.filter((g) => g.status === "Wishlist").length;
   const [showWishlistAll, setShowWishlistAll] = useState(false);
   const [stripRef, stripOn] = useReveal<HTMLElement>();
+  const [recs, setRecs] = useState<BacklogRecommendation[]>(recsSession ?? []);
+  const [recsLoading, setRecsLoading] = useState(hasTauriDesktop && !recsSession);
+  useEffect(() => {
+    if (!hasTauriDesktop || recsSession) return;
+    let stale = false;
+    setRecsLoading(true);
+    void getBacklogRecommendations(6)
+      .then((next) => { if (stale) return; recsSession = next; setRecs(next); })
+      .catch(() => { if (stale) return; recsSession = []; setRecs([]); })
+      .finally(() => { if (!stale) setRecsLoading(false); });
+    return () => { stale = true; };
+  }, []);
 
 
   return (
@@ -229,6 +243,60 @@ export function Dashboard({
         <BigStat on={stripOn} value={playedThisYear} label={`Played in ${year}`} accent />
         <BigStat on={stripOn} value={wishlist} label="Wishlist" />
       </section>
+
+      {hasTauriDesktop && (
+        <section className="section next-game-section">
+          <div className="section-title">
+            <div><p className="eyebrow" style={{ marginTop: "15px" }}>FIND MY NEXT GAME</p></div>
+          </div>
+          {recsLoading && !recs.length ? (
+            <p className="muted">Analyzing your play history…</p>
+          ) : recs.length ? (() => {
+            const [best, ...alts] = recs;
+            const bestGame = byId.get(best.gameId);
+            if (!bestGame) return <p className="muted">No backlog recommendation right now.</p>;
+            const because = best.similarPlayedGames.map((id) => byId.get(id)?.title).filter(Boolean) as string[];
+            return (
+              <div className="next-game">
+                <button className="next-game-hero glass" onClick={() => openGame(bestGame.id)}>
+                  <div className="next-game-cover" style={bestGame.cover ? { backgroundImage: `url(${bestGame.cover})` } : undefined}>
+                    {!bestGame.cover && <Gamepad2 size={34} />}
+                  </div>
+                  <div className="next-game-body">
+                    <span className="next-game-kicker">Best match</span>
+                    <h3>{bestGame.title}</h3>
+                    <div className="next-game-score"><strong>{Math.round(best.score * 100)}%</strong><span>Taste match</span></div>
+                    <p className="next-game-reason">{best.reasons[0] ?? "A strong match from your backlog."}</p>
+                    {because.length > 0 && <p className="next-game-because">Because you enjoyed {because.join(", ")}.</p>}
+                    <div className="next-game-meta">
+                      {(bestGame.genres?.length ? bestGame.genres : bestGame.genre ? [bestGame.genre] : []).slice(0, 3).map((g) => <span key={g} className="pill">{g}</span>)}
+                    </div>
+                  </div>
+                </button>
+                {alts.length > 0 && (
+                  <div className="next-game-alts">
+                    {alts.map((r) => {
+                      const g = byId.get(r.gameId);
+                      if (!g) return null;
+                      return (
+                        <button key={r.gameId} className="next-game-alt glass" onClick={() => openGame(g.id)}>
+                          <div className="next-game-alt-art" style={g.cover ? { backgroundImage: `url(${g.cover})` } : undefined}>{!g.cover && <Gamepad2 size={18} />}</div>
+                          <div className="next-game-alt-copy">
+                            <strong>{g.title}</strong>
+                            <small>{Math.round(r.score * 100)}% taste match</small>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })() : (
+            <p className="muted">Add some backlog games and play history to get personalized picks.</p>
+          )}
+        </section>
+      )}
 
       <section className="section">
         <div className="section-title">

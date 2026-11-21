@@ -1,6 +1,6 @@
 # Project Roadmap
 
-> **Verified against source on 2026-11-22** (refreshed for generic CSV import and dashboard motion). Items are marked complete only when implemented in code. The detailed, file-specific plans for every pending item are in `agent/future_implementation_guide.md`.
+> **Verified against source on 2026-11-22** (refreshed for generic CSV import, dashboard motion, Discover ranking, and Find My Next Game). Items are marked complete only when implemented in code. The detailed, file-specific plans for every pending item are in `agent/future_implementation_guide.md`.
 
 This document outlines completed milestones and future enhancements for **Lost in Sync**.
 
@@ -26,7 +26,7 @@ This document outlines completed milestones and future enhancements for **Lost i
 
 ### IGDB & Media Integration
 - [x] Rust IGDB proxy with Twitch OAuth2 token caching (300 s early refresh).
-- [x] Curated Discover feeds (10 feeds) via the paginated `igdb_discover_feed` command.
+- [x] Curated Discover feeds (9 feeds) via the paginated `igdb_discover_feed` command.
 - [x] Rich metadata: backdrops, release dates, genres, platforms, themes, perspectives, and Time-To-Beat.
 - [x] Exact storefront links from IGDB `external_games` with brand SVG icons; web falls back to nested `games.external_games.*` until the worker allow-list is redeployed.
 - [x] Franchise/series hierarchy tree explorer.
@@ -53,6 +53,7 @@ This document outlines completed milestones and future enhancements for **Lost i
 
 ### UI Presentation
 - [x] Animated favorites stage and odometer stats strip on the dashboard: flowing wave, mouse spotlight, staggered card rise/float, cover sheen, pulsing dots, travelling light borders, and scroll-triggered number reels with `prefers-reduced-motion` fallbacks.
+- [x] **Find My Next Game** on the Dashboard (desktop/Tauri): local history-driven backlog recommender using long-term/recent taste profiles, Bayesian quality scoring, diversity, explanations, and a once-per-session module cache. See `docs/discovery-and-recommendation-algorithms.md`.
 
 ### Web Application
 - [x] Web build reusing shared `src/` via three Vite module swaps.
@@ -75,13 +76,13 @@ The items below are **planned, not implemented**. See `agent/future_implementati
 ### Phase 2 — Data-model extensions (JSON only, no SQL migration)
 - [ ] Wishlist extras: price, release-date reminders, Bought On date, Amount Paid, spending stats.
 - [ ] Platform ownership: store/platform and physical/digital, including multiple platforms.
-- [ ] Backlog priority and "What Should I Play Next?" (mood, playtime, genre).
+- [ ] Backlog priority and manual "What Should I Play Next?" controls (mood, available playtime, genre/priority overrides). Automatic history-driven "Find My Next Game" is already implemented on the Dashboard; this remaining item covers manual prioritization and intent-driven filtering.
 - [ ] Define played/completed date semantics.
 
 ### Phase 3 — Analytics & discovery
 - [x] Dedicated gameplay-time statistics section (Playtime category aggregating recorded `totalSeconds`; feature 3, completed).
 - [x] Franchise completion tracking (e.g. "4 of 9 Resident Evil games finished") — dedicated `/franchises` view with ribbon rows, IGDB `franchises` lookups, a 30-day visible-row SQLite cache, per-row loading progress and virtualized rendering.
-- [ ] Improve Discover relevance without rebuilding the system.
+- [x] Improve Discover relevance without rebuilding the system — Rust-ranked For You/Top Rated/Indie Spotlight/Story-Driven feeds, Bayesian scoring, taste-profile weighting, owned-ID exclusion, and diversity reranking. See `docs/discovery-and-recommendation-algorithms.md`.
 - [ ] Shareable profile/statistics card.
 
 ### Phase 4 — Imports & synchronization

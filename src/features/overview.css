@@ -876,6 +876,29 @@
 }
 .big-stat > span { animation: stat-in .8s ease-out 1.2s backwards }
 
+/* Find My Next Game */
+.next-game { display: grid; gap: 16px; }
+.next-game-hero { display: grid; grid-template-columns: 220px minmax(0,1fr); gap: 22px; padding: 18px; border-radius: 20px; text-align: left; color: inherit; border: 1px solid var(--line-soft); background: linear-gradient(135deg, rgba(164,149,255,.12), rgba(103,216,230,.06)); cursor: pointer; }
+.next-game-hero:hover { border-color: rgba(164,149,255,.45); transform: translateY(-2px); transition: .2s; }
+.next-game-cover { min-height: 280px; border-radius: 14px; background: linear-gradient(145deg, #33275c, #163846) center/cover; display: grid; place-items: center; color: #c9c0ff; }
+.next-game-body { display: grid; align-content: center; gap: 10px; min-width: 0; }
+.next-game-kicker { font-size: 11px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--accent); font-weight: 700; }
+.next-game-body h3 { margin: 0; font-size: clamp(24px, 3vw, 34px); line-height: 1.1; }
+.next-game-score { display: flex; align-items: baseline; gap: 10px; }
+.next-game-score strong { font-size: 32px; color: var(--success); line-height: 1; }
+.next-game-score span { color: var(--muted); font-size: 13px; }
+.next-game-reason, .next-game-because { margin: 0; color: var(--muted); line-height: 1.5; }
+.next-game-because { color: var(--text); font-size: 14px; }
+.next-game-meta { display: flex; flex-wrap: wrap; gap: 8px; }
+.next-game-alts { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.next-game-alt { display: flex; gap: 12px; align-items: center; padding: 10px; border-radius: 14px; text-align: left; color: inherit; border: 1px solid var(--line-soft); cursor: pointer; background: rgba(255,255,255,.03); }
+.next-game-alt:hover { border-color: rgba(164,149,255,.4); background: rgba(164,149,255,.08); }
+.next-game-alt-art { width: 52px; height: 70px; border-radius: 8px; background: linear-gradient(145deg, #33275c, #163846) center/cover; display: grid; place-items: center; flex: none; color: #c9c0ff; }
+.next-game-alt-copy { display: grid; gap: 4px; min-width: 0; }
+.next-game-alt-copy strong { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.next-game-alt-copy small { color: var(--muted); font-size: 12px; }
+@media (max-width: 900px) { .next-game-hero { grid-template-columns: 1fr; } .next-game-cover { min-height: 220px; } }
+
 @media (prefers-reduced-motion: reduce) {
   .fav-section, .fav-stage::before, .fav-svg, .fav-card, .fav-card::before, .fav-stem, .fav-dot, .fav-dot::after,
   .stats-strip, .stats-strip::before, .stats-strip::after, .big-stat, .big-stat strong, .big-stat > span { animation: none }

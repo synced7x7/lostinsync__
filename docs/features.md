@@ -1,6 +1,6 @@
 # Feature Documentation
 
-> **Verified against source on 2026-11-22** (refreshed for generic CSV import and dashboard motion). This describes what is implemented today, not planned functionality. The full status breakdown is in `agent/PROJECT_STATUS.md`.
+> **Verified against source on 2026-11-22** (refreshed for generic CSV import, dashboard motion, Discover ranking, and Find My Next Game). This describes what is implemented today, not planned functionality. The full status breakdown is in `agent/PROJECT_STATUS.md`.
 
 Lost in Sync is a personal game library OS built with desktop-first principles. It provides a cohesive interface to catalogue, discover, analyze, and reminisce about your gaming journey.
 
@@ -38,13 +38,14 @@ The Game Journey visualizes your gaming life along an interactive, chronological
 
 IGDB integration runs through Tauri Rust commands on desktop and a stateless Cloudflare Worker in the web build.
 
-- **Curated Feeds**: 9 feeds — Trending, Latest, Upcoming, Top Rated, Anticipated, Indie, Story-rich, and personalized "For You" variants. The active loader is `igdb_discover_feed` (paginated); `igdb_discover` is a legacy snapshot still present but unused by the UI.
+- **Curated Feeds**: 9 feeds — Trending, Most Anticipated, For You, All Time Popular, Top Rated, Latest Releases, Indie Spotlight, Upcoming, and Story-Driven Adventures. The active loader is `igdb_discover_feed` (paginated); `igdb_discover` is a legacy snapshot still present but unused by the UI. Hidden Gems has been removed from Discover.
+- **Ranking**: For You, Top Rated, Indie Spotlight, and Story-Driven are ranked in Rust after fetching IGDB candidate pools. Ranking uses Bayesian-adjusted IGDB ratings, a local taste profile for For You (genre frequency, library ratings, and completion span), owned-ID exclusion, and light diversity reranking. Other feeds use direct IGDB sort/page queries. Detailed formulas are in [`docs/discovery-and-recommendation-algorithms.md`](discovery-and-recommendation-algorithms.md).
 - **Search Capabilities**: Fuzzy search, exact title prefix via `/ <title>`, and ID lookup via `& <id>`.
 - **One-Click Import**: `draftFromIgdb` creates an unsaved game from IGDB results with cover, backdrop, summary, release date, platforms, genres, themes, and Time-To-Beat metadata. Unsaved Discover previews hide library-only fields (status, playtime, Played on, collection/delete actions); the draft starts as `Backlog` with no played platforms.
 - **Exact storefront links**: `igdbExternalGames` reads IGDB `external_games` for the game. The Details hero shows up to two brand-icon store links plus a `+N` hover/focus popover for the rest; `storeLinksFromExternal` drops rows without a URL, deduplicates by source, and orders known storefronts by priority. The web client falls back to nested `games.external_games.*` when the deployed worker has not yet allowed the direct endpoint.
 - **Franchise Explorer**: Series tree traversal up to 4 levels up/down via `igdb_series` (Details view).
 - **Franchise completion data**: `igdb_franchise` resolves a franchise by name, with a fallback through library game IDs, and `igdb_games_by_ids` fetches the franchise's games 100 IDs at a time. Both are paced and retried.
-- **Caching**: Bounded LRU caches with a 20-minute TTL; feed cards are prefetched on hover.
+- **Caching**: Bounded LRU caches with a 20-minute TTL; feed cards are prefetched on hover. For You uses a v2 cache key that includes the taste-profile/confidence signature.
 
 ---
 
@@ -106,10 +107,11 @@ One-way store import is implemented in `src/features/stores-settings.tsx`, `src/
 
 ---
 
-## 9. ✨ Dashboard Motion & Presentation
+## 9. ✨ Dashboard, Recommendations & Presentation
 
-The Overview dashboard (`src/features/dashboard.tsx`, `src/features/overview.css`) adds layered, CSS-driven motion to its two top panels:
+The Overview dashboard (`src/features/dashboard.tsx`, `src/features/overview.css`) combines the existing dashboard feed with motion and a local backlog recommender.
 
+- **Find My Next Game** (desktop/Tauri only): the Dashboard calls `get_backlog_recommendations` through `src/data/recommendations.ts` once per app session. The result is cached in a module-level `recsSession` variable, so it is not recalculated on re-renders or data changes and there is no refresh button. The Rust command reads local `app_state` from SQLite, builds long-term and recent taste profiles from play history, scores Backlog candidates, and returns the best pick plus alternatives. The UI shows one best match, taste-match percentage, reasons, "Because you enjoyed..." titles, and up to five alternative backlog picks. Detailed formulas are in [`docs/discovery-and-recommendation-algorithms.md`](discovery-and-recommendation-algorithms.md).
 - **Favorites stage**: a travelling conic-gradient light border, a flowing wave highlight, a soft radial spotlight that follows the mouse, cards that rise center-out then float on staggered phases, a sheen sweep across each cover, and pulsing stem dots. A `--d` CSS variable (distance from the center slot) staggers the outer cards. The entrance animation runs on the outer `.fav-section` and `.fav-scroll` locks vertical overflow, so no transient scrollbar flashes during the slide-in.
 - **Stats strip**: when the strip scrolls into view (`IntersectionObserver`, 35% threshold), each zero-padded number spins as an odometer reel — a 0–9–0–9 strip that makes one extra turn before landing on the final digit. The real value remains available to assistive tech via `aria-label`. Labels are targeted with `.big-stat > span` so the reel spans keep their clipped `1em` windows. Cards fade in with a staggered lift, gain a hover glow, and the panel has a slow sweeping sheen.
 - **Accessibility**: all of these animations, including the flowing wave, are disabled under `prefers-reduced-motion: reduce`.

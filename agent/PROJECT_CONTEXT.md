@@ -19,11 +19,12 @@
 - Search (title substring), filters (status, IGDB game type, favorites only), 10-key sorting with ascending/descending direction (`src/main.tsx:300-377`).
 - Rich game details hero: cover/backdrop, rating, time-to-beat metadata, "Played on" platform chips, notes, journey info, series and bundle browsers.
 - Interactive Game Journey timeline with SVG strands, lane assignment, zoom/pan, LOD culling, and a virtualized "Fit All" overview (`src/features/journey.tsx`).
-- Discover: 10 IGDB feeds, search with `/ ` exact-name and `& ` ID syntax, one-click import of metadata/images (`src/features/discover.tsx`, `src-tauri/src/lib.rs`).
+- Discover: 9 IGDB feeds, Rust-ranked For You/Top Rated/Indie Spotlight/Story-Driven feeds, search with `/ ` exact-name and `& ` ID syntax, one-click import of metadata/images (`src/features/discover.tsx`, `src-tauri/src/lib.rs`). See `docs/discovery-and-recommendation-algorithms.md`.
 - Trophies/badge gallery with six rarity tiers including `lostinsync` (`src/domain/trophies.ts`).
 - Statistics: 13 visible categories built from `src/domain/stats.ts` (including a Playtime category aggregated from recorded `totalSeconds` by `src/domain/playtime.ts`) and rendered with Apache ECharts (`src/features/stats.tsx`).
 - Settings: defaults, IGDB credentials, JSON/CSV export, JSON import, Backloggd import, generic CSV import (`title`/`igdb_id` keyed, IGDB-enriched), IGDB metadata sync; web build adds encrypted credential vault and Google Drive backup.
 - Dashboard presentation: animated favorites stage (flowing wave, mouse spotlight, staggered rising/floating cards, cover sheen, pulsing stem dots) and a stats strip whose numbers spin as odometer reels when scrolled into view, with `prefers-reduced-motion` fallbacks.
+- **Find My Next Game** (desktop/Tauri): session-cached, history-driven backlog recommender that scores Backlog games from long-term/recent taste profiles, Bayesian IGDB quality, diversity, and explanations (`src-tauri/src/lib.rs`, `src/data/recommendations.ts`, `src/features/dashboard.tsx`). See `docs/discovery-and-recommendation-algorithms.md`.
 - Desktop-only one-way store import (`src/data/stores/`, `src/features/stores-settings.tsx`, `src-tauri/src/stores.rs`): Steam owned/free games, public wishlist, playtime and achievements map into the existing library; Epic ownership uses the same pipeline and catalog-id IGDB matching. Credentials never enter exports or web snapshots. User guide: `docs/store-import-guide.md`.
 - Media gallery (screenshots, YouTube embeds), franchise/series tree, dedicated `/franchises` completion view, bundle contents, profile banner editor.
 
@@ -74,7 +75,7 @@ index.html ──> src/main.tsx (React app root, all routes, single AppData stat
                    ▼                                       (web/src/db.ts, vault.ts, codec.ts)
         ┌───────────────────────────────────────┐
         │ src-tauri/src/lib.rs                  │
-        │  23 #[tauri::command] functions       │
+        │  28 #[tauri::command] functions       │
         │  SQLite: app_state.data_json (1 row)  │
         │  IGDB proxy: Twitch OAuth + REST      │
         │  images/ folder: content-addressed    │
@@ -139,6 +140,7 @@ Meaningful paths only (no build artifacts, no `node_modules`, no individual badg
 | `src/data/franchiseCache.ts` | Key-scoped `franchise_cache_load` / `franchise_cache_save` adapter; no-op when `hasTauri` is false | `src/features/franchises.tsx` | Franchise cache/TTL changes |
 | `src/data/sync.ts` | `syncWithIgdb`, `FIELDS` allow-list, `buildPatch`, `applyPatches`, sync reports | Settings sync section | IGDB refresh behavior |
 | `src/data/backloggd.ts` | `importBackloggd`, `withRetry`, `mapEntry`, import reports | Settings Backloggd section | Import pipeline work |
+| `src/data/recommendations.ts` | `getBacklogRecommendations`, `BacklogRecommendation` type, desktop Tauri guard | `src/features/dashboard.tsx`, Rust `get_backlog_recommendations` | Dashboard backlog recommendation work |
 | `src/data/stores/` | `ipc.ts`, `types.ts`, `steam.ts`, `epic.ts`, `match.ts`, `import.ts` plus 4 Vitest files; desktop-only Steam/Epic connector catalog, parsers, IGDB matching, one-way import, **and the generic CSV importer** (`parseCsv`, `parsePlaytimeSeconds`, `importCsv`, `CsvImportProgress`/`CsvImportReport`, `csvReportSections`, `csvReportToText`) | `src/features/stores-settings.tsx`, `src/features/settings-data.tsx`, Rust store commands | Store import/status/mapping and generic CSV import work |
 | `src/data/platform.ts` | `ALL_PLATFORMS`, `PC`, `emulatedOn` | Stats, AddGame, importers | Platform lists/derivation |
 | `src/components/shared.tsx` | `Header`, `Empty`, `StarRating`, `TrophyToggle`, `formatDate`, `parseDate`, `DateField`, `PlatformPicker` | All features | Reusable form/display controls |
@@ -146,7 +148,7 @@ Meaningful paths only (no build artifacts, no `node_modules`, no individual badg
 | `src/components/navigation.ts` | `navigation` array (7 items) | Sidebar | Adding a route to the sidebar |
 | `src/components/rarity-badge.tsx` | `RarityBadge` | Sidebar, profile banner, trophies | Badge display |
 | `src/components/store-icons.tsx` | `StoreIcon` — transparent brand-logo SVGs keyed by IGDB `external_game_source` / `category` ID | Details store chips | Store icon/logo changes |
-| `src/features/dashboard.tsx` | Overview feed, recents, wishlist, "pick up where you left"; `useReveal` (IntersectionObserver), `Odometer` digit reels, `BigStat`, favorites `onMouseMove` spotlight vars, `favflow` SVG gradient and `--d` slot stagger | Route `/`, `overview.css` | Dashboard changes and motion |
+| `src/features/dashboard.tsx` | Overview feed, session-cached "Find My Next Game" (desktop), recents, wishlist, "pick up where you left"; `useReveal` (IntersectionObserver), `Odometer` digit reels, `BigStat`, favorites `onMouseMove` spotlight vars, `favflow` SVG gradient and `--d` slot stagger | Route `/`, `overview.css`, `src/data/recommendations.ts` | Dashboard changes, motion, and recommendations |
 | `src/features/library-components.tsx` | `AddGame` modal (also used for editing) — only export | `src/main.tsx` | Add/edit form or IGDB search bug |
 | `src/features/journey.tsx` + `journey.css` | Timeline, `FitView`, LOD, zoom/pan, session prefs | Route `/journey` | Timeline and Fit All work |
 | `src/features/franchises.tsx` + `franchises.css` | `FranchiseView`, ribbon rows, 30-day visible-row SQLite cache, 100-game chunk loader, per-row progress and Retry/Refresh, virtual rows/slots, smooth wheel/arrow scrolling, `useSmoothX` | Route `/franchises` | Franchise completion UI/performance |
@@ -160,7 +162,7 @@ Meaningful paths only (no build artifacts, no `node_modules`, no individual badg
 | `src/features/stores-settings.tsx` | Desktop-only store connector UI: Steam fields, Epic status-driven sign-in, fetch/import phases, progress and copyable report | Settings; hidden when `isDesktop` is false | Store import UI/report work |
 | `src/features/settings-data.tsx` | `DataSection`, JSON/CSV export/import, Backloggd import, `CsvImportSection` (generic CSV), IGDB sync | Settings; wrapped by web | Import/export/sync |
 | `src/images/{badges,trophy-bg,logo}/` | PNG artwork loaded with `import.meta.glob` | Trophy views, sidebar logo | Asset optimization |
-| `src-tauri/src/lib.rs` | All 27 Tauri commands (incl. franchise cache, `igdb_franchise` / `igdb_games_by_ids`, `igdb_external_games`, `stores_*`), SQLite migration, IGDB proxy, image storage, app setup | Desktop backend | Any native feature |
+| `src-tauri/src/lib.rs` | All 28 Tauri commands (incl. franchise cache, `igdb_franchise` / `igdb_games_by_ids`, `igdb_external_games`, `stores_*`, `get_backlog_recommendations`), SQLite migration, IGDB proxy, image storage, app setup | Desktop backend | Any native feature |
 | `src-tauri/src/stores.rs` | Steam/Epic endpoint constants, Rust HTTP/auth, Steam owned/wishlist/achievement parsing, Epic library/catalog title resolution, `store-credentials.json`, 4 Rust unit tests | `lib.rs` store commands | Store connector/API changes |
 | `src-tauri/src/main.rs` | 5-line binary entry calling `app_lib::run()` | Rust build | Rarely |
 | `src-tauri/tauri.conf.json` | productName, identifier, window, CSP, asset protocol, bundle targets, Android suffix | Tauri build/runtime | Config/security changes |
@@ -236,7 +238,7 @@ Utilities: `compareGames` (`src/main.tsx:300-314`), `formatSpan` (`:316-333`), `
 - **Add/Edit**: `AddGame` portal modal (`src/features/library-components.tsx:11-259`); optional IGDB lookup when `hasTauri && clientId && clientSecret`, 350 ms debounce, `pick()` fills form; edit is the same modal with `initial` and `saveGame`.
 - **Details**: read-only journey panel with "Edit" buttons that open the modal; inline "Favorite" mutation already demonstrates direct `saveGame`.
 - **Journey**: lane allocation, LOD (cull below 40% zoom), zoom 10–240%, range presets, Fit All virtualized list with an ascending (oldest first) / descending (newest first) toggle that reorders only the overview rows.
-- **Discover**: 10 feeds loaded with 3 concurrent workers, 20 items each; "View all" pages of 30 up to 100; hover prefetch.
+- **Discover**: 9 feeds loaded with 3 concurrent workers, 20 items each; For You/Top Rated/Indie Spotlight/Story-Driven are Rust-ranked, others are direct IGDB queries; "View all" pages of 30 up to 100; hover prefetch.
 - **Stats**: category tabs, year filter, tile grid, tabbed chart cards; the "Playtime" category shows logged hours with a note that the year filter selects games by date rather than splitting hours.
 - **Settings/Data**: export JSON (strips IGDB/Steam credentials and store tokens), export CSV, import JSON (destructive replace), Backloggd import with progress/report, generic CSV import with progress/report (title or `igdb_id` per row), desktop-only store import with progress/report, IGDB sync with report, library defaults, wipe library.
 - **Web additions**: Drive connect/back up/restore/overwrite panel with conflict handling.
@@ -251,7 +253,7 @@ Tauri command wiring and core backend logic are in `src-tauri/src/lib.rs` (Rust)
 
 All are `async fn` returning `Result<T, String>`; `State<Database>` and `AppHandle` are injected by Tauri and are not passed from JS.
 
-| Command | JS arguments (`src/data/igdb.ts`, `repository.ts`, `src/data/stores/ipc.ts`) | Rust result | Purpose |
+| Command | JS arguments (`src/data/igdb.ts`, `repository.ts`, `src/data/stores/ipc.ts`, `src/data/recommendations.ts`) | Rust result | Purpose |
 |---|---|---|---|
 | `load_app_data` | none | `Option<JsonValue>` | Read the single `app_state` row |
 | `save_app_data` | `data: AppData` JSON | `()` | UPSERT whole document |
@@ -274,6 +276,7 @@ All are `async fn` returning `Result<T, String>`; `State<Database>` and `AppHand
 | `igdb_external_lookup` | `uid, source, clientId, clientSecret` | `Option<i64>` | Direct IGDB `external_games` lookup for store ids |
 | `igdb_epic_lookup` | `uid, title, clientId, clientSecret` | `Option<i64>` | Epic catalog-id lookup by `external_games.uid` with title tie-breaking |
 | `save_text_file` | `defaultName, contents, filterName, ext` | `Option<String>` | Native save dialog (text only) |
+| `get_backlog_recommendations` | `limit?` | `BacklogRecommendation[]` | Score Backlog games from local play history/taste profiles; returns ranked picks with scores, reasons, similar played-game IDs |
 | `stores_status` | `steamConnected` | JSON flags | Connection status for Steam and Epic |
 | `stores_auth_url` | `store` | `String` | Epic browser sign-in URL |
 | `stores_complete_auth` | `store, code, steamConnected` | JSON flags | Exchange OAuth code; store token in app-data credentials file |

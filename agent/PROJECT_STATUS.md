@@ -1,6 +1,6 @@
 # PROJECT_STATUS.md — current development state
 
-> Companion to `PROJECT_CONTEXT.md`. This file tracks **changeable** status only. It was verified by reading source on 2026-11-22 (refreshed for generic CSV import and dashboard motion); where something cannot be proven from source, it is marked **unverified**. Update this file when development materially changes.
+> Companion to `PROJECT_CONTEXT.md`. This file tracks **changeable** status only. It was verified by reading source on 2026-11-22 (refreshed for generic CSV import, dashboard motion, Discover ranking, and Find My Next Game); where something cannot be proven from source, it is marked **unverified**. Update this file when development materially changes.
 
 ---
 
@@ -29,7 +29,8 @@ Built installer artifacts exist in `src-tauri/target/release/bundle/` (NSIS `.ex
 | Franchise completion (feature 13) | Dedicated `/franchises` view with one ribbon row per franchise; games appear under every franchise they list, only franchises with a completed game are shown, totals come from IGDB `franchises` + 100-ID game chunks, visible rows are cached in SQLite for 30 days, each row shows its own load progress/Retry/Refresh, and rows/slots are virtualized with smooth wheel/arrow scrolling | `src/domain/franchise.ts`, `src/domain/franchise.test.ts`, `src/features/franchises.tsx`, `src/features/franchises.css`, `src/data/franchiseCache.ts`, `src/data/igdb.ts`, `src-tauri/src/lib.rs`, `web/src/igdb.web.ts` |
 | Game details | Cover/backdrop hero, rating, dedicated TTB panel above Journey, exact IGDB storefront icon links with `+N` popover, IGDB ID pill, played-on platforms, notes, series/bundle links, media, read-only journey panel | `src/main.tsx:848-1110`, `src/components/store-icons.tsx`, `src/domain/store-links.ts`, `src/features/{media,series,bundle}.tsx` |
 | Journey timeline | SVG strands, lane allocation, LOD culling, zoom/pan, range presets, virtualized Fit All | `src/features/journey.tsx`, `journey.css` |
-| Discover / IGDB | 10 feeds, paginated feed loader, fuzzy/exact/ID search, one-click draft import, exact `external_games` storefronts, bounded LRU caches | `src/features/discover.tsx`, `src/data/igdb.ts`, `src-tauri/src/lib.rs`, `web/src/igdb.web.ts` |
+| Discover / IGDB | 9 active feeds, paginated feed loader, Rust-ranked For You/Top Rated/Indie Spotlight/Story-Driven feeds, fuzzy/exact/ID search, one-click draft import, exact `external_games` storefronts, bounded LRU caches | `src/features/discover.tsx`, `src/data/igdb.ts`, `src-tauri/src/lib.rs`, `web/src/igdb.web.ts`, `docs/discovery-and-recommendation-algorithms.md` |
+| Find My Next Game | Desktop-only, history-driven backlog recommender on Dashboard; Rust `get_backlog_recommendations` scores Backlog candidates from long-term/recent taste profiles, Bayesian quality, diversity, and explanations; frontend caches result once per app session with no refresh button | `src-tauri/src/lib.rs`, `src/data/recommendations.ts`, `src/features/dashboard.tsx`, `src/features/overview.css`, `docs/discovery-and-recommendation-algorithms.md` |
 | Desktop store import (feature 9) | One-way Steam and Epic Games connectors, all HTTP/token handling in Rust; Steam owned/free games, public wishlist, achievements, status/date/mastery mapping, Epic catalog-id matching, reports, desktop-only UI, credential-safe export, user guide | `src-tauri/src/stores.rs`, `src/data/stores/`, `src/features/stores-settings.tsx`, `src/domain/game.ts`, `src/features/settings-data.tsx`, `docs/store-import-guide.md` |
 | Generic CSV import | Settings panel that parses `,`/`;` CSV (BOM, quotes, CRLF), requires a `title` or `igdb_id` header, resolves by `igdb_id` first then strict `/ ` and generic title search, dedupes by id/title, fetches details in batches, supports cancel, progress and a copyable report; available wherever IGDB credentials are configured (web sets `hasTauri = true`, so the panel renders there too) | `src/data/stores/import.ts` (`parseCsv`, `parsePlaytimeSeconds`, `importCsv`, `csvReportSections`, `csvReportToText`), `src/features/settings-data.tsx:359-477` (`CsvImportSection`) |
 | Stats | 13 visible categories (incl. Playtime), tiles, tabbed ECharts charts, year filter | `src/domain/stats.ts`, `src/domain/playtime.ts`, `src/features/stats.tsx` |
@@ -78,7 +79,7 @@ From `docs/roadmap.md` and the current request list:
 - Emulator deep links; additional CSV/pasted-title importers.
 - Year-in-review image, tier list creator, custom themes.
 - Inline played-on/completed status updates (original feature-1 idea; re-scoped to the dropdown fix, still not implemented); improved Discover relevance; theme system.
-- Android app (isolated directory); Add Game search-appearance fix; backlog priority / "What Should I Play Next?".
+- Android app (isolated directory); Add Game search-appearance fix; backlog priority and manual intent-driven "What Should I Play Next?" controls (automatic history-driven Find My Next Game is implemented).
 - Wishlist extras (price, reminders, bought-on, amount paid, spending stats); platform ownership.
 - More import sources (CSV and pasted titles); shareable profile/statistics card.
 - PWA install + offline caching.
@@ -153,7 +154,7 @@ All of the above are documented individually in `future_implementation_guide.md`
 
 1. **Housekeeping:** remove/relocate save debug logs and clear the error toast (`src/main.tsx:164-208`). The former Phase 1 items — Add Game dropdown dismissal (feature 1), Fit All asc/desc (feature 2) and dedicated Playtime stats (feature 3) — are now complete.
 2. **Settle data-model extensions early** (all live in the JSON blob): ownership (12), wishlist price/payment/reminder fields (11), backlog priority (10) — keep them out of `src/data/sync.ts` `FIELDS`.
-3. **Domain/analytics:** discover ranking improvements mirrored in Rust and `web/src/igdb.web.ts`, then "What Should I Play Next?" (dedicated playtime stats and the franchise completion view are complete — `src/domain/playtime.ts`, the `playtime` Stats category, and `src/features/franchises.tsx`; the hidden `length` section at `src/domain/stats.ts:21,401-412` was intentionally left alone).
+3. **Domain/analytics:** Discover ranking improvements and history-driven "Find My Next Game" are implemented (see `docs/discovery-and-recommendation-algorithms.md`); remaining work is manual backlog priority / intent-driven "What Should I Play Next?" controls (mood, available playtime, genre/priority overrides). Dedicated playtime stats and franchise completion view are complete; the hidden `length` section at `src/domain/stats.ts:21,401-412` was intentionally left alone.
 4. **Import/sync:** re-fetch Steam in the running desktop app to confirm the free-game fix and Epic needs-review enrichment; the generic CSV adapter now ships, so only pasted-title import remains from feature 14; do live QA for Epic only when a real account is available.
 5. **Presentation:** shareable profile/stats card after stats/badge data is stable.
 6. **Packaging/platform:** harden WebApp config/docs, then PWA (depends on web), and Android in an isolated directory (can run in parallel with PWA).
