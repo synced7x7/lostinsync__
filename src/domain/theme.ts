@@ -1,4 +1,4 @@
-export const THEME_IDS = ["aurora", "moonlight", "rose", "solarized", "graphite", "arctic", "canopy", "glacier"] as const;
+export const THEME_IDS = ["aurora", "moonlight", "rose", "solarized", "graphite", "arctic", "canopy", "glacier", "contrast"] as const;
 export type ThemeId = (typeof THEME_IDS)[number];
 
 export type ThemeMeta = {
@@ -17,6 +17,7 @@ export const THEMES: ThemeMeta[] = [
   { id: "arctic", label: "Arctic", description: "Ice white with steel blue glacier glow", color: "#7DD3FC" },
   { id: "canopy", label: "Canopy", description: "Forest black with moss and golden olive", color: "#A3B85A" },
   { id: "glacier", label: "Glacier", description: "Ice white with frozen silver and pale glacier blue", color: "#A8D8F0" },
+  { id: "contrast", label: "High Contrast", description: "Full black with high-contrast accents", color: "#111111" },
 ];
 
 export const DEFAULT_THEME: ThemeId = "aurora";
