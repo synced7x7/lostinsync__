@@ -1,4 +1,4 @@
-.discover-page { display: grid; gap: 24px; }
+.discover-page { display: grid; gap: 15px; }
 .discover-search { margin-top: -28px; padding: 22px; display: grid; gap: 10px; border-radius: 14px; }
 .discover-search h2, .discover-section h2 { margin: 3px 0 0; font-size: 22px; }
 .discover-search-row { display: flex; gap: 10px; }
@@ -54,7 +54,7 @@
 }
 
 /* compact search: a glass icon in the page header that expands into a pill */
-.dsearch { position: relative; z-index: 40; margin-left: auto; }
+.dsearch { position: relative; z-index: 40; margin-left: auto; margin-top: -60px; translate: 70px 60px; }
 .dsearch-bar {
   display: flex; align-items: center; gap: 4px; height: 44px; width: 44px; overflow: hidden;
   border-radius: 22px; border: 1px solid rgba(255, 255, 255, .14);
@@ -81,7 +81,7 @@
 .dsearch-spin { flex: none; width: 16px; height: 16px; margin-right: 14px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, .2); border-top-color: var(--accent); animation: dsearchSpin .7s linear infinite }
 
 .dsearch-pop {
-  position: absolute; right: 0; top: calc(100% + 10px); width: min(440px, 78vw); max-height: min(60vh, 460px);
+  position: absolute; right: 0; top: calc(100% - 8px); width: min(440px, 78vw); max-height: min(60vh, 460px);
   overflow-y: auto; padding: 8px; border-radius: 16px; border: 1px solid rgba(255, 255, 255, .1);
   background: rgba(20, 18, 42, .97); box-shadow: 0 24px 60px rgba(0, 0, 0, .55);
   transform-origin: top right; animation: dsearchPop .22s cubic-bezier(.2, .8, .2, 1);
