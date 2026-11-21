@@ -82,6 +82,12 @@ fn migrate(connection: &Connection) -> Result<(), rusqlite::Error> {
          CREATE TABLE IF NOT EXISTS app_state (
            id INTEGER PRIMARY KEY CHECK (id = 1),
            data_json TEXT NOT NULL
+         );
+         CREATE TABLE IF NOT EXISTS franchise_cache (
+           key TEXT PRIMARY KEY NOT NULL,
+           sig TEXT NOT NULL,
+           fetched_at INTEGER NOT NULL,
+           games_json TEXT NOT NULL
          );"
     )?;
     let applied: i64 = connection.query_row(
@@ -125,6 +131,64 @@ async fn save_app_data(
         )
         .map(|_| ())
         .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+async fn franchise_cache_load(
+    database: tauri::State<'_, Database>,
+    keys: Vec<String>
+) -> Result<Vec<Value>, String> {
+    if keys.is_empty() {
+        return Ok(vec![]);
+    }
+    let connection = database.0.lock().map_err(|_| "Database lock failed".to_string())?;
+    let marks = vec!["?"; keys.len()].join(",");
+    let sql = format!(
+        "SELECT key, sig, fetched_at, games_json FROM franchise_cache WHERE key IN ({marks})"
+    );
+    let mut st = connection.prepare(&sql).map_err(|e| e.to_string())?;
+    let rows = st
+        .query_map(rusqlite::params_from_iter(keys.iter()), |r| {
+            Ok((
+                r.get::<_, String>(0)?,
+                r.get::<_, String>(1)?,
+                r.get::<_, i64>(2)?,
+                r.get::<_, String>(3)?,
+            ))
+        })
+        .map_err(|e| e.to_string())?;
+    let mut out = vec![];
+    for row in rows {
+        let (key, sig, at, text) = row.map_err(|e| e.to_string())?;
+        if let Ok(games) = serde_json::from_str::<Value>(&text) {
+            out.push(json!({ "key": key, "sig": sig, "fetchedAt": at, "games": games }));
+        }
+    }
+    Ok(out)
+}
+
+#[tauri::command]
+async fn franchise_cache_save(
+    database: tauri::State<'_, Database>,
+    key: String,
+    sig: String,
+    games: Value
+) -> Result<(), String> {
+    let connection = database.0.lock().map_err(|_| "Database lock failed".to_string())?;
+    let text = serde_json::to_string(&games).map_err(|e| e.to_string())?;
+    let now = std::time::SystemTime
+        ::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as i64)
+        .unwrap_or(0);
+    connection
+        .execute(
+            "INSERT INTO franchise_cache (key, sig, fetched_at, games_json) VALUES (?1, ?2, ?3, ?4)
+             ON CONFLICT(key) DO UPDATE SET sig = excluded.sig, fetched_at = excluded.fetched_at, games_json = excluded.games_json",
+            params![key, sig, now, text]
+        )
+        .map(|_| ())
+        .map_err(|e| e.to_string())
 }
 
 fn images_dir(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
@@ -401,6 +465,35 @@ async fn igdb_post(
         return Err(format!("IGDB error {}", res.status()));
     }
     res.json().await.map_err(|e| e.to_string())
+}
+
+async fn igdb_sleep(d: Duration) {
+    let _ = tauri::async_runtime::spawn_blocking(move || std::thread::sleep(d)).await;
+}
+
+/// Same as igdb_post, but when `pace` is on it waits 260 ms before each request and retries on 429.
+/// Only the franchise lookups turn `pace` on, so nothing else in the app is slowed down.
+async fn igdb_post_paced(
+    auth: &IgdbAuth,
+    pace: bool,
+    endpoint: &str,
+    body: String,
+    client_id: &str,
+    secret: &str
+) -> Result<Value, String> {
+    let mut attempt: u32 = 0;
+    loop {
+        if pace {
+            igdb_sleep(Duration::from_millis(300)).await;
+        }
+        match igdb_post(auth, endpoint, body.clone(), client_id, secret).await {
+            Err(e) if e.contains("429") && attempt < 4 => {
+                attempt += 1;
+                igdb_sleep(Duration::from_millis(700 * 2u64.pow(attempt))).await;
+            }
+            r => return r,
+        }
+    }
 }
 
 #[tauri::command]
@@ -819,10 +912,13 @@ async fn igdb_series(
     auth: tauri::State<'_, IgdbAuth>,
     id: i64,
     client_id: String,
-    client_secret: String
+    client_secret: String,
+    types: Option<Vec<i64>>
 ) -> Result<Value, String> {
-    let g = igdb_post(
+    let pace = types.is_some();
+    let g = igdb_post_paced(
         &auth,
+        pace,
         "games",
         format!("fields collections; where id = {id};"),
         &client_id,
@@ -851,10 +947,10 @@ async fn igdb_series(
             break;
         }
         let q = format!(
-            "fields parent_collection,child_collection; where child_collection = ({}); limit 100;",
+            "fields parent_collection,child_collection; where child_collection = ({}); limit 500;",
             idlist(&frontier)
         );
-        let rows = igdb_post(&auth, "collection_relations", q, &client_id, &client_secret).await?;
+        let rows = igdb_post_paced(&auth, pace, "collection_relations", q, &client_id, &client_secret).await?;
         frontier = vec![];
         for r in rows.as_array().cloned().unwrap_or_default() {
             if
@@ -880,10 +976,10 @@ async fn igdb_series(
             break;
         }
         let q = format!(
-            "fields parent_collection,child_collection; where parent_collection = ({}); limit 100;",
+            "fields parent_collection,child_collection; where parent_collection = ({}); limit 500;",
             idlist(&frontier)
         );
-        let rows = igdb_post(&auth, "collection_relations", q, &client_id, &client_secret).await?;
+        let rows = igdb_post_paced(&auth, pace, "collection_relations", q, &client_id, &client_secret).await?;
         frontier = vec![];
         for r in rows.as_array().cloned().unwrap_or_default() {
             if
@@ -904,13 +1000,19 @@ async fn igdb_series(
 
     // 3) collection names + their game ids
     let all: Vec<i64> = known.iter().cloned().collect();
-    let cols = igdb_post(
+    let cols = igdb_post_paced(
         &auth,
+        pace,
         "collections",
-        format!("fields name,games; where id = ({}); limit 100;", idlist(&all)),
+        format!("fields name,games; where id = ({}); limit 500;", idlist(&all)),
         &client_id,
         &client_secret
     ).await?;
+
+    let filt = match &types {
+        Some(t) if !t.is_empty() => format!(" & (game_type = ({}) | game_type = null)", idlist(t)),
+        _ => String::new(),
+    };
 
     // 4) game details
     let mut gids: Vec<i64> = vec![];
@@ -926,17 +1028,18 @@ async fn igdb_series(
     let mut games: Vec<Value> = vec![];
     for chunk in gids.chunks(500) {
         let q = format!(
-            "fields name,first_release_date,game_type.type,cover.image_id; where id = ({}); limit 500;",
-            idlist(chunk)
+            "fields name,first_release_date,cover.image_id,game_type; where id = ({}){}; limit 500;",
+            idlist(chunk),
+            filt
         );
-        let rows = igdb_post(&auth, "games", q, &client_id, &client_secret).await?;
+        let rows = igdb_post_paced(&auth, pace, "games", q, &client_id, &client_secret).await?;
         for r in rows.as_array().cloned().unwrap_or_default() {
             games.push(
                 json!({
                 "id": r["id"],
                 "name": r["name"],
                 "releaseTs": r["first_release_date"],
-                "gameType": r["game_type"]["type"].as_str(),
+                "gameType": r["game_type"],
                 "cover": r["cover"]["image_id"].as_str().map(|i| img(i, "cover_big_2x")),
             })
             );
@@ -1451,6 +1554,8 @@ pub fn run() {
             tauri::generate_handler![
                 load_app_data,
                 save_app_data,
+                franchise_cache_load,
+                franchise_cache_save,
                 images_path,
                 store_image,
                 igdb_search,

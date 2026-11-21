@@ -1,9 +1,10 @@
 import { memo, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from "react";
-import { ChevronLeft, ChevronRight, Layers } from "lucide-react";
+import { ChevronLeft, ChevronRight, Layers, RefreshCw } from "lucide-react";
 import type { Game } from "../domain/game";
 import { formatPlaytime } from "../domain/game";
 import { igdbSeriesCached, hasTauri } from "../data/igdb";
-import { buildFranchise, groupByFranchise, seriesGamesFor, type FranchiseGroup, type FranchiseRow } from "../domain/franchise";
+import { loadFranchiseCache, saveFranchiseCache } from "../data/franchiseCache";
+import { buildFranchise, groupByFranchise, wantedType, libWanted, WANTED_TYPES, type SeriesGame, type FranchiseGroup, type FranchiseRow } from "../domain/franchise";
 import { Empty, Header } from "../components/shared";
 import { PALETTE, STRANDS, cssVar, line, mix, strand, thumb } from "./journey";
 import "./franchises.css";
@@ -23,53 +24,115 @@ const colorOf = (key: string) => {
   return PALETTE[h % PALETTE.length];
 };
 
-/* ───────────── session cache: survives leaving/re-entering the page, cleared only on app reload ───────────── */
-type SeriesGames = ReturnType<typeof seriesGamesFor>;
+/* ───────────── cache: memory (this session) + SQLite (survives restarts, refreshed every 30 days) ───────────── */
 type Creds = { clientId: string; clientSecret: string };
+const TTL = 30 * 24 * 3600 * 1000;
+const SIG = WANTED_TYPES.join(","); // cached rows are ignored if the wanted game types ever change
 const session = {
-  cred: "",
-  series: new Map<string, SeriesGames>(), // franchise key -> slim list of its series games
-  checked: new Set<string>(),              // franchise keys already resolved (even if IGDB has no series)
+  series: new Map<string, SeriesGame[]>(), // franchise key -> every wanted game in its series tree
+  fetchedAt: new Map<string, number>(),
+  checked: new Set<string>(),              // keys that have complete data (from IGDB or from the database)
   inflight: new Set<string>(),
+  failed: new Set<string>(),               // no data and IGDB failed: shown library-only with a Retry button
+  forced: new Set<string>(),               // manual refresh requested
+  skipStale: new Set<string>(),            // background refresh failed: keep old data, try again next app start
+  active: new Set<string>(),               // lookups running right now (the rest of `inflight` is queued)
+  probing: new Set<string>(),              // keys already asked from the database
+  probed: new Set<string>(),               // keys whose database answer has arrived
 };
+const batch = { total: 0, done: 0 };       // progress of the current loading burst
 const listeners = new Set<() => void>();
 const queue: { g: FranchiseGroup; creds: Creds }[] = [];
 let running = 0;
 
-async function load(g: FranchiseGroup, creds: Creds) {
-  const ids = g.games.flatMap((x) => (x.igdbId ? [x.igdbId] : [])).slice(0, 3);
-  for (const id of ids) {
-    const data = await igdbSeriesCached(id, creds).catch(() => undefined);
-    if (data?.collections.length) { session.series.set(g.key, seriesGamesFor(g, data)); return; }
+/** Read cached franchises from SQLite, only for the rows that are on screen (never the whole table). */
+async function probe(keys: string[]) {
+  const need = keys.filter((k) => !session.probing.has(k));
+  if (!need.length) return;
+  need.forEach((k) => session.probing.add(k));
+  const rows = await loadFranchiseCache(need);
+  for (const r of rows) {
+    if (r.sig !== SIG || session.series.has(r.key)) continue;
+    session.series.set(r.key, r.games);
+    session.fetchedAt.set(r.key, r.fetchedAt);
+    session.checked.add(r.key);
+  }
+  need.forEach((k) => session.probed.add(k));
+  listeners.forEach((f) => f());
+}
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+/** Retries with backoff (IGDB can answer 429/5xx under load). */
+async function fetchTree(id: number, creds: Creds) {
+  for (let attempt = 0; ; attempt++) {
+    try { return await igdbSeriesCached(id, creds, WANTED_TYPES); }
+    catch (e) { if (attempt >= 3) throw e; await sleep(1000 * 2 ** attempt); }
   }
 }
+
+/** Every wanted game of the whole series tree (all connected series + sub-series) of every library game of this franchise.
+ *  All-or-nothing: if any lookup still fails after retries, nothing is cached for this franchise (no partial totals). */
+async function load(g: FranchiseGroup, creds: Creds): Promise<boolean> {
+  // only games of a counted type can start a lookup; unwanted types would never be marked as covered
+  const ids = [...new Set(g.games.flatMap((x) => (x.igdbId && libWanted(x.gameType) ? [x.igdbId] : [])))].sort((p, q) => p - q);
+  const covered = new Set<number>();
+  const all = new Map<number, SeriesGame>();
+  let trees = 0;
+  try {
+    for (const id of ids) {
+      if (covered.has(id)) continue;          // already inside a tree we loaded
+      if (trees++ >= 4) break;
+      const data = await fetchTree(id, creds);
+      // `collections[].games` lists every game of the tree (unfiltered), so any library game inside it is covered
+      for (const c of data.collections) for (const gid of c.games ?? []) covered.add(gid);
+      for (const x of data.games) { covered.add(x.id); if (wantedType(x.gameType)) all.set(x.id, x); }
+    }
+  } catch { return false; }
+  const games = [...all.values()];
+  session.series.set(g.key, games);
+  session.fetchedAt.set(g.key, Date.now());
+  void saveFranchiseCache(g.key, SIG, games);
+  return true;
+}
 function pump() {
-  while (running < 3 && queue.length) {
+  while (running < 2 && queue.length) {
     const { g, creds } = queue.shift()!;
     running++;
-    void load(g, creds).finally(() => {
+    session.active.add(g.key);
+    void load(g, creds).catch(() => false).then((ok) => {
       running--;
+      session.active.delete(g.key);
       session.inflight.delete(g.key);
-      session.checked.add(g.key);
+      batch.done++;
+      if (!running && !queue.length) { batch.total = 0; batch.done = 0; }
+      session.forced.delete(g.key);
+      if (ok) { session.checked.add(g.key); session.failed.delete(g.key); session.skipStale.delete(g.key); }
+      else if (session.series.has(g.key)) session.skipStale.add(g.key); // keep the stored data
+      else session.failed.add(g.key);
       listeners.forEach((f) => f());
       pump();
     });
   }
 }
-/** Load series only for the rows currently on screen; rows that scrolled away are dropped from the queue. */
+/** Fetch only visible rows that are missing, older than 30 days, or manually refreshed. Rows that scrolled away are dropped. */
 function want(groups: FranchiseGroup[], creds: Creds) {
-  if (session.cred !== creds.clientId) {
-    session.cred = creds.clientId; session.series.clear(); session.checked.clear();
-  }
   const keep = new Set(groups.map((g) => g.key));
   for (let i = queue.length - 1; i >= 0; i--)
-    if (!keep.has(queue[i].g.key)) { session.inflight.delete(queue[i].g.key); queue.splice(i, 1); }
+    if (!keep.has(queue[i].g.key)) { session.inflight.delete(queue[i].g.key); queue.splice(i, 1); batch.total--; }
+  const now = Date.now();
+  let added = 0;
   for (const g of groups) {
-    if (session.checked.has(g.key) || session.inflight.has(g.key)) continue;
-    session.inflight.add(g.key);
+    const k = g.key;
+    if (session.inflight.has(k) || session.failed.has(k)) continue;
+    const stale = session.checked.has(k) && !session.skipStale.has(k) && now - (session.fetchedAt.get(k) ?? 0) > TTL;
+    if (session.checked.has(k) && !session.forced.has(k) && !stale) continue;
+    session.inflight.add(k);
     queue.push({ g, creds });
+    batch.total++;
+    added++;
   }
   pump();
+  if (added) listeners.forEach((f) => f()); // show "Queued…" and the progress bar right away
 }
 
 /* ───────────── ribbon: only the visible chunk is drawn; phase is continuous across chunks ───────────── */
@@ -141,8 +204,9 @@ function useSmoothX(ref: RefObject<HTMLDivElement | null>) {
   }, [ref]);
 }
 
-const FranchiseRowView = memo(function FranchiseRowView({ row, ready, onOpen }: {
-  row: FranchiseRow; ready: boolean; onOpen: (id: string) => void;
+const FranchiseRowView = memo(function FranchiseRowView({ row, ready, status, failed, refreshing, onOpen, onRetry, onRefresh }: {
+  row: FranchiseRow; ready: boolean; status: string; failed: boolean; refreshing: boolean;
+  onOpen: (id: string) => void; onRetry: (key: string) => void; onRefresh?: (key: string) => void;
 }) {
   const color = colorOf(row.key);
   const n = row.slots.length;
@@ -198,10 +262,17 @@ const FranchiseRowView = memo(function FranchiseRowView({ row, ready, onOpen }: 
           <>
             <div className="fr-stat"><b>{row.done}</b><span>/ {row.total}</span><em>{row.pct}%</em></div>
             <div className="fr-bar"><i style={{ width: `${row.pct}%` }} /></div>
-            <small>{row.seconds > 0 ? `${formatPlaytime(row.seconds)} played` : "Completed"}{!row.fromSeries && " · library"}</small>
+            <small>{row.seconds > 0 ? `${formatPlaytime(row.seconds)} played` : "Completed"}{!row.fromSeries && !failed && " · library"}</small>
+            {!failed && (refreshing
+              ? <small>Refreshing…</small>
+              : onRefresh && <button className="fr-refresh" onClick={() => onRefresh(row.key)} title="Refresh from IGDB"><RefreshCw size={12} /> Refresh</button>)}
+            {failed && <small className="fr-err">Couldn't load full series · <button onClick={() => onRetry(row.key)}>Retry</button></small>}
           </>
         ) : (
-          <small>Loading series…</small>
+          <>
+            <small>{status}</small>
+            <div className="fr-load"><i /></div>
+          </>
         )}
       </div>
       <div className="fr-view">
@@ -234,7 +305,7 @@ const FranchiseRowView = memo(function FranchiseRowView({ row, ready, onOpen }: 
       </div>
     </section>
   );
-}, (x, y) => x.ready === y.ready && x.row.sig === y.row.sig && x.row.seconds === y.row.seconds && x.onOpen === y.onOpen);
+}, (x, y) => x.ready === y.ready && x.status === y.status && x.failed === y.failed && x.refreshing === y.refreshing && x.row.sig === y.row.sig && x.row.seconds === y.row.seconds && x.onOpen === y.onOpen && x.onRetry === y.onRetry && x.onRefresh === y.onRefresh);
 
 const scrollParent = (el: HTMLElement | null): HTMLElement | Window => {
   for (let p = el?.parentElement; p; p = p.parentElement) {
@@ -263,6 +334,17 @@ export function FranchiseView({ games, creds, openGame }: { games: Game[]; creds
   const listRef = useRef<HTMLDivElement>(null);
   const [win, setWin] = useState({ first: 0, count: 8 });
   const [, bump] = useState(0);
+  const [retryN, setRetryN] = useState(0);
+  const onRetry = useCallback((key: string) => { session.failed.delete(key); setRetryN((n) => n + 1); }, []);
+  const onRefresh = useCallback((key: string) => {
+    session.failed.delete(key); session.skipStale.delete(key); session.forced.add(key);
+    setRetryN((n) => n + 1);
+  }, []);
+  /** Marks every franchise for refresh; each one refetches when its row is on screen. */
+  const refreshAll = () => {
+    for (const g of groups) if (g.games.some((x) => x.igdbId)) { session.failed.delete(g.key); session.skipStale.delete(g.key); session.forced.add(g.key); }
+    setRetryN((n) => n + 1);
+  };
   useLayoutEffect(() => {
     const el = listRef.current;
     if (!el) return;
@@ -286,13 +368,20 @@ export function FranchiseView({ games, creds, openGame }: { games: Game[]; creds
   const visible = useMemo(() => groups.slice(win.first, win.first + win.count), [groups, win]);
 
   useEffect(() => {
+    session.failed.clear(); // retry rows that failed earlier
     const f = () => bump((n) => n + 1);
     listeners.add(f);
     return () => { listeners.delete(f); };
   }, []);
   useEffect(() => {
-    if (canLoad) want(visible.filter((g) => g.games.some((x) => x.igdbId)), creds);
-  }, [visible, canLoad, creds.clientId, creds.clientSecret]);
+    let alive = true;
+    const rows = visible.filter((g) => g.games.some((x) => x.igdbId));
+    // 1) ask the database about the visible rows only, 2) fetch from IGDB only what it does not have
+    void probe(rows.map((g) => g.key)).then(() => { if (alive && canLoad) want(rows, creds); });
+    return () => { alive = false; };
+  }, [visible, canLoad, retryN, creds.clientId, creds.clientSecret]);
+
+  const left = batch.total - batch.done;
 
   return (
     <>
@@ -311,16 +400,22 @@ export function FranchiseView({ games, creds, openGame }: { games: Game[]; creds
                 Connect IGDB in Settings for full totals
               </span>
             )}
+            {left > 0 && <span className="fr-chip">{` · loading series ${Math.min(batch.done + 1, batch.total)} of ${batch.total}`}</span>}
+            {canLoad && <button className="fr-refresh fr-refresh-all" onClick={refreshAll}><RefreshCw size={12} /> Refresh all</button>}
           </div>
         }
       />
+      {left > 0 && <div className="fr-prog"><i style={{ width: `${(batch.done / Math.max(1, batch.total)) * 100}%` }} /></div>}
       {groups.length === 0 && <Empty icon={<Layers size={30} />} title="No franchises yet" text="Complete a game that belongs to a franchise." />}
       <div className="fr-list" ref={listRef} style={{ height: groups.length * ROWH }}>
         {visible.map((g, k) => {
-          const ready = !canLoad || !g.games.some((x) => x.igdbId) || session.checked.has(g.key);
+          const noIgdb = !g.games.some((x) => x.igdbId);
+          const ready = noIgdb || (session.probed.has(g.key) && (!canLoad || session.checked.has(g.key) || session.failed.has(g.key)));
+          const status = session.active.has(g.key) ? "Loading series…" : session.inflight.has(g.key) ? "Queued…" : "Loading…";
           return (
             <div key={g.key} className="fr-slotwrap" style={{ top: (win.first + k) * ROWH }}>
-              <FranchiseRowView row={buildFranchise(g, ready ? session.series.get(g.key) : undefined)} ready={ready} onOpen={onOpen} />
+              <FranchiseRowView row={buildFranchise(g, ready ? session.series.get(g.key) : undefined)} ready={ready} status={status} failed={session.failed.has(g.key)} refreshing={session.forced.has(g.key)}
+                onOpen={onOpen} onRetry={onRetry} onRefresh={canLoad ? onRefresh : undefined} />
             </div>
           );
         })}

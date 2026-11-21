@@ -19,7 +19,7 @@ let nextSlot = 0;
 async function slot() { // IGDB allows ~4 requests/second per key: space requests out
   const now = Date.now();
   const at = Math.max(now, nextSlot);
-  nextSlot = at + 260;
+  nextSlot = at + 280;
   if (at > now) await wait(at - now);
 }
 
@@ -209,7 +209,7 @@ export async function igdbDiscoverFeed(feed: IgdbFeed, preferredGenres: string[]
   return rows(data).map(discoverItem);
 }
 
-export async function igdbSeries(id: number, c: IgdbCreds): Promise<SeriesData> {
+export async function igdbSeries(id: number, c: IgdbCreds, types?: number[]): Promise<SeriesData> {
   const g = rows(await post("games", `fields collections; where id = ${id};`, c));
   const start: number[] = rows(g[0]?.collections).filter((x) => Number.isInteger(x));
   if (!start.length) return { collections: [], relations: [], games: [] };
@@ -243,10 +243,11 @@ export async function igdbSeries(id: number, c: IgdbCreds): Promise<SeriesData> 
   const gids: number[] = [];
   for (const col of cols) for (const x of rows(col.games)) if (Number.isInteger(x) && !gids.includes(x)) gids.push(x);
   const games: SeriesData["games"] = [];
+  const filt = types?.length ? ` & game_type = (${idlist(types)})` : "";
   for (let i = 0; i < gids.length; i += 500) {
     const chunk = gids.slice(i, i + 500);
-    for (const r of rows(await post("games", `fields name,first_release_date,cover.image_id; where id = (${idlist(chunk)}); limit 500;`, c))) {
-      games.push({ id: r.id, name: r.name, releaseTs: r.first_release_date, cover: r.cover?.image_id ? img(r.cover.image_id, "cover_big") : undefined });
+    for (const r of rows(await post("games", `fields name,first_release_date,cover.image_id,game_type; where id = (${idlist(chunk)})${filt}; limit 500;`, c))) {
+      games.push({ id: r.id, name: r.name, releaseTs: r.first_release_date, cover: r.cover?.image_id ? img(r.cover.image_id, "cover_big") : undefined, gameType: r.game_type });
     }
   }
   return { collections: cols, relations, games };
@@ -383,6 +384,6 @@ export const igdbDiscoverCached = (g: string[], c: IgdbCreds) => memo(discoverCa
 export const igdbDiscoverFeedCached = (feed: IgdbFeed, g: string[], offset: number, limit: number, c: IgdbCreds) =>
   memo(feedCache, `${c.clientId}:${feed}:${g.join("|")}:${offset}:${limit}`, () => igdbDiscoverFeed(feed, g, offset, limit, c), 60);
 export const igdbBundleContentsCached = (id: number, c: IgdbCreds) => memo(bundleCache, `${c.clientId}:${id}`, () => igdbBundleContents(id, c), 40);
-export const igdbSeriesCached = (id: number, c: IgdbCreds) => memo(seriesCache, `${c.clientId}:${id}`, () => igdbSeries(id, c), 40);
+export const igdbSeriesCached = (id: number, c: IgdbCreds, types?: number[]) => memo(seriesCache, `${c.clientId}:${id}:${types?.join(",") ?? ""}`, () => igdbSeries(id, c, types), 40);
 const externalCache = new Map<string, Entry<IgdbExternalGame[]>>();
 export const igdbExternalGamesCached = (id: number, c: IgdbCreds) => memo(externalCache, `${c.clientId}:${id}`, () => igdbExternalGames(id, c), 60);

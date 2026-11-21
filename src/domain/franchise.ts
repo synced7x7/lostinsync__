@@ -1,7 +1,14 @@
 import type { Game } from "./game";
 import type { SeriesData } from "../data/igdb";
+import { matchesGameType } from "./gametype";
 
-type SeriesGame = SeriesData["games"][number];
+export type SeriesGame = SeriesData["games"][number];
+
+/** IGDB game_type ids we count: 0 main_game, 4 standalone_expansion, 8 remake, 9 remaster. Everything else is ignored. */
+export const WANTED_TYPES = [0, 4, 8, 9];
+export const wantedType = (t?: number | null) => t == null || WANTED_TYPES.includes(t);
+const WANTED_NAMES = ["main_game", "standalone_expansion", "remake", "remaster"];
+export const libWanted = (t?: string) => !t || WANTED_NAMES.some((n) => matchesGameType(t, n));
 
 export type FranchiseGroup = { key: string; name: string; games: Game[] };
 export type FranchiseSlot = {
@@ -38,20 +45,6 @@ export function groupByFranchise(games: Game[]): FranchiseGroup[] {
   return [...groups.values()].filter((grp) => grp.games.some((g) => g.status === "Completed"));
 }
 
-/** Direct games of the series collection matching this franchise (spin-off sub-series are not mixed in). */
-export function seriesGamesFor(group: FranchiseGroup, data?: SeriesData): SeriesGame[] {
-  if (!data?.collections.length) return [];
-  const ids = new Set(group.games.flatMap((g) => (g.igdbId ? [g.igdbId] : [])));
-  const named = data.collections.find((c) => norm(c.name) === group.key)
-    ?? data.collections.find((c) => norm(c.name).includes(group.key) || group.key.includes(norm(c.name)));
-  const col = named ?? [...data.collections].sort(
-    (a, b) => (b.games ?? []).filter((x) => ids.has(x)).length - (a.games ?? []).filter((x) => ids.has(x)).length,
-  )[0];
-  if (!col || (!named && !(col.games ?? []).some((x) => ids.has(x)))) return [];
-  const byId = new Map(data.games.map((g) => [g.id, g]));
-  return (col.games ?? []).flatMap((id) => { const g = byId.get(id); return g ? [g] : []; });
-}
-
 export function buildFranchise(group: FranchiseGroup, series: SeriesGame[] = []): FranchiseRow {
   type Acc = FranchiseSlot & { ids: Set<number> };
   const slots = new Map<string, Acc>();
@@ -65,10 +58,16 @@ export function buildFranchise(group: FranchiseGroup, series: SeriesGame[] = [])
     return s;
   };
 
-  for (const g of series) touch(baseTitle(g.name) || String(g.id), g.name, g.releaseTs, g.cover, g.id);
+  const byName = new Map<string, string>();
+  for (const g of series) {
+    if (!wantedType(g.gameType)) continue;
+    touch(`g${g.id}`, g.name, g.releaseTs, g.cover, g.id); // one slot per IGDB game id - nothing is merged or hidden
+    if (!byName.has(norm(g.name))) byName.set(norm(g.name), `g${g.id}`);
+  }
 
   for (const g of group.games) {
-    const key = (g.igdbId && byId.get(g.igdbId)) || baseTitle(g.title);
+    if (!libWanted(g.gameType)) continue;
+    const key = (g.igdbId && byId.get(g.igdbId)) || byName.get(norm(g.title)) || `l${g.id}`;
     const s = touch(key, g.title, ts(g.releaseDate), g.cover, g.igdbId);
     if (!s.game || (g.status === "Completed" && !s.done)) s.game = g;
     if (g.status === "Completed") s.done = true;
@@ -82,7 +81,7 @@ export function buildFranchise(group: FranchiseGroup, series: SeriesGame[] = [])
     key: group.key, name: group.name, slots: list, done, total: list.length,
     pct: list.length ? Math.round((done / list.length) * 100) : 0,
     seconds: group.games.reduce((n, g) => n + (g.totalSeconds > 0 ? g.totalSeconds : 0), 0),
-    fromSeries: series.length > 0,
+    fromSeries: series.some((g) => wantedType(g.gameType)),
     sig: `${group.name}|${list.map((s) => `${s.key}:${s.done ? 1 : 0}:${s.game?.id ?? ""}:${s.cover ?? ""}`).join(",")}`,
   };
 }

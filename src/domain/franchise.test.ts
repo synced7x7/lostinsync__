@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Game } from "./game";
 import type { SeriesData } from "../data/igdb";
-import { baseTitle, buildFranchise, groupByFranchise, seriesGamesFor } from "./franchise";
+import { baseTitle, buildFranchise, groupByFranchise } from "./franchise";
 
 const g = (o: Partial<Game> & { id: string; title: string }): Game => ({
   platform: "PC", genre: "", tags: [], status: "Backlog", notes: "", favorite: false, totalSeconds: 0, createdAt: "2020-01-01",
@@ -11,21 +11,21 @@ const series: SeriesData = {
   collections: [{ id: 1, name: "Resident Evil", games: [10, 11, 12, 13, 14] }, { id: 2, name: "Other", games: [99] }],
   relations: [],
   games: [
-    { id: 10, name: "Resident Evil", releaseTs: 100, gameType: "Main Game" },
-    { id: 11, name: "Resident Evil 2", releaseTs: 200, gameType: "Main Game" },
-    { id: 12, name: "Resident Evil 2 (2019)", releaseTs: 900, gameType: "Remake" },
-    { id: 13, name: "Resident Evil 2: Extra DLC", releaseTs: 950, gameType: "DLC" },
-    { id: 14, name: "Resident Evil 3", releaseTs: 300, gameType: "Main Game" },
+    { id: 10, name: "Resident Evil", releaseTs: 100, gameType: 0 },
+    { id: 11, name: "Resident Evil 2", releaseTs: 200, gameType: 0 },
+    { id: 12, name: "Resident Evil 2 (2019)", releaseTs: 900, gameType: 8 },
+    { id: 13, name: "Resident Evil 2: Extra DLC", releaseTs: 950, gameType: 1 },
+    { id: 14, name: "Resident Evil 3", releaseTs: 300, gameType: 0 },
   ],
 };
 
 describe("franchise completion", () => {
-  it("counts every game type", () => {
+  it("counts only main/standalone/remake/remaster, one slot per IGDB game", () => {
     const group = { key: "resident evil", name: "Resident Evil", games: [g({ id: "a", title: "Resident Evil 2", igdbId: 11, status: "Completed" })] };
-    const row = buildFranchise(group, seriesGamesFor(group, series));
+    const row = buildFranchise(group, series.games);
     expect(row.total).toBe(4);
     expect(row.done).toBe(1);
-    expect(row.slots.map((s) => s.title)).toEqual(["Resident Evil", "Resident Evil 2", "Resident Evil 3", "Resident Evil 2: Extra DLC"]);
+    expect(row.slots.map((s) => s.title)).toEqual(["Resident Evil", "Resident Evil 2", "Resident Evil 3", "Resident Evil 2 (2019)"]);
   });
   it("matches by igdbId first and by name second, and a completed copy wins", () => {
     const games = [
@@ -33,9 +33,9 @@ describe("franchise completion", () => {
       g({ id: "b", title: "Resident Evil 3", status: "Completed" }),
     ];
     const group = { key: "resident evil", name: "Resident Evil", games };
-    const row = buildFranchise(group, seriesGamesFor(group, series));
-    expect(row.slots.find((s) => s.key === "resident evil 3")?.done).toBe(true);
-    expect(row.slots.find((s) => s.key === "resident evil 2")?.game?.id).toBe("a");
+    const row = buildFranchise(group, series.games);
+    expect(row.slots.find((s) => s.title === "Resident Evil 3")?.done).toBe(true);
+    expect(row.slots.find((s) => s.title === "Resident Evil 2 (2019)")?.game?.id).toBe("a");
     expect(row.done).toBe(1);
   });
   it("falls back to library-only slots and keeps undated entries last", () => {
