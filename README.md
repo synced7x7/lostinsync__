@@ -9,7 +9,7 @@
 <p align="center">
   <strong>A personal game library OS</strong>
   <br />
-  Track your collection, explore new games, and visualize your gaming history.
+  Track your collection, explore new games, follow franchise completion, and visualize your gaming history.
   <br />
   On desktop, import your Steam and Epic Games libraries, wishlist, playtime and achievements directly into your collection.
 </p>
@@ -149,6 +149,8 @@ lostinsync__/
 │   ├── style.css               # Aurora Glass theme tokens and core layouts
 │   ├── domain/
 │   │   ├── game.ts             # Game type, Status, AppData, optional store fields/helpers
+│   │   ├── franchise.ts        # Franchise grouping, IGDB series matching and completion slots
+│   │   ├── franchise.test.ts   # Franchise completion unit tests
 │   │   ├── gametype.ts         # IGDB game-type filtering
 │   │   ├── library-session.ts  # Session-only Library filters and saved defaults
 │   │   ├── playtime.ts         # Recorded-totalSeconds aggregation for Stats
@@ -170,6 +172,8 @@ lostinsync__/
 │       ├── overview.tsx        # Profile banner and collection actions
 │       ├── library-components.tsx # Add game form and detail views
 │       ├── journey.tsx         # Interactive SVG and DOM timeline
+│       ├── franchises.tsx      # Franchise completion ribbons, virtualized rows and smooth scrolling
+│       ├── franchises.css      # Franchise card, ribbon and arrow styling
 │       ├── discover.tsx        # Discover feeds and search
 │       ├── trophies.tsx        # Trophy and badge gallery
 │       ├── stats.tsx           # ECharts analytics

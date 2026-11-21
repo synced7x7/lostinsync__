@@ -39,16 +39,17 @@ web/index.html ──> web/src/entry.tsx ──> init() Drive sync ──> impor
 | `library-session.ts` | `LibraryPrefs`, `libraryDefaults`, `SORT_OPTIONS`, module-level `librarySession` (memory only) |
 | `stats.ts` | `index()` row model, `CATEGORIES`, 14 section builders (incl. `playtime()`), ECharts option builders, `build()` |
 | `playtime.ts` | `playtimeHours`, `summarizePlaytime`, `playtimeBuckets` — pure aggregation of recorded `totalSeconds` for the Stats Playtime category |
+| `franchise.ts` | `groupByFranchise`, `seriesGamesFor`, `buildFranchise`, `baseTitle`, `norm` — franchise grouping, IGDB series matching, slot dedupe and completion metrics |
 | `store-links.ts` | `storeLinksFromExternal`, `storeLabel` — de-duplicate IGDB `external_games` rows, validate URLs, order known storefronts, map source IDs to names |
 | `trophies.ts` | Six rarity tiers (`RARITY_RANK`, `RARITY_LABEL`), `TROPHIES`, `DEV_FAVORITES`, `GOTY`, `evaluate`, `topBadge`, `RARITY_COLOR` |
-| `game.test.ts`, `journey-sort.test.ts`, `playtime.test.ts`, `store-links.test.ts`, `stores/*.test.ts` | 8 Vitest files / 57 tests covering game rules, Journey sorting, playtime, IGDB store links and store parsers/matching/import mapping; Rust `stores.rs` adds 3 unit tests |
+| `game.test.ts`, `journey-sort.test.ts`, `playtime.test.ts`, `franchise.test.ts`, `store-links.test.ts`, `stores/*.test.ts` | 9 Vitest files / 67 tests covering game rules, Journey sorting, playtime, franchise grouping/completion, IGDB store links and store parsers/matching/import mapping; Rust unit tests are unchanged |
 
 ### `src/data/`
 
 | File | Purpose |
 |---|---|
 | `repository.ts` | `AppRepository` interface, `LocalAppRepository` (localStorage), `TauriAppRepository` (IPC), `createAppRepository()`, image externalization, `normalizeStatuses` |
-| `igdb.ts` | Typed wrappers for all 11 IGDB commands plus `hasTauri`; `memo()` provides a **bounded LRU + 20-minute TTL** cache (`igdbDetailsCached`, `igdbImagesCached`, `igdbDiscoverCached`, `igdbDiscoverFeedCached`, bundle cache, `igdbExternalGamesCached`) |
+| `igdb.ts` | Typed wrappers for all 11 IGDB commands plus `hasTauri`; `memo()` provides a **bounded LRU + 20-minute TTL** cache (`igdbDetailsCached`, `igdbImagesCached`, `igdbDiscoverCached`, `igdbDiscoverFeedCached`, `igdbSeriesCached`, bundle cache, `igdbExternalGamesCached`) |
 | `sync.ts` | `syncWithIgdb`: refresh only IGDB-owned fields from an explicit `FIELDS` allow-list; chunked import with patch reports |
 | `backloggd.ts` | Backloggd CSV importer: `mapEntry`, `withRetry`, `importBackloggd`, dedupe by `igdbId`, abort/report helpers |
 | `stores/` | Desktop store IPC wrappers, connector catalog, Steam parsers, shared IGDB matcher and one-way import pipeline with reports |
@@ -59,7 +60,7 @@ web/index.html ──> web/src/entry.tsx ──> init() Drive sync ──> impor
 Shared presentational components reused across features:
 
 - `layout.tsx` — `AppLayout`, collapsible `Sidebar`, version footer, error toast
-- `navigation.ts` — the 7-item `navigation` array
+- `navigation.ts` — the 8-item `navigation` array (includes Franchises)
 - `shared.tsx` — `Header`, `Empty`, `StarRating`, `TrophyToggle`, `formatDate`, `parseDate`, `DateField`, `PlatformPicker`
 - `rarity-badge.tsx` — `RarityBadge`
 - `store-icons.tsx` — `StoreIcon`, transparent brand-logo SVGs keyed by IGDB `external_game_source` / `category` ID
@@ -73,6 +74,7 @@ Self-contained view components with co-located CSS:
 | `dashboard.tsx` | Overview feed, recents, wishlist, "pick up where you left" |
 | `library-components.tsx` | `AddGame` portal modal — also used for editing games |
 | `journey.tsx` | Interactive timeline: SVG strands, lanes, LOD, zoom/pan, Fit All |
+| `franchises.tsx` / `franchises.css` | Franchise completion ribbons, session-cached series, virtualized rows/slots, smooth wheel/arrow scrolling |
 | `discover.tsx` | IGDB feeds, search, feed pages, `DiscoverGameDetails`, `draftFromIgdb` |
 | `stats.tsx` | Lazy-loaded Apache ECharts analytics view; `ChartCard`/`Chart` |
 | `trophies.tsx` | Badge gallery and trophy backgrounds |
@@ -90,7 +92,7 @@ The application root. Responsibilities:
 
 - Loads `AppData` from the repository on mount; merges with `defaultData`.
 - Owns the single `data` state plus `update`, `addGame`, `saveGame`, `deleteGame`. `update` uses a **500 ms debounce** and flushes on `pagehide` / `visibilitychange` / unmount (`src/main.tsx:161-197`).
-- **Manual routing**: `view = location.pathname.slice(1) || "dashboard"` cast to `View`; `setView` calls `navigate()`. There are no `<Routes>`/`<Route>` declarations and no 404 fallback.
+- **Manual routing**: `view = location.pathname.slice(1) || "dashboard"` cast to `View`; `setView` calls `navigate()`. There are no `<Routes>`/`<Route>` declarations and no 404 fallback. `/franchises` renders `FranchiseView` with `data.games`, `openGame` and the stored IGDB credentials.
 - Renders `AppLayout` with the active view; lazy-loads Stats inside `Suspense`.
 - Defines the Library views and the `Details` hero (including inline Favorite updates, the separate Time-To-Beat panel, exact IGDB storefront icon links with a `+N` popover, and read-only journey fields that open the `AddGame` modal for editing).
 - Hosts the global error boundary and window error handlers.

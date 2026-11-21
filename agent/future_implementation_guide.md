@@ -4,7 +4,7 @@
 >
 > Reading order: `PROJECT_CONTEXT.md` → `PROJECT_STATUS.md` → the relevant feature entry here → only the listed files and their immediate dependencies.
 
-**Feature index:** A. Improvements — 1 Played/completed inline, 2 Fit All sort, 3 Gameplay time stats, 4 Discover algorithm, 5 Theme system, 6 WebApp, 7 Android, 8 Add Game search bug, 9 Steam sync, 10 Backlog priority / play next. B. Wishlist — 11 Wishlist extras, 12 Platform ownership, 13 Franchise completion. C. Import/export — 14 More import sources, 15 Shareable card. D. PWA — 16 Installation & offline caching.
+**Feature index:** A. Improvements — 1 Played/completed inline, 2 Fit All sort, 3 Gameplay time stats, 4 Discover algorithm, 5 Theme system, 6 WebApp, 7 Android, 8 Add Game search bug, 9 Steam sync, 10 Backlog priority / play next. B. Wishlist — 11 Wishlist extras, 12 Platform ownership, 13 Franchise completion (done). C. Import/export — 14 More import sources, 15 Shareable card. D. PWA — 16 Installation & offline caching.
 
 **Completed:** features 1 (Add Game IGDB dropdown closes on outside click / Escape), 2 (Fit All ascending/descending toggle), 3 (dedicated Playtime stats category from recorded `totalSeconds`) and 9 (desktop one-way store import/Steam sync, 2026-11-21). All are verified in source; see their entries below. Feature 1's heading is legacy — its tracked request was re-scoped to the dropdown issue, and inline Played/Completed editing was not implemented.
 
@@ -426,42 +426,22 @@ Open items / risks
 
 ---
 
-## 13. Franchise Completion
+## 13. Franchise Completion — implemented
 
 **Objective:** Show franchise-level completion, e.g. "You've finished 4 of 9 Resident Evil games", reusing existing series data.
 
-**Current Implementation:**
+**Implemented in source:**
 
-- `Game.franchises?: string[]` (`src/domain/game.ts:17`) is populated from IGDB everywhere (`src/data/igdb.ts:8`, `web/src/igdb.web.ts:303`, `src/features/library-components.tsx:156`, `src/features/discover.tsx:312`, `src/data/backloggd.ts:129`) and refreshed by sync (`src/data/sync.ts:34`).
-- Stats already computes franchise tiles from **library games only**: `index()` maps `fr: g.franchises ?? []` (`src/domain/stats.ts:43`), `agg()` (`:81-89`), `franchises()` (`:349-366`) with "Franchises completed", "Franchise completion", "Completion by franchise"; `CATEGORIES` entry `:18`; `ICONS.franchises` (`src/features/stats.tsx:13-16`).
-- Completion signal: `done = g.status === "Completed"` (`src/domain/stats.ts:45`). Trophy cross-reference: `src/domain/trophies.ts:177-178` ("Pantheon of Worlds").
-- Series tree: `SeriesData` (`src/data/igdb.ts:94-98`), `igdbSeries` (`:99-102`), Rust `igdb_series` (`src-tauri/src/lib.rs:816-944`, 4 levels up/down, `limit 100` per query), web mirror `web/src/igdb.web.ts:212`.
-- UI: `SeriesButton` (`:90-101`) and `SeriesModal` (`:52-88`) in `src/features/series.tsx`; mounted only in Details (`src/main.tsx:891`) with IGDB id/credentials — **no library data passed**. Non-duplication precedent: bundle data is cached with `memo` (`src/data/igdb.ts:128-135`) and only persisted if changed (`src/features/bundle.tsx:22-37`), with helpers in `src/domain/gametype.ts:32-36`.
+- `View` includes `"franchises"` (`src/domain/game.ts:5`); `src/components/navigation.ts` adds the "Franchises" item; `src/main.tsx:266-272` renders `FranchiseView` with `data.games`, `openGame` and IGDB credentials at `/franchises`.
+- `src/domain/franchise.ts` + `src/domain/franchise.test.ts`: `groupByFranchise` lists a game under every franchise it names and keeps only groups with a completed game; `seriesGamesFor` resolves the IGDB collection games; `buildFranchise(group, series)` merges series with library games by `igdbId` first then `baseTitle`, collapses remakes/editions into one slot, counts every game type, and computes `done`/`total`/`pct`/`seconds`. Four Vitest cases cover counts, ID/name matching, library-only fallback and multi-franchise grouping.
+- `src/features/franchises.tsx` + `franchises.css`: reuses Journey helpers (`PALETTE`, `STRANDS`, `cssVar`, `line`, `mix`, `strand`, `thumb`) to render one ribbon row per franchise with completed covers, question-mark placeholders, compact stats, progress bar, playtime, glass arrows and a permanently hidden scrollbar. `useSmoothX` eases wheel and arrow input; vertical rows, horizontal slots and ribbon segments are virtualized. Resolved series are cached in a module-level session object and cleared only on app reload or credential change.
+- `igdbSeriesCached` (`src/data/igdb.ts`) uses the existing bounded LRU + 20-min TTL `memo()` helper and is mirrored in `web/src/igdb.web.ts`, preserving web parity. No franchise data is persisted; Stats franchise tiles are unchanged.
 
-**Probable Files to Modify:**
+**Decisions / integrations:** IGDB collection games merged with the library are the authoritative total; every game type counts; only franchises with a completed game appear; DLC stays on the same row with no branches. Uses `Game.franchises`, the `Completed` status and `igdb_series`.
 
-- `src/domain/stats.ts` — new completion metric/reuse `franchises()` (`:349-366`).
-- `src/features/series.tsx` — accept library games/status and overlay completion on tree nodes (`:13-88`).
-- `src/main.tsx` — pass `data.games` into `SeriesButton` (`:891`).
-- `src/data/igdb.ts` — add `igdbSeriesCached` using existing `memo()` (`:36-52,99-102`).
-- `web/src/igdb.web.ts` — mirror any new cached export (`:212`).
-- `src/features/stats.tsx` — only if a new category is added.
+**Database Changes:** None required — resolved data stays in memory.
 
-**Potential New Files (proposed):**
-
-- **[proposed]** `src/domain/franchise.ts`, `src/domain/franchise.test.ts`, optionally `src/features/franchise-progress.tsx`.
-
-**Implementation Approach:** Decide the authoritative source for the total (IGDB collection tree via `igdbSeries`, stored `franchises` names, or a curated list). Prefer computing progress on the fly from `SeriesData` plus the library, matching by `igdbId` first and normalized name second; cache the series tree in memory with the existing `memo` pattern. Avoid persisting franchise data. Display in the series modal and/or Stats.
-
-**Dependencies and Integrations:** Series command + web mirror, `franchises` field, completion status, Stats franchise section, trophies, bundle non-duplication precedent.
-
-**Database Changes:** None required. Persisting a slim series snapshot would duplicate data and should be avoided; if chosen, add optional fields to the JSON blob.
-
-**Potential Challenges:** IGDB `franchises` (names) ≠ `collections`/series tree; the "9 games" total may come from neither source exactly; series queries are on-demand, credential-dependent, and capped; dedupe games appearing in parent/child collections; offline behavior must be defined.
-
-**Testing Requirements:** Vitest tests with `SeriesData` + `Game[]` fixtures (counts, dedupe, ID vs name matching, missing dates); verify existing `stats.franchises()` tiles unchanged without series data; manual QA of series modal with/without credentials.
-
-**Investigation Required:** Authoritative franchise total source, UI placement, and whether the web mirror alone is sufficient for parity.
+**Verification:** `pnpm typecheck` and `pnpm test` (67 tests, including 4 franchise tests) pass. Manual QA in the running desktop app for wheel/arrow behavior, virtualized rows and the credential-free fallback is still pending.
 
 
 ## Additional Prompt:
@@ -592,7 +572,7 @@ No dates are assigned. Ordering is by dependency, complexity, and risk to existi
 
 **Phase 3 — Domain/analytics built on those fields**
 5. ~~**3** gameplay time stats~~ — completed (2026-11-19): new "Playtime" category in `src/domain/stats.ts` backed by `src/domain/playtime.ts`; hidden `length` section intentionally left alone.
-6. **13** franchise completion (reuse `stats.franchises()` + `igdbSeries`).
+6. **13** franchise completion (done — dedicated `/franchises` view; `stats.franchises()` tiles unchanged).
 7. **4** Discover relevance (change Rust and `web/src/igdb.web.ts` together).
 8. **10** What Should I Play Next (depends on 4 + backlog/priority fields).
 
@@ -652,5 +632,5 @@ The original task that produced this guide was documentation-only ("Only the thr
 # PART 7 — VERIFICATION NOTES AND UNCERTAIN ASSUMPTIONS
 
 - **Verified directly:** file paths, route table, `AppData`/`Game` field lists (including optional store fields), 23 Tauri command names (IGDB + `stores_*` + `igdb_external_lookup` + `igdb_epic_lookup`), `app_state` schema, `FIELDS` sync allow-list, LRU cache implementation, module-swap map, env var names, absence of PWA/manifest/service worker, and current test counts (63 Vitest + 9 Rust).
-- **Uncertain / needs investigation at implementation time:** exact Add Game search bug reproduction; "Played On" semantics; authoritative franchise total source; live Steam re-fetch result after the free-game fix; live Epic launcher behavior and needs-review enrichment; share-card image/CORS feasibility; authoritative web deploy target (Vercel vs Cloudflare Pages); whether stale `web/worker/src/*` duplicates are intentional; exact Tauri Android generated layout and mobile capability schema; product definitions for mood/time/genre recommendation scoring and "total wishlist spending".
+- **Uncertain / needs investigation at implementation time:** exact Add Game search bug reproduction; "Played On" semantics; live Steam re-fetch result after the free-game fix; live Epic launcher behavior and needs-review enrichment; share-card image/CORS feasibility; authoritative web deploy target (Vercel vs Cloudflare Pages); whether stale `web/worker/src/*` duplicates are intentional; exact Tauri Android generated layout and mobile capability schema; product definitions for mood/time/genre recommendation scoring and "total wishlist spending".
 - **Documentation status:** store-related files in `docs/`, the root `README.md` and this knowledge base were refreshed against source on 2026-11-21. `web/README.md` still contains stale claims (deploy target, Drive scopes, `.env.example`); use code and this guide for those.

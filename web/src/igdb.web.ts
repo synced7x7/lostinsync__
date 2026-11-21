@@ -375,6 +375,7 @@ const imagesCache = new Map<string, Entry<IgdbDebugImage[]>>();
 const discoverCache = new Map<string, Entry<IgdbDiscover>>();
 const feedCache = new Map<string, Entry<IgdbDiscoverGame[]>>();
 const bundleCache = new Map<string, Entry<IgdbDiscoverGame[]>>();
+const seriesCache = new Map<string, Entry<SeriesData>>();
 // keys use a hash-free prefix of the client id only; the secret is never part of a cache key
 export const igdbDetailsCached = (id: number, c: IgdbCreds) => memo(detailsCache, `${c.clientId}:${id}`, () => igdbDetails(id, c), 150);
 export const igdbImagesCached = (id: number, c: IgdbCreds) => memo(imagesCache, `${c.clientId}:${id}`, () => igdbImages(id, c), 60);
@@ -382,5 +383,6 @@ export const igdbDiscoverCached = (g: string[], c: IgdbCreds) => memo(discoverCa
 export const igdbDiscoverFeedCached = (feed: IgdbFeed, g: string[], offset: number, limit: number, c: IgdbCreds) =>
   memo(feedCache, `${c.clientId}:${feed}:${g.join("|")}:${offset}:${limit}`, () => igdbDiscoverFeed(feed, g, offset, limit, c), 60);
 export const igdbBundleContentsCached = (id: number, c: IgdbCreds) => memo(bundleCache, `${c.clientId}:${id}`, () => igdbBundleContents(id, c), 40);
+export const igdbSeriesCached = (id: number, c: IgdbCreds) => memo(seriesCache, `${c.clientId}:${id}`, () => igdbSeries(id, c), 40);
 const externalCache = new Map<string, Entry<IgdbExternalGame[]>>();
 export const igdbExternalGamesCached = (id: number, c: IgdbCreds) => memo(externalCache, `${c.clientId}:${id}`, () => igdbExternalGames(id, c), 60);

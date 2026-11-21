@@ -72,6 +72,7 @@ Important nuance: the older length charts use IGDB `timeAvgSeconds` (Time-To-Bea
 ## 6. 🗂️ Series & Custom Collections
 
 - **Series Detection**: Franchise/tree exploration from IGDB `collection_relations` and `collections`, fetched on demand and cached in memory (not persisted).
+- **Franchise Completion** (`/franchises`): One neon-ribbon row per franchise, built from the stored `franchises` names plus the IGDB collection games cached in memory. Every game type counts; remakes and editions collapse into one slot; games may appear under several franchises, but only franchises with a completed game are shown. Completed games use their cover art, unplayed entries show dark `?` placeholders, and each card has a progress bar, completion count, percentage and logged playtime. Rows, slots and ribbon segments are virtualized, and wheel or glass-arrow input scrolls each row smoothly with the scrollbar hidden. Nothing is persisted beyond the current session.
 - **Custom Collections**: `Collection` records hold `items` referencing games by `gameId` or `igdbId`, with optional name/cover/image.
 
 ---

@@ -26,6 +26,7 @@ Built installer artifacts exist in `src-tauri/target/release/bundle/` (NSIS `.ex
 | Add Game IGDB dropdown (feature 1) | Suggestion dropdown closes on outside click or Escape so custom titles can be typed freely | `src/features/library-components.tsx:1,39-44,196-203` (commit `c864403`) |
 | Journey Fit All sort (feature 2) | Ascending (oldest first) / descending (newest first) toolbar toggle; deterministic comparator with Vitest coverage; timeline layout stays chronological | `src/features/journey.tsx`, `src/features/journey.css`, `src/domain/journey-sort.ts`, `src/domain/journey-sort.test.ts` |
 | Playtime stats (feature 3) | Dedicated "Playtime" Stats category aggregating recorded `totalSeconds`: total/mean/median, longest/shortest game, distribution, hours by status/genre, plus a separate labelled IGDB-estimate comparison | `src/domain/playtime.ts`, `src/domain/playtime.test.ts`, `src/domain/stats.ts`, `src/features/stats.tsx` |
+| Franchise completion (feature 13) | Dedicated `/franchises` view with one ribbon row per franchise; every game type counts, games appear under every franchise they list, only franchises with a completed game are shown, series data is session-cached, and rows/slots are virtualized with smooth wheel/arrow scrolling | `src/domain/franchise.ts`, `src/domain/franchise.test.ts`, `src/features/franchises.tsx`, `src/features/franchises.css`, `src/components/navigation.ts`, `src/main.tsx` |
 | Game details | Cover/backdrop hero, rating, dedicated TTB panel above Journey, exact IGDB storefront icon links with `+N` popover, IGDB ID pill, played-on platforms, notes, series/bundle links, media, read-only journey panel | `src/main.tsx:848-1110`, `src/components/store-icons.tsx`, `src/domain/store-links.ts`, `src/features/{media,series,bundle}.tsx` |
 | Journey timeline | SVG strands, lane allocation, LOD culling, zoom/pan, range presets, virtualized Fit All | `src/features/journey.tsx`, `journey.css` |
 | Discover / IGDB | 10 feeds, paginated feed loader, fuzzy/exact/ID search, one-click draft import, exact `external_games` storefronts, bounded LRU caches | `src/features/discover.tsx`, `src/data/igdb.ts`, `src-tauri/src/lib.rs`, `web/src/igdb.web.ts` |
@@ -76,7 +77,7 @@ From `docs/roadmap.md` and the current request list:
 - Year-in-review image, tier list creator, custom themes.
 - Inline played-on/completed status updates (original feature-1 idea; re-scoped to the dropdown fix, still not implemented); improved Discover relevance; theme system.
 - Android app (isolated directory); Add Game search-appearance fix; backlog priority / "What Should I Play Next?".
-- Wishlist extras (price, reminders, bought-on, amount paid, spending stats); platform ownership; franchise completion.
+- Wishlist extras (price, reminders, bought-on, amount paid, spending stats); platform ownership.
 - More import sources (CSV and pasted titles); shareable profile/statistics card.
 - PWA install + offline caching.
 
@@ -111,7 +112,7 @@ All of the above are documented individually in `future_implementation_guide.md`
 - **Dead Rust domain structs** (`src-tauri/src/lib.rs:13-69`) plus file-level `#![allow(dead_code)]`; unused `tauri-plugin-log` and `log` crates.
 - **~21 MB / 67 PNG assets** loaded eagerly in `src/features/trophies.tsx` (re-measured 2026-11-19; `docs/performance-optimization-report.md` was updated with current numbers and now marks the IGDB cache issue as resolved).
 - **Documentation drift remains mainly in `web/README.md`** (deploy target, Drive scopes, missing `.env.example`); root `README.md` and `docs/` were refreshed for store import on 2026-11-21.
-- **Testing coverage:** eight Vitest files (63 tests: game 2, journey-sort 4, playtime 8, store-links 5, Epic parser 2, Steam parser 9, matcher 12, import pipeline 21) plus 9 Rust unit tests (`src-tauri/src/stores.rs` 4, IGDB/store helpers in `lib.rs` 5); still no React tests, lint/format config, or configured jsdom environment.
+- **Testing coverage:** nine Vitest files (67 tests: game 2, journey-sort 4, playtime 8, store-links 5, Epic parser 2, Steam parser 9, matcher 12, import pipeline 21, franchise 4) plus 9 Rust unit tests (`src-tauri/src/stores.rs` 4, IGDB/store helpers in `lib.rs` 5); still no React tests, lint/format config, or configured jsdom environment.
 - **Hard-coded colors** in feature CSS and ECharts options; partial-variable theming only.
 - **Web dead code** in `web/worker/src/`; `hasTauri = true` workaround couples web UI to desktop semantics.
 - **React 18 runtime / React 19 types** mismatch (`package.json:21-22,29-30`).
@@ -140,6 +141,7 @@ All of the above are documented individually in `future_implementation_guide.md`
 18. **Steam mapping guardrails** — wishlist → `Wishlist`; no real play/last-played date → `Backlog`; recent play → `Playing`; played but not recent → `Completed` with `rtime_last_played` as completion date. Start date is the earliest achievement unlock (safe fallback/clamped), mastery requires a non-zero total, `success: false` means zero achievements, and re-sync never overwrites user status edits.
 19. **Free-to-play imports must include unlaunched licenses** — `GetOwnedGames` sends `include_all_free_games=1`, `include_free_sub=1`, `skip_unvetted_apps=0` and keeps `include_played_free_games=1`; zero playtime is never treated as a private-profile error. Wishlist uses `IWishlistService/GetWishlist/v1` with app-id title resolution.
 20. **OAuth controls follow connection status** — Epic's sign-in page/code/complete controls render only when the connector is not connected; switching tabs or a failed fetch refreshes status so a removed token brings them back.
+21. **Franchise totals come from IGDB collection games merged with the library** — every game type counts, a game may appear under several franchises, only franchises with a completed game are shown, and remakes/editions collapse into one slot. Resolved series data and virtualized row state live in a session-only cache; nothing is persisted.
 
 ---
 
@@ -147,7 +149,7 @@ All of the above are documented individually in `future_implementation_guide.md`
 
 1. **Housekeeping:** remove/relocate save debug logs and clear the error toast (`src/main.tsx:164-208`). The former Phase 1 items — Add Game dropdown dismissal (feature 1), Fit All asc/desc (feature 2) and dedicated Playtime stats (feature 3) — are now complete.
 2. **Settle data-model extensions early** (all live in the JSON blob): ownership (12), wishlist price/payment/reminder fields (11), backlog priority (10) — keep them out of `src/data/sync.ts` `FIELDS`.
-3. **Domain/analytics:** franchise completion reusing `franchises()` + `igdbSeries`, discover ranking improvements mirrored in Rust and `web/src/igdb.web.ts`, then "What Should I Play Next?" (dedicated playtime stats are complete — `src/domain/playtime.ts` + the `playtime` Stats category; the hidden `length` section at `src/domain/stats.ts:21,401-412` was intentionally left alone).
+3. **Domain/analytics:** discover ranking improvements mirrored in Rust and `web/src/igdb.web.ts`, then "What Should I Play Next?" (dedicated playtime stats and the franchise completion view are complete — `src/domain/playtime.ts`, the `playtime` Stats category, and `src/features/franchises.tsx`; the hidden `length` section at `src/domain/stats.ts:21,401-412` was intentionally left alone).
 4. **Import/sync:** re-fetch Steam in the running desktop app to confirm the free-game fix and Epic needs-review enrichment; reuse the already-extracted store pipeline for CSV/pasted-title adapters; do live QA for Epic only when a real account is available.
 5. **Presentation:** shareable profile/stats card after stats/badge data is stable.
 6. **Packaging/platform:** harden WebApp config/docs, then PWA (depends on web), and Android in an isolated directory (can run in parallel with PWA).

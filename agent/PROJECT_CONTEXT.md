@@ -24,7 +24,7 @@
 - Statistics: 13 visible categories built from `src/domain/stats.ts` (including a Playtime category aggregated from recorded `totalSeconds` by `src/domain/playtime.ts`) and rendered with Apache ECharts (`src/features/stats.tsx`).
 - Settings: defaults, IGDB credentials, JSON/CSV export, JSON import, Backloggd import, IGDB metadata sync; web build adds encrypted credential vault and Google Drive backup.
 - Desktop-only one-way store import (`src/data/stores/`, `src/features/stores-settings.tsx`, `src-tauri/src/stores.rs`): Steam owned/free games, public wishlist, playtime and achievements map into the existing library; Epic ownership uses the same pipeline and catalog-id IGDB matching. Credentials never enter exports or web snapshots. User guide: `docs/store-import-guide.md`.
-- Media gallery (screenshots, YouTube embeds), franchise/series tree, bundle contents, profile banner editor.
+- Media gallery (screenshots, YouTube embeds), franchise/series tree, dedicated `/franchises` completion view, bundle contents, profile banner editor.
 
 **Core application functionality:** CRUD over a single `AppData` JSON document; optional IGDB metadata enrichment; local image storage; analytics; timeline visualization; web variant with cloud backup.
 
@@ -128,10 +128,11 @@ Meaningful paths only (no build artifacts, no `node_modules`, no individual badg
 | `src/domain/library-session.ts` | `LibraryPrefs`, `libraryDefaults`, `prefsToSettings`, `SORT_OPTIONS`, `librarySession` | `src/main.tsx` LibraryView | Library sort/filter changes |
 | `src/domain/journey-sort.ts` | `sortJourneyRows` — chronological comparator with `id` tie-break, reversible for Fit All | `src/features/journey.tsx` | Journey Fit All sort changes |
 | `src/domain/playtime.ts` | `playtimeHours`, `summarizePlaytime`, `playtimeBuckets` — pure aggregation of recorded `totalSeconds` | `src/domain/stats.ts` | Playtime stats changes |
+| `src/domain/franchise.ts`, `src/domain/franchise.test.ts` | `groupByFranchise`, `seriesGamesFor`, `buildFranchise`, `baseTitle`, `norm` — franchise grouping, IGDB series matching, slot dedupe and completion metrics | `src/features/franchises.tsx` | Franchise totals/grouping changes |
 | `src/domain/store-links.ts` | `storeLinksFromExternal`, `storeLabel` — validate, deduplicate and priority-order IGDB `external_games` storefronts | `src/main.tsx` Details hero | Store-link filtering/order changes |
 | `src/domain/stats.ts` | Row index (`index`), `yearsOf`, `CATEGORIES`, 14 section builders (incl. `playtime()`), ECharts option builders, `build` | `src/features/stats.tsx`, `src/domain/playtime.ts` | Any analytics change |
 | `src/domain/trophies.ts` | Rarity tiers, `TROPHIES`, `DEV_FAVORITES`, `GOTY`, `evaluate`, `topBadge`, `RARITY_COLOR` | Trophy UI, sidebar badge, stats milestones | Badge/rarity work |
-| `src/domain/*.test.ts`, `src/data/stores/*.test.ts` | 8 Vitest files / 63 tests: game 2, journey-sort 4, playtime 8, store-links 5, Epic parser 2, Steam parser 9, matcher 12, import pipeline 21 | `pnpm test` | Adding pure-function tests |
+| `src/domain/*.test.ts`, `src/data/stores/*.test.ts` | 9 Vitest files / 67 tests: game 2, journey-sort 4, playtime 8, store-links 5, Epic parser 2, Steam parser 9, matcher 12, import pipeline 21, franchise 4 | `pnpm test` | Adding pure-function tests |
 | `src/data/repository.ts` | `AppRepository`, `LocalAppRepository`, `TauriAppRepository`, `createAppRepository()`, image externalization | `src/main.tsx`; swapped in web | Persistence changes |
 | `src/data/igdb.ts` | Typed wrappers for 11 IGDB commands (including `igdbExternalGames`), bounded LRU cached variants, `hasTauri`, `saveTextFile` | Discover, sync, importers, Details store links | Adding IGDB calls (mirror in web!) |
 | `src/data/sync.ts` | `syncWithIgdb`, `FIELDS` allow-list, `buildPatch`, `applyPatches`, sync reports | Settings sync section | IGDB refresh behavior |
@@ -146,6 +147,7 @@ Meaningful paths only (no build artifacts, no `node_modules`, no individual badg
 | `src/features/dashboard.tsx` | Overview feed, recents, wishlist, "pick up where you left" | Route `/` | Dashboard changes |
 | `src/features/library-components.tsx` | `AddGame` modal (also used for editing) — only export | `src/main.tsx` | Add/edit form or IGDB search bug |
 | `src/features/journey.tsx` + `journey.css` | Timeline, `FitView`, LOD, zoom/pan, session prefs | Route `/journey` | Timeline and Fit All work |
+| `src/features/franchises.tsx` + `franchises.css` | `FranchiseView`, ribbon rows, session-only series cache, virtual rows/slots, smooth wheel/arrow scrolling, `useSmoothX` | Route `/franchises` | Franchise completion UI/performance |
 | `src/features/discover.tsx` + `discover.css` | Feeds, search, cards, details bridge, `draftFromIgdb` | Route `/discover`, Details | Recommendation work |
 | `src/features/stats.tsx` + `stats.css` | Category landing, tiles, `Chart` (ECharts canvas) | Route `/stats` | Analytics UI |
 | `src/features/trophies.tsx` + `trophies.css` | Badge gallery, backgrounds from `src/images/trophy-bg/` | Route `/trophies` | Trophy UI/assets |
@@ -187,6 +189,7 @@ Routing is **manual**, derived from `location.pathname.slice(1)` with a `View` c
 | `/library` | `LibraryView` (local to `main.tsx`) | `src/main.tsx:252-254`, `:335-461` |
 | `/discover` | `DiscoverView` | `src/features/discover.tsx` |
 | `/journey` | `JourneyView` | `src/features/journey.tsx` |
+| `/franchises` | `FranchiseView` | `src/features/franchises.tsx` |
 | `/trophies` | `TrophiesView` | `src/features/trophies.tsx` |
 | `/stats` | `lazy(() => import("./features/stats"))` inside `Suspense` | `src/main.tsx:263,289` |
 | `/details?game=<id>` | `Details` (local) | `src/main.tsx:281-283,848-1059` |
@@ -194,7 +197,7 @@ Routing is **manual**, derived from `location.pathname.slice(1)` with a `View` c
 | `/settings` | `SettingsView` | `src/features/settings.tsx` |
 | `/profile` | redirect to `/` | `src/main.tsx:128-130` |
 
-All views are wrapped in `AppLayout` (`src/components/layout.tsx:13`) with sidebar nav from `navigation.ts` (dashboard, library, discover, journey, stats, trophies, settings).
+All views are wrapped in `AppLayout` (`src/components/layout.tsx:13`) with sidebar nav from `navigation.ts` (dashboard, library, discover, journey, franchises, stats, trophies, settings).
 
 ### Components and responsibilities
 
@@ -213,7 +216,7 @@ Feature components are self-contained with co-located CSS (see directory table).
 
 ### Hooks and utilities
 
-React built-ins only: `useState`, `useRef`, `useEffect`, `useCallback`, `useMemo`, `useDeferredValue`, `useLayoutEffect`, `lazy`/`Suspense`, `useSyncExternalStore` (web sync), `Intl.Collator` for title sorting. No custom `use*` hook library exists.
+React built-ins only apart from one local helper: `useState`, `useRef`, `useEffect`, `useCallback`, `useMemo`, `useDeferredValue`, `useLayoutEffect`, `lazy`/`Suspense`, `useSyncExternalStore` (web sync), `Intl.Collator` for title sorting. No custom `use*` hook library exists; `useSmoothX` in `src/features/franchises.tsx` is a component-local easing hook.
 
 Utilities: `compareGames` (`src/main.tsx:300-314`), `formatSpan` (`:316-333`), `tsCache`/`dp` date-parse memo (`:292-298`), `emulatedOn` (`src/data/platform.ts:34`), time formatters in `game.ts`, `norm`/`withRetry` in `backloggd.ts`/`sync.ts`.
 
@@ -473,7 +476,7 @@ cd web/worker && npx wrangler deploy                 # IGDB proxy
 - **State:** Explicit updater functions with debounced persistence; module-level mutable session objects for non-persisted prefs; `useRef` for timers/DOM/RAF state.
 - **Async/errors:** `void promise.then().catch()`; per-feature `Notice`/`error` strings with `instanceof Error ? e.message : String(e)`; `withRetry` for network operations; `AbortController` for long imports/sync; global `window.error` / `unhandledrejection` banner and `GlobalErrorBoundary` (`src/main.tsx:1061-1095`).
 - **Formatting:** 2-space indent, double quotes, semicolons in most files; `data/*` and `stats.ts` use denser one-line style with fewer semicolons. No ESLint/Prettier config or script.
-- **Tests:** 8 Vitest files / 57 pure-function tests — `game` 2, `journey-sort` 4, `playtime` 8, `store-links` 4, `stores/sources` 5, `stores/steam` 9, `stores/match` 5, `stores/import` 20 — plus 3 Rust unit tests in `src-tauri/src/stores.rs`. `jsdom` is installed but no `test.environment` is configured in `vite.config.ts`; DOM tests need `// @vitest-environment jsdom` or config.
+- **Tests:** 9 Vitest files / 67 pure-function tests — `game` 2, `journey-sort` 4, `playtime` 8, `store-links` 5, `stores/sources` 2, `stores/steam` 9, `stores/match` 12, `stores/import` 21, `franchise` 4 — plus Rust unit tests in `src-tauri/src/{stores.rs,lib.rs}`. `jsdom` is installed but no `test.environment` is configured in `vite.config.ts`; DOM tests need `// @vitest-environment jsdom` or config.
 - **Architecture rule:** Prefer extending existing components/utilities over new abstractions; keep web changes under `web/`; keep new native commands in `lib.rs` and registered in `generate_handler!`.
 
 ---
@@ -486,6 +489,7 @@ cd web/worker && npx wrangler deploy                 # IGDB proxy
 - **Library/Journey prefs:** `librarySession` (`domain/library-session.ts:36`) and Journey `session` (`features/journey.tsx:135`) are memory-only; `queuePrefs` at `journey.tsx:409-414` explicitly says prefs are "never saved to the database". `AppSettings.journeyRange/zoom/fit` and `defaultView`, `libraryGenre` are declared but unused.
 - **Journey ordering:** `base.sorted` uses `sortJourneyRows(items, "asc")` (`src/domain/journey-sort.ts`, start + `id` tie-break); Fit All gets a separate `fitRows` array reversed by direction while timeline geometry, lane colours and palette stay chronological (`journey.tsx`).
 - **Journey LOD:** culling below `LOD_Z = 0.4`; Fit All uses a positional virtual window and resets `scrollTop` when `base` changes (`journey.tsx:298`).
+- **Franchise completion:** `groupByFranchise` assigns each game to every named franchise and keeps only groups with a completed game; `seriesGamesFor` returns the IGDB collection games, and `buildFranchise` merges them with library games by `igdbId` then normalized title, collapsing remakes/editions into one slot. All game types count. `FranchiseView` caches resolved series per franchise for the session, virtualizes rows/slots/ribbons, and drives horizontal scrolling with the local `useSmoothX` hook.
 - **Stats:** `CATEGORIES` has 13 visible entries; the new `"playtime"` category aggregates `Game.totalSeconds` via `src/domain/playtime.ts` (`playtimeHours`/`summarizePlaytime`/`playtimeBuckets`) and is backed by `play` in the `index()` row. IGDB `timeAvgSeconds` still feeds `len` and appears only as a separate, muted "IGDB average (estimate)" series in the Playtime comparison chart. The older `"length"` category remains implemented (`length()`, registered in `BUILD`) but commented out of `CATEGORIES` — left intentionally untouched.
 - **Web `hasTauri = true`** (`web/src/igdb.web.ts:9`) deliberately enables desktop-looking IGDB UI in the browser; capability checks like `hasTauri && creds` gate import/sync in settings.
 - **Exact storefront links:** `igdb_external_games` / `igdbExternalGames` read IGDB `external_games`; `storeLinksFromExternal` drops invalid URLs, deduplicates by source and orders known storefronts. Details shows two icon-only chips plus a `+N` hover/focus popover; `StoreIcon` supplies transparent brand SVGs. The web client falls back to nested `games.external_games.*` when the deployed worker returns 404 for the direct endpoint.
@@ -527,5 +531,5 @@ cd web/worker && npx wrangler deploy                 # IGDB proxy
 6. Never add user-owned fields to `src/data/sync.ts`'s `FIELDS` allow-list.
 7. Keep Android work in a separate directory; keep web work under `web/`; do not introduce Android dependencies into desktop/web builds.
 8. No new dependency without justification; prefer browser/Rust APIs already in use.
-9. Preserve functionality; run `pnpm typecheck`, `pnpm test`, `pnpm build` (and the web build when affected) before finishing.
+9. Preserve functionality; run `pnpm typecheck` and `pnpm test` before finishing. Do not run `pnpm build` (or the web build) unless explicitly requested.
 10. Update `PROJECT_STATUS.md` on progress, and update this file / the implementation guide when architecture or file locations change.

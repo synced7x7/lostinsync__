@@ -76,7 +76,7 @@ The items below are **planned, not implemented**. See `agent/future_implementati
 
 ### Phase 3 — Analytics & discovery
 - [x] Dedicated gameplay-time statistics section (Playtime category aggregating recorded `totalSeconds`; feature 3, completed).
-- [ ] Franchise completion tracking (e.g. "4 of 9 Resident Evil games finished").
+- [x] Franchise completion tracking (e.g. "4 of 9 Resident Evil games finished") — dedicated `/franchises` view with ribbon rows, session-cached IGDB series and virtualized rendering.
 - [ ] Improve Discover relevance without rebuilding the system.
 - [ ] Shareable profile/statistics card.
 
