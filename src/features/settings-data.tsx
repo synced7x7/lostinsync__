@@ -10,6 +10,7 @@ import { GAME_TYPES, UNSET_TYPE } from "../domain/gametype";
 import { SORT_OPTIONS, librarySession, libraryDefaults } from "../domain/library-session";
 import { StoresSection } from "./stores-settings";
 import { stripStoreCredentials } from "../data/stores/types";
+import { csvReportSections, csvReportToText, importCsv, parseCsv, type CsvImportProgress, type CsvImportReport } from "../data/stores/import";
 
 type Notice = { kind: "success" | "error" | "info"; text: string };
 type Props = { data: AppData; update: (data: AppData) => void };
@@ -56,10 +57,11 @@ export function DataSection({ data, update }: Props) {
     <>
       <LibraryDefaultsSection data={data} update={update} />
       <StorageSection data={data} update={update} />
-      <DeleteSection data={data} update={update} />
-      <SyncSection data={data} update={update} />
       <BackloggdSection data={data} update={update} />
+      <CsvImportSection data={data} update={update} />
+      <SyncSection data={data} update={update} />
       <StoresSection data={data} update={update} />
+      <DeleteSection data={data} update={update} />
     </>
   );
 }
@@ -117,7 +119,7 @@ function StorageSection({ data, update }: Props) {
 
   return (
     <section className="glass settings-panel">
-      <p className="eyebrow">LOCAL SQLITE STORAGE</p><h2>Your data stays yours</h2>
+      <p className="eyebrow">LOCAL SQLITE STORAGE</p><h2>Backup your data</h2>
       <p className="muted">SQLite database: <strong>lost-in-sync.sqlite</strong></p>
       <p className="muted">All your games, preferences, and profile settings are stored locally in the native SQLite backend.</p>
       <div className="detail-actions">
@@ -354,7 +356,125 @@ function BackloggdSection({ data, update }: Props) {
     </section>
   );
 }
+type CsvPhase =
+  | { kind: "idle" }
+  | { kind: "ready"; fileName: string; text: string; rows: number }
+  | { kind: "running"; progress: CsvImportProgress }
+  | { kind: "done"; report: CsvImportReport };
 
+function CsvImportSection({ data, update }: Props) {
+  const [phase, setPhase] = useState<CsvPhase>({ kind: "idle" });
+  const [notice, setNotice] = useState<Notice>();
+  const abort = useRef<AbortController | null>(null);
+  const latest = useRef(data);
+  latest.current = data;
+  const creds: IgdbCreds = { clientId: data.settings.igdbClientId ?? "", clientSecret: data.settings.igdbClientSecret ?? "" };
+  const canRun = hasTauri && !!creds.clientId && !!creds.clientSecret;
+
+  const pickFile = async (file: File) => {
+    setNotice(undefined);
+    try {
+      const text = await file.text();
+      const rows = parseCsv(text);
+      if (rows.length < 2) throw new Error("The file has no data rows.");
+      if (!rows[0].some((h) => ["title", "igdb_id"].includes(h.trim().toLowerCase().replace(/\s+/g, "_")))) throw new Error('The CSV needs a "title" or "igdb_id" column.');
+      setPhase({ kind: "ready", fileName: file.name, text, rows: rows.length - 1 });
+    } catch (e) {
+      setPhase({ kind: "idle" });
+      setNotice({ kind: "error", text: `${e instanceof Error ? e.message : "Could not read that file."} Nothing was imported.` });
+    }
+  };
+
+  const run = async () => {
+    if (phase.kind !== "ready") return;
+    const ctrl = new AbortController();
+    abort.current = ctrl;
+    setPhase({ kind: "running", progress: { phase: "matching", done: 0, total: phase.rows } });
+    try {
+      const { games, report } = await importCsv(phase.text, latest.current.games, creds, (progress) => setPhase({ kind: "running", progress }), ctrl.signal);
+      if (games.length) update({ ...latest.current, games: [...latest.current.games, ...games] });
+      setPhase({ kind: "done", report });
+      setNotice({
+        kind: report.failures.length || report.needsReview.length ? "info" : "success",
+        text: `${report.cancelled ? "Import cancelled. " : "Import finished. "}${report.imported} games added${report.duplicates.length ? `, ${report.duplicates.length} skipped as duplicates` : ""}. See the report below.`,
+      });
+    } catch (e) {
+      setPhase({ kind: "idle" });
+      setNotice({ kind: "error", text: `Import failed: ${e instanceof Error ? e.message : String(e)}` });
+    }
+  };
+
+  const pct = phase.kind === "running" && phase.progress.total ? Math.round((phase.progress.done / phase.progress.total) * 100) : 0;
+
+  return (
+    <section className="glass settings-panel">
+      <p className="eyebrow">IMPORT</p><h2>Import from Generic CSV</h2>
+      <p className="muted">
+        Columns (header row; each row needs a <strong>title</strong> or an <strong>igdb_id</strong>): <code>title</code>, <code>igdb_id</code>, <code>status</code>, <code>playtime</code>, <code>starting_date</code>, <code>completed_date</code>, <code>rating</code>, <code>mastery</code>, <code>favorites</code>, <code>played_on</code>.
+      </p>
+      <div className="notice info" role="note">
+        <Info size={15} />
+        <span>
+          <strong>igdb_id</strong> wins when present (the title is ignored, so it can be empty or wrong); otherwise the title is searched strictly, then generically. <strong>playtime</strong> accepts <code>12h 30m</code>, <code>12:30</code>, or a bare number of minutes. Dates use <code>YYYY-MM-DD</code>. <strong>mastery</strong>/<strong>favorites</strong> accept 1/0 or true/false. <strong>played_on</strong> separates platforms with <code>;</code>. Games already in your library (same IGDB id or title) are skipped.
+        </span>
+      </div>
+      {!canRun && <p className="hint">{hasTauri ? "Add your IGDB Client ID and Secret above to enable importing." : "Importing works in the desktop app only."}</p>}
+
+      {(phase.kind === "idle" || phase.kind === "done") && (
+        <div className="detail-actions">
+          <label className={`button soft${canRun ? "" : " disabled"}`}><Upload size={15} /> Choose CSV file
+            <input type="file" accept=".csv,text/csv" hidden disabled={!canRun} onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void pickFile(f); }} />
+          </label>
+        </div>
+      )}
+
+      {phase.kind === "ready" && (
+        <div className="confirm-box info">
+          <p><strong>{phase.fileName}</strong>: {phase.rows} rows found. Start the import?</p>
+          <div className="confirm-actions">
+            <button className="button primary" onClick={() => void run()}>Start import</button>
+            <button className="button soft" onClick={() => setPhase({ kind: "idle" })}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {phase.kind === "running" && (
+        <div className="import-progress">
+          <span className="muted">
+            {phase.progress.phase === "matching" ? "Matching titles on IGDB" : "Fetching game details from IGDB"}… {Math.min(phase.progress.done, phase.progress.total)} / {phase.progress.total}
+          </span>
+          <div className="bar"><i style={{ width: `${pct}%` }} /></div>
+          <div className="confirm-actions"><button className="button soft" onClick={() => abort.current?.abort()}>Cancel after this batch</button></div>
+        </div>
+      )}
+
+      {phase.kind === "done" && (
+        <div className="import-report">
+          <div className="report-chips">
+            <span className="pill success"><Check size={13} /> {phase.report.imported} imported</span>
+            {phase.report.duplicates.length > 0 && <span className="pill">{phase.report.duplicates.length} skipped</span>}
+            {phase.report.needsReview.length > 0 && <span className="pill">{phase.report.needsReview.length} need review</span>}
+            {phase.report.failures.length > 0 && <span className="pill">{phase.report.failures.length} failed</span>}
+          </div>
+          {csvReportSections(phase.report).map((s) => (
+            <details key={s.title}>
+              <summary>{s.title} ({s.items.length})</summary>
+              <ul>{s.items.map((i, k) => <li key={k}>{i}</li>)}</ul>
+            </details>
+          ))}
+          <div className="detail-actions">
+            <button className="button soft" onClick={() => {
+              void navigator.clipboard.writeText(csvReportToText(phase.report))
+                .then(() => setNotice({ kind: "success", text: "Report copied to the clipboard." }))
+                .catch(() => setNotice({ kind: "error", text: "Could not copy the report." }));
+            }}>Copy report</button>
+          </div>
+        </div>
+      )}
+      <NoticeBar notice={notice} onClose={() => setNotice(undefined)} />
+    </section>
+  );
+}
 
 type SyncPhase = { kind: "idle" } | { kind: "running"; progress: SyncProgress } | { kind: "done"; report: SyncReport };
 
