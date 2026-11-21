@@ -226,7 +226,7 @@ Utilities: `compareGames` (`src/main.tsx:300-314`), `formatSpan` (`:316-333`), `
 
 ### Styling and theme
 
-- Theme tokens in `src/style.css`: `--bg`, `--bg-glow-1`, `--bg-glow-2`, `--panel`, `--panel-strong`, `--line`, `--line-soft`, `--text`, `--muted`, `--dim`, `--accent`, `--accent-strong`, `--cyan`, `--rose`, `--success`, `--shadow`, `--radius`, defined per `[data-theme]` block (`aurora`, `moonlight`, `rose`, `solarized`, `graphite`, `arctic`, `canopy`, `glacier`). Glacier uses `color-scheme: light`.
+- Theme tokens in `src/style.css`: `--bg`, `--bg-glow-1`, `--bg-glow-2`, `--panel`, `--panel-strong`, `--line`, `--line-soft`, `--text`, `--muted`, `--dim`, `--accent`, `--accent-strong`, `--cyan`, `--rose`, `--success`, `--shadow`, `--radius`, defined per `[data-theme]` block (`aurora`, `moonlight`, `rose`, `solarized`, `graphite`, `arctic`, `canopy`, `glacier`).
 - Component-scoped vars: `--p` (rating ring), `--c`, `--rc` (rarity color), `--g` (trophy rarity RGB), `--tc` (chart tone), `--jn-left` (timeline).
 - Theme system: `src/domain/theme.ts` defines IDs/metadata/normalize/apply; `AppSettings.theme` is `ThemeId`; `src/main.tsx` applies `data-theme` on theme changes; Settings provides a dropdown; desktop/web loads normalize unknown values to `aurora`.
 - ECharts colors are synced from CSS variables at build time via `syncChartTheme()` in `src/domain/stats.ts`, and stats charts remount on theme change. Some hard-coded colors remain in feature CSS/SVG/canvas hotspots, so theme coverage is good but not exhaustive.

@@ -4,7 +4,7 @@
 
 ## Current state
 
-The app has a **theme system** with eight built-in themes: **Aurora** (default), **Moonlight**, **Rose**, **Solarized**, **Graphite**, **Arctic**, **Canopy**, and **Glacier** (bright/light). Semantic tokens are declared in `src/style.css` on `:root, [data-theme="aurora"]` and overridden by the other `[data-theme="..."]` blocks. Glacier sets `color-scheme: light`; the others are dark.
+The app has a **theme system** with eight built-in dark themes: **Aurora** (default), **Moonlight**, **Rose**, **Solarized**, **Graphite**, **Arctic**, **Canopy**, and **Glacier**. Semantic tokens are declared in `src/style.css` on `:root, [data-theme="aurora"]` and overridden by the other `[data-theme="..."]` blocks.
 
 ```css
 --bg, --bg-glow-1, --bg-glow-2, --panel, --panel-strong, --line, --line-soft,

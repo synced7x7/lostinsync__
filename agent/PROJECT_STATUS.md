@@ -51,7 +51,7 @@ Note: feature 1 was originally titled "Played On and Completed Status Without En
 
 | Feature | What works | What is missing / limited |
 |---|---|---|
-| Theme hardcoded-color migration | Theme system works (Aurora/Moonlight/Rose/Solarized/Graphite/Arctic/Canopy/Glacier, `data-theme`, persisted/normalized, theme-aware stats charts) | Many literal colors remain in feature CSS/SVG/canvas hotspots; Glacier is a light theme so hard-coded white overlays will need targeted migration for full parity. |
+| Theme hardcoded-color migration | Theme system works (Aurora/Moonlight/Rose/Solarized/Graphite/Arctic/Canopy/Glacier, `data-theme`, persisted/normalized, theme-aware stats charts) | Many literal colors remain in feature CSS/SVG/canvas hotspots; full visual parity across themes needs incremental token migration. |
 | Status changes | Fully changeable through the AddGame edit modal | No inline status/platinum/date control on cards or details; Details controls are `readOnly`. |
 | IGDB sync | Field allow-list, chunking, report, staleness check | 401 clears token without retry; no HTTP timeout/429 handling in Rust; cannot run in plain browser dev mode. |
 | Web app | Full shared UI + local-first persistence + cloud backup | No PWA; no `web/.env.example`; stale dead frontend copies in `web/worker/src/`; deploy target docs conflict; `hasTauri = true` hack. |

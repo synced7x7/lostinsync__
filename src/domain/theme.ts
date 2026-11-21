@@ -16,7 +16,7 @@ export const THEMES: ThemeMeta[] = [
   { id: "graphite", label: "Graphite", description: "Charcoal with silver accents", color: "#c0cad4" },
   { id: "arctic", label: "Arctic", description: "Ice white with steel blue glacier glow", color: "#7DD3FC" },
   { id: "canopy", label: "Canopy", description: "Forest black with moss and golden olive", color: "#A3B85A" },
-  { id: "glacier", label: "Glacier", description: "Bright ice white with frozen silver and pale blue", color: "#6EC5E9" },
+  { id: "glacier", label: "Glacier", description: "Ice white with frozen silver and pale glacier blue", color: "#A8D8F0" },
 ];
 
 export const DEFAULT_THEME: ThemeId = "aurora";
