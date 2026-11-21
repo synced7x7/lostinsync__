@@ -311,9 +311,9 @@
     border-radius: 22px;
     border: 1px solid var(--line-soft);
     background:
-        radial-gradient(ellipse at 50% 35%, rgba(132, 109, 244, .22), transparent 55%),
-        radial-gradient(ellipse at 15% 100%, rgba(103, 216, 230, .1), transparent 45%),
-        rgba(10, 11, 24, .55);
+        radial-gradient(ellipse at 50% 35%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 55%),
+        radial-gradient(ellipse at 15% 100%, color-mix(in srgb, var(--cyan) 10%, transparent), transparent 45%),
+        color-mix(in srgb, var(--bg) 55%, transparent);
     overflow: hidden
 }
 
