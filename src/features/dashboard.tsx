@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { ChevronRight, Gamepad2, Heart, Plus, Search, Star, X } from "lucide-react";
 import type { ReactNode } from "react";
@@ -35,10 +35,45 @@ const SLOTS = [
 const WAVE =
   "M 0 395 C 50 395 50 390 100 390 C 200 390 200 340 300 340 C 400 340 400 300 500 300 C 600 300 600 340 700 340 C 800 340 800 390 900 390 C 950 390 950 395 1000 395";
 
-function BigStat({ value, label, accent }: { value: number; label: string; accent?: boolean }) {
+function useReveal<T extends HTMLElement>() {
+  const ref = useRef<T>(null);
+  const [on, setOn] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const io = new IntersectionObserver(([e]) => { if (e.isIntersecting) { setOn(true); io.disconnect(); } }, { threshold: 0.35 });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+  return [ref, on] as const;
+}
+
+// Each digit is a 0-9-0-9 reel; it spins one full extra turn, then lands on the digit.
+function Odometer({ value, on }: { value: number; on: boolean }) {
+  return (
+    <>
+      {pad(value).split("").map((ch, i) => (
+        <span className="odo-col" key={i} aria-hidden="true">
+          <span
+            className="odo-strip"
+            style={{
+              transform: `translateY(${on ? -(Number(ch) + 10) * 5 : 0}%)`,
+              transitionDelay: `${350 + i * 140}ms`,
+              transitionDuration: `${1300 + i * 350}ms`,
+            }}
+          >
+            {Array.from({ length: 20 }, (_, k) => <b key={k}>{k % 10}</b>)}
+          </span>
+        </span>
+      ))}
+    </>
+  );
+}
+
+function BigStat({ value, label, accent, on }: { value: number; label: string; accent?: boolean; on: boolean }) {
   return (
     <div className={`big-stat${accent ? " accent" : ""}`}>
-      <strong>{pad(value)}</strong>
+      <strong aria-label={pad(value)}><Odometer value={value} on={on} /></strong>
       <span>{label}</span>
     </div>
   );
@@ -115,6 +150,7 @@ export function Dashboard({
   const completed = data.games.filter((g) => g.status === "Completed").length;
   const wishlist = data.games.filter((g) => g.status === "Wishlist").length;
   const [showWishlistAll, setShowWishlistAll] = useState(false);
+  const [stripRef, stripOn] = useReveal<HTMLElement>();
 
 
   return (
@@ -122,7 +158,14 @@ export function Dashboard({
       {profile}
       <section className="fav-section">
         <div className="fav-scroll">
-          <div className="fav-stage">
+          <div
+            className="fav-stage"
+            onMouseMove={(e) => {
+              const r = e.currentTarget.getBoundingClientRect();
+              e.currentTarget.style.setProperty("--mx", `${e.clientX - r.left}px`);
+              e.currentTarget.style.setProperty("--my", `${e.clientY - r.top}px`);
+            }}
+          >
             <svg className="fav-svg" viewBox="0 0 1000 460" preserveAspectRatio="none">
               <defs>
                 <linearGradient id="favline" x1="0" x2="1">
@@ -130,16 +173,23 @@ export function Dashboard({
                   <stop offset=".5" stopColor="#a495ff" />
                   <stop offset="1" stopColor="#67d8e6" stopOpacity=".25" />
                 </linearGradient>
+                <linearGradient id="favflow" gradientUnits="userSpaceOnUse" x1="-300" y1="0" x2="0" y2="0">
+                  <stop offset="0" stopColor="#fff" stopOpacity="0" />
+                  <stop offset=".5" stopColor="#fff" stopOpacity=".95" />
+                  <stop offset="1" stopColor="#fff" stopOpacity="0" />
+                  <animateTransform attributeName="gradientTransform" type="translate" from="0 0" to="1300 0" dur="4.5s" repeatCount="indefinite" />
+                </linearGradient>
               </defs>
               <path className="fav-wave-glow" d={WAVE} stroke="url(#favline)" />
               <path className="fav-wave" d={WAVE} stroke="url(#favline)" />
+              <path className="fav-wave fav-wave-flow" d={WAVE} stroke="url(#favflow)" />
             </svg>
 
             {SLOTS.map((s, i) => {
               const g = picks[i];
               const top = s.y - 28 - s.h;
               return (
-                <div key={i} className={`fav-slot${i === 2 ? " center" : ""}`} style={{ left: `${s.x}%`, top: 0 }}>
+                <div key={i} className={`fav-slot${i === 2 ? " center" : ""}`} style={{ left: `${s.x}%`, top: 0, "--d": Math.abs(i - 2) } as CSSProperties}>
                   <span className="fav-stem" style={{ top: s.y - 28, height: 28 }} />
                   <span className="fav-dot" style={{ top: s.y - 8 }} />
                   {g ? (
@@ -173,11 +223,11 @@ export function Dashboard({
         </div>
       </section>
 
-      <section className="stats-strip glass">
-        <BigStat value={data.games.length} label="Games Collected" />
-        <BigStat value={completed} label="Completed" />
-        <BigStat value={playedThisYear} label={`Played in ${year}`} accent />
-        <BigStat value={wishlist} label="Wishlist" />
+      <section ref={stripRef} className="stats-strip glass">
+        <BigStat on={stripOn} value={data.games.length} label="Games Collected" />
+        <BigStat on={stripOn} value={completed} label="Completed" />
+        <BigStat on={stripOn} value={playedThisYear} label={`Played in ${year}`} accent />
+        <BigStat on={stripOn} value={wishlist} label="Wishlist" />
       </section>
 
       <section className="section">
