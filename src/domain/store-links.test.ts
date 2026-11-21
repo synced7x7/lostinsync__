@@ -31,4 +31,11 @@ describe("storeLinksFromExternal", () => {
   it("returns an empty list for no rows", () => {
     expect(storeLinksFromExternal([])).toEqual([]);
   });
+
+  it("hides links from the removed storefront source", () => {
+    expect(storeLinksFromExternal([
+      { source: 5, url: "https://example.com/removed" },
+      { source: 1, url: "https://store.steampowered.com/app/620" },
+    ])).toEqual([{ source: 1, url: "https://store.steampowered.com/app/620" }]);
+  });
 });

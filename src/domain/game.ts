@@ -17,10 +17,17 @@ export type Game = {
   gameType?: string; gameStatus?: string; franchises?: string[];
   themes?: string[]; playerPerspectives?: string[];
   igdbUpdatedAt?: number; backloggdId?: string;   bundleGames?: BundleGame[];
+  // Optional store-sync fields (one-way, desktop only). Never refreshed by IGDB sync.
+  storeLinks?: StoreLink[]; steamPlaytimeSeconds?: number; lastPlayedAt?: string; storeAchievements?: StoreAchievements;
 
 };
 
 export type BundleGame = { id: number; name: string; cover?: string; releaseTs?: number };
+
+/** Store sync is desktop-only; the ids are optional so old builds and the web app ignore them. */
+export type StoreId = "steam" | "epic";
+export type StoreLink = { store: StoreId; id: string };
+export type StoreAchievements = { achieved: number; total: number; firstUnlockUnix?: number };
 export type Profile = { displayName: string; bio: string; accent: string; picture?: string; topFive?: string[] }; export type GridSize = "sm" | "md" | "lg";
 export type LibraryLayout = "ps4" | "catalog";
 export type LibrarySort = "recent" | "completion" | "playtime" | "rating" | "igdbRating" | "title" | "releaseDate" | "avgTime" | "mainTime" | "fullTime";
@@ -42,8 +49,13 @@ export type AppSettings = {
   journeyFit?: boolean;
   igdbClientId?: string;
   igdbClientSecret?: string;
+  // Steam Web API credentials live with the app settings (like IGDB) and are stripped from backups.
+  steamApiKey?: string;
+  steamId?: string;
   lastIgdbSyncAt?: string;
   libraryGameType?: string;
+  lastStoreSyncAt?: string;
+  storeSyncSource?: StoreId;
 };
 export type CollectionItem = { igdbId?: number; gameId?: string; name: string; cover?: string };
 export type Collection = { id: string; name: string; description?: string; items: CollectionItem[]; image?: string;};

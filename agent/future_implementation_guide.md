@@ -1,12 +1,12 @@
 # future_implementation_guide.md — feature-specific navigation for AI agents
 
-> **Documentation only.** This file tells future agents where to work; it does not implement anything. Every "existing" path below was verified in the repository on 2026-11-19. Paths marked **[proposed]** do not exist yet. Line numbers are starting points and may drift — verify before editing.
+> **Documentation only.** This file tells future agents where to work; it does not implement anything. Existing paths were verified on 2026-11-19 and refreshed for store import on 2026-11-21. Paths marked **[proposed]** do not exist yet. Line numbers are starting points and may drift — verify before editing.
 >
 > Reading order: `PROJECT_CONTEXT.md` → `PROJECT_STATUS.md` → the relevant feature entry here → only the listed files and their immediate dependencies.
 
 **Feature index:** A. Improvements — 1 Played/completed inline, 2 Fit All sort, 3 Gameplay time stats, 4 Discover algorithm, 5 Theme system, 6 WebApp, 7 Android, 8 Add Game search bug, 9 Steam sync, 10 Backlog priority / play next. B. Wishlist — 11 Wishlist extras, 12 Platform ownership, 13 Franchise completion. C. Import/export — 14 More import sources, 15 Shareable card. D. PWA — 16 Installation & offline caching.
 
-**Completed (2026-11-19):** features 1 (Add Game IGDB dropdown closes on outside click / Escape), 2 (Fit All ascending/descending toggle) and 3 (dedicated Playtime stats category from recorded `totalSeconds`). All are verified in source; see their entries below. Feature 1's heading is legacy — its tracked request was re-scoped to the dropdown issue, and inline Played/Completed editing was not implemented.
+**Completed:** features 1 (Add Game IGDB dropdown closes on outside click / Escape), 2 (Fit All ascending/descending toggle), 3 (dedicated Playtime stats category from recorded `totalSeconds`) and 9 (desktop one-way store import/Steam sync, 2026-11-21). All are verified in source; see their entries below. Feature 1's heading is legacy — its tracked request was re-scoped to the dropdown issue, and inline Played/Completed editing was not implemented.
 
 ---
 
@@ -193,45 +193,111 @@
 
 ---
 
-## 9. Steam Synchronization
+# 9. Steam and Epic Synchronization (one-way store library import)
 
-**Objective:** Integrate Steam library/playtime/achievement data with the local library.
+**Status: Implemented (2026-11-21).** Source-level checks pass; live Steam and Epic re-fetch QA is still pending. This entry is kept as the implementation record for feature 9.
 
-**Current Implementation:**
+Objective: Import owned games, playtime, wishlist data and achievements from Steam, and owned games from Epic Games, into the local library. DESKTOP ONLY. The web app gets the result only through the normal JSON export/import.
 
-- No Steam code exists. Grep matches only the planned Steam items in `docs/roadmap.md` (Phase 4) and platform strings such as `SteamOS`/`Steam Deck` in `src/data/platform.ts:1,3,10`.
-- `Game` has `igdbId?: number` (`src/domain/game.ts:11`) and `backloggdId?: string` (`:19`) but no Steam identifier.
-- Import precedent: `src/data/backloggd.ts` — `BlEntry` (`:15`), `ImportReport` (`:17-28`), `mapEntry()` (`:59-135`), `withRetry()` (`:137-145`), `importBackloggd()` (`:147-205`, dedupe by `igdbId` at `:152-161`, chunking, abort, strict `/ ` search fallback at `:183-190`, report helpers `:207-223`).
-- Sync precedent: `src/data/sync.ts` — `FIELDS` allow-list (`:28-47`), `buildPatch()` (`:49-68`) preserving user fields, `applyPatches()` (`:70-78`), `syncWithIgdb()` (`:80-154`).
-- Settings UI precedent: `BackloggdSection` in `src/features/settings-data.tsx:233-343` (phase state machine, progress, cancel, report).
-- IGDB primitives: `igdbSearch`, `igdbImportBatch`, `igdbPlatforms` (`src/data/igdb.ts:58-120`).
-- Web worker allow-list has no Steam endpoints (`web/worker/src/index.ts:6-9`); desktop CSP allows only IGDB/Twitch (`src-tauri/tauri.conf.json:24`).
+DECISIONS (final, from owner)
+- Desktop-only feature. Do NOT add store connections to the web app. Skip all `web/*` items (worker allow-list, igdb.web.ts, vite config, env.d.ts). No web proxy.
+- Stores in scope: Steam and Epic Games. Other stores are out of scope.
+- This relaxes the old "never touch the offline app" rule for this feature only. Changes are additive: new files, new optional fields, no change to existing behaviour.
+- JSON export/import stays interchangeable desktop <-> web. Store-imported games use the existing Game schema. New fields are optional so old builds and the web ignore them.
+- Never put store credentials/tokens in the export or the web Drive snapshot. Strip them exactly like the IGDB creds.
+- Store-imported games use remote IGDB image URLs for cover/screenshots. Do NOT save store art into the desktop `images/` folder.
+- Two-way sync is out of scope. Stores are a one-way source.
+- Status is set on first import only. Re-sync refreshes store-owned fields but never overwrites manual status.
+- Epic sign-in controls follow connection status: they are hidden after a successful connection and reappear when the token is missing or removed.
 
-**Probable Files to Modify:**
+ARCHITECTURE (connector pattern)
+- One small connector contract per store: `id`, `name`, `capabilities`, normalized `StoreRecord`, one desktop-only settings UI.
+- Shared logic: normalize, match to IGDB, cache the match, dedupe/merge, build the `Game`, report + progress UI, and a "needs review" list for unmatched games.
+- Identity of a game = `(store, storeId)`. Saved as optional `storeLinks?: {store, id}[]` so re-sync never duplicates and it survives export/import.
+- Capability flags (needs sign-in, has playtime, has achievements, uses OAuth) let the UI adapt without store-specific branches.
+- All store HTTP runs in Rust (`src-tauri/src/stores.rs`, called from Tauri commands in `lib.rs`). Epic tokens live in a Rust-managed credentials file; Steam keys/SteamID64 live in desktop settings like IGDB keys. The webview never sees tokens.
+- Every endpoint URL lives in the Rust connector module so an unofficial API change is a one-file fix.
 
-- `src/domain/game.ts` — Steam identifiers/fields near `:11,19` and settings near `:29-47`.
-- `src/features/settings-data.tsx` — new Steam section near `BackloggdSection` (`:233+`).
-- `src/data/sync.ts` — ensure Steam-derived fields are not overwritten by IGDB `FIELDS` (`:28-47`).
-- `src/data/backloggd.ts` — reuse/extend report helpers (do not assume IGDB-id-only dedupe is enough).
-- `src-tauri/src/lib.rs` and `src-tauri/tauri.conf.json:24` — only if a native proxy command is needed.
-- `web/src/igdb.web.ts`, `web/worker/src/index.ts`, `web/vite.config.ts`, `web/src/env.d.ts` — only if web Steam support is in scope.
+STORE ENDPOINTS
 
-**Potential New Files (proposed):**
+Steam (official Web API)
+- Owned games: `GET https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/` with `key`, `steamid`, `include_appinfo=1`, `include_played_free_games=1`, `include_all_free_games=1`, `include_free_sub=1`, `skip_unvetted_apps=0`, `format=json`.
+  - Returns `response.game_count` and `response.games[]` with `appid`, `name`, `playtime_forever` (MINUTES), `playtime_2weeks`, `rtime_last_played` (unix seconds), and related fields.
+- Achievements: `GET https://api.steampowered.com/ISteamUserStats/GetPlayerAchievements/v1/?key&steamid&appid`. `achieved` and `unlocktime` feed achievement counts and start date; `success: false` is treated as zero achievements, not an error.
+- Store metadata, no key: `GET https://store.steampowered.com/api/appdetails?appids=ID&filters=basic`.
+- Auth: user's free Web API key + 17-digit SteamID64. A key does NOT override privacy. Profile "Game details" must be Public; zero playtime is not a private-profile signal. Claimed free games with no launch history are imported as `Backlog`.
+- Wishlist: `GET https://api.steampowered.com/IWishlistService/GetWishlist/v1/?steamid=STEAMID64&format=json`. It returns app ids only, so Rust resolves names from owned-game titles first, then appdetails. Private/empty wishlists produce a warning, not a failure. Ownership wins when an app is in both lists.
 
-- **[proposed]** `src/data/steam.ts`, `src/data/steam-sync.ts`, `src/features/steam-settings.tsx`, `src/data/steam.test.ts`, `src/data/steam-sync.test.ts`, optionally `web/src/steam.web.ts`.
+Epic Games (unofficial; no official public library API)
+- Auth: OAuth2 with Epic's public launcher client id. The user opens the browser sign-in URL, signs in, copies the `authorizationCode`, and Rust exchanges it for an access token. Tokens are stored only in `<app_data>/store-credentials.json`.
+- Library: `GET https://library-service.live.use1a.on.epicgames.com/library/api/public/items?includeMetadata=true&cursor=CURSOR`, paginated by cursor with a Bearer token.
+- Catalog details: `GET https://catalog-public-service-prod06.ol.epicgames.com/catalog/api/shared/namespace/{namespace}/bulk/items?id={catalogItemId}&includeDLCDetails=true&includeMainGameDetails=true&country=US&locale=en`, used to resolve missing display names and to provide a direct IGDB lookup key.
+- `ue` namespace items are skipped and catalog ids are de-duplicated.
+- Playtime, last played and achievements are not inferred; Epic is ownership-only.
+- IGDB `external_games` source for Epic is 26.
 
-**Implementation Approach:** Treat Steam as a one-way authoritative source for owned games and playtime: authenticate/resolve user, fetch owned games, map app IDs to IGDB IDs (exact app-id mapping first, then strict `/ ` name search), dedupe against existing `igdbId`/normalized titles, and import via the same report/progress pattern as Backloggd. Refresh only Steam-owned fields; never overwrite user fields. Reframe the roadmap's "two-way sync" unless a supported write path is verified.
+IGDB MATCHING ORDER (shared)
+1. Epic: direct `igdb_epic_lookup` by catalog item id / `external_games.uid`, with title tie-breaking. Steam: direct `igdb_external_lookup` by `(source, uid)`; source ids are Steam 1 and Epic 26.
+2. Fallback: cleaned Epic titles strip trademark marks and common edition suffixes. Strict `/ ` title search, then a unique normalized-title match.
+3. Ambiguous or missing matches go to the "needs review" list; no fuzzy guess is made.
+4. Cache `(store, storeId) -> igdbId` for the current session. Stored `storeLinks` survive across sessions and later syncs can enrich a previously unmatched game.
 
-**Dependencies and Integrations:** Feeds platform ownership (12), gameplay time stats (3), import sources (14), stats, settings UI, possibly Tauri/web proxy.
+MAPPING (what stores can fill)
+- Owned list, title, store id: Steam and Epic. Wishlist: Steam only.
+- Total playtime: Steam (`playtime_forever` minutes -> `totalSeconds`). Epic does not provide it.
+- Last played: Steam `rtime_last_played`.
+- Achievements: Steam only.
+- Purchase date: not reliably available.
+- Start date: earliest unlocked achievement time, otherwise the earlier of add date and last-played date, clamped so it never follows completion.
+- Status: wishlist -> `Wishlist`; no real play/last-played date -> `Backlog`; `playtime_2weeks > 0` -> `Playing`; played but not recent -> `Completed`, with `rtime_last_played` as the completion date. Epic first imports as `Backlog`.
+- Mastery: `platinumed = true` only when `total > 0 && achieved >= total`; zero-total games are never mastered.
+- Never overwrite user-entered fields. Re-sync refreshes only store-owned fields (playtime, last played, achievement counts, store ids) and leaves manual status edits alone.
 
-**Database Changes:** None at SQL level. Additive fields proposed: `steamAppId?`, optional `steamPlaytimeSeconds?`, `steamUpdatedAt?`, achievements list, and a settings-level Steam ID/key. If web credentials are added, strip them like IGDB creds in `web/src/repository.web.ts:14-17` so they never enter the Drive snapshot.
+CURRENT IMPLEMENTATION
+- `src/domain/game.ts` — optional `storeLinks`, `steamPlaytimeSeconds`, `lastPlayedAt`, `storeAchievements`; `StoreId = "steam" | "epic"`; `AppSettings.steamApiKey`, `steamId`, `lastStoreSyncAt`, `storeSyncSource`. No SQL migration was needed.
+- `src-tauri/src/stores.rs` — endpoint constants, Rust HTTP/auth, Steam owned/wishlist/achievement parsing, Epic library/catalog title resolution, `store-credentials.json`, and Epic token exchange. Rust `steam_owned_query()` sends the free-game flags; zero playtime is kept.
+- `src-tauri/src/lib.rs` — registers `stores_status`, `stores_auth_url`, `stores_complete_auth`, `stores_fetch`, `stores_fetch_achievements`, `igdb_external_lookup` and `igdb_epic_lookup`.
+- `src/data/stores/ipc.ts` — typed dynamic Tauri IPC wrappers; `__TAURI_INTERNALS__` gates desktop usage.
+- `src/data/stores/types.ts` — Steam/Epic connector catalog, capabilities, normalized `StoreRecord`, report types and `stripStoreCredentials`.
+- `src/data/stores/steam.ts` — pure parsers for owned games, keyless wishlist app ids, and achievements.
+- `src/data/stores/epic.ts` — pure parser for cursor-paged library records.
+- `src/data/stores/match.ts` — session-cached IGDB matching and Epic title cleanup.
+- `src/data/stores/import.ts` — `steamMapping`, `storePatch`, `buildStoreGame`, `fetchStoreRecords`, `importFromStore`; dedupe by `(store, storeId)` first, then IGDB id, then normalized title. Stores use only remote IGDB images.
+- `src/features/stores-settings.tsx` — desktop-only settings panel with Steam fields, status-driven Epic sign-in, fetch/import phases, progress, cancellation and a copyable report.
+- `src/features/settings-data.tsx` — strips IGDB/Steam credentials and store tokens from JSON export/import and preserves current-device keys.
+- `src/domain/store-links.ts` and `src/components/store-icons.tsx` — display IGDB storefront links/icons, hiding the removed source id.
+- `docs/store-import-guide.md` — user-facing setup and full field mapping.
+- `src/data/sync.ts` `FIELDS` was left unchanged; store-owned and user-owned fields are not refreshed by IGDB sync.
 
-**Potential Challenges:** External Steam auth/API limits (privacy settings, key restrictions, terms) — **not verifiable from this repo**; no app-id→IGDB mapping exists; Steam playtime units/meaning differ from local `totalSeconds`; achievement availability varies by game; CORS/proxy needed for web; "two-way" likely infeasible.
+Steam behavior (implemented)
+- Owned games include all free licenses, including claimed-but-never-launched titles; *Game of Thrones Kingsroad* (app 4214820) is the regression case.
+- Wishlist uses `IWishlistService/GetWishlist/v1`, resolves app-id titles from owned games or appdetails, and yields to ownership when duplicated.
+- Achievements are always fetched for owned games; `success: false` means no achievements. Earliest unlocked time feeds `startedAt`; all-unlocked with a non-zero total sets `platinumed`.
+- Played requires both `playtimeMinutes > 0` and a real `lastPlayedUnix`; otherwise the game is `Backlog` (or `Wishlist` when wishlist-only).
+- Recently played (`playtime_2weeks > 0`) -> `Playing` with no completion date. Played but not recent -> `Completed` with `finishedAt = rtime_last_played`.
+- `totalSeconds` is replaced only when it is still Steam's value or untouched; user-entered playtime and status survive later syncs.
 
-**Testing Requirements:** Vitest tests with mocked Steam fixtures (owned-games parsing, playtime conversion, achievement mapping, dedupe priority, user-field preservation, private-profile cases); manual QA with a real account; never call live APIs in tests.
+Epic behavior (implemented)
+- Sign-in controls are shown only while the panel is not connected; tab changes and failed fetches refresh connection status.
+- Library records are de-duplicated by catalog id; `ue` namespace items are skipped; missing titles are resolved through the public catalog endpoint.
+- Matching tries the catalog id against IGDB first, then a cleaned strict/unique title search. Previously unmatched games can be enriched on a later re-sync.
+- First import sets `Backlog`. No playtime, dates, achievements or mastery are guessed.
 
-**Investigation Required:** Steam auth strategy (WebAPI key vs OAuth vs user-exported file), actual API rights/privacy behavior, achievement availability, whether web support is required, credential storage policy. External references (not code-verified): Steamworks Web API overview/auth/OAuth docs and endpoints `ISteamUser/GetOwnedGames`, `ISteamUserStats/GetUserStatsForGame`, `ISteamUserStats/GetSchemaForGame`.
+Connector coverage and limits
+- Steam: official API, fully implemented; live QA still needed after the free-game fix.
+- Epic: unofficial launcher API, ownership-only; live behavior can break without notice.
+- IGDB source ids: Steam 1 and Epic 26. Unmatched or ambiguous games are imported locally with a reason and listed for review.
+- No community-XML/SteamID vanity fallback was added; users enter a 17-digit SteamID64.
 
+Testing (implemented, mocked only)
+- Vitest: 8 files / 63 tests covering parsers, connector catalog, dedupe priority, IGDB matching, title cleanup, status/date/mastery rules, user-field preservation and report generation.
+- Rust: 9 unit tests (4 in `stores.rs`, 5 in `lib.rs`) for free-game flags, achievement handling, Epic token/title resolution and IGDB helper queries.
+- Verification run on 2026-11-21: `pnpm test`, `pnpm typecheck`, `pnpm build`, `cargo check --all-targets` and `cargo test` pass.
+
+Open items / risks
+- Live re-fetch in `pnpm tauri:dev` must confirm that *Game of Thrones Kingsroad* appears as `Backlog`.
+- Live Epic QA must confirm that previously needs-review games are now linked/enriched; no credentials should be logged during QA.
+- CSV/pasted-title import remains a separate pending feature and can now reuse this pipeline.
 ---
 
 ## 10. Backlog Priority and "What Should I Play Next?"
@@ -348,7 +414,7 @@
 
 **Implementation Approach:** Add an optional array such as `ownership?: { platform: string; store?: string; medium?: "physical" | "digital" }[]`; provide a curated storefront list (separate from `ALL_PLATFORMS`); migrate/display legacy games using `platform`/`playedPlatforms` as a single default entry; extend Stats carefully to avoid double-counting.
 
-**Dependencies and Integrations:** Platform helpers, PlatformPicker, AddGame form, Details, Stats, importer, CSV, future Steam sync (feature 9).
+**Dependencies and Integrations:** Platform helpers, PlatformPicker, AddGame form, Details, Stats, importer, CSV, implemented Steam/store import (feature 9).
 
 **Database Changes:** None at SQL level; additive JSON field with `undefined` for old games; no changes to sync allow-list (ownership is user-owned).
 
@@ -425,11 +491,11 @@
 
 **Potential New Files (proposed):**
 
-- **[proposed]** `src/data/import.ts` (parse → resolve IGDB → map → dedupe → report), `src/data/csv.ts`, `src/data/import.test.ts`, `src/data/steam.ts` (source adapter, see feature 9), `src/features/import-sources.tsx` (paste-a-list UI).
+- **[proposed]** `src/data/csv.ts`, `src/data/import.test.ts`, `src/features/import-sources.tsx` (paste-a-list UI). The generic parse → resolve IGDB → map → dedupe → report pipeline already exists as `src/data/stores/import.ts`; the Steam source adapter is `src/data/stores/steam.ts` from feature 9.
 
-**Implementation Approach:** Extract the generic parts of `importBackloggd` (progress/report types, `withRetry`, chunking, dedupe, strict search fallback) into a shared pipeline; implement three thin adapters (CSV parser, Steam adapter reusing feature 9, pasted-title resolver). Round-trip compatibility with `toCsv()` (`settings-data.tsx:29-37`) is a sensible CSV target format. Show one consistent progress/report UI.
+**Implementation Approach:** Reuse the shared pipeline already shipped in `src/data/stores/import.ts` (IGDB matching, dedupe, cancellation, progress/report); add thin CSV and pasted-title adapters rather than another importer engine. Round-trip compatibility with `toCsv()` in `settings-data.tsx` is a sensible CSV target format. Show one consistent progress/report UI.
 
-**Dependencies and Integrations:** Settings UI, IGDB search/batch, Backloggd engine, sync/report helpers, CSV export, Steam sync (feature 9), web proxy if web support is needed.
+**Dependencies and Integrations:** Settings UI, IGDB search/batch, Backloggd engine, sync/report helpers, CSV export, `src/data/stores/import.ts` from feature 9, web proxy only if web support is needed (store import itself is desktop-only).
 
 **Database Changes:** None at SQL level. Optional `importSource?`/`sourceId?` fields are backward-compatible JSON additions; keep them out of IGDB `FIELDS`.
 
@@ -437,7 +503,7 @@
 
 **Testing Requirements:** Vitest tests for CSV/paste parsers (quoting, BOM, headers, malformed rows), dedupe, report generation, `Game` mapping with mocked IGDB; component tests for the `Phase` machine only if a React test helper is added; manual QA of cancel/progress.
 
-**Investigation Required:** Target CSV format, Steam data source (export file vs WebAPI), disambiguation policy for pasted titles, merge-vs-skip policy for duplicates without IGDB IDs, and whether all sources must work in the web build.
+**Investigation Required:** Target CSV format, disambiguation policy for pasted titles, merge-vs-skip policy for duplicates without IGDB IDs, and whether CSV/paste must work in the web build (Steam/store import does not).
 
 ---
 
@@ -463,8 +529,8 @@ No dates are assigned. Ordering is by dependency, complexity, and risk to existi
 8. **10** What Should I Play Next (depends on 4 + backlog/priority fields).
 
 **Phase 4 — Higher-risk import/sync (network, rate limits, duplicates)**
-9. **14** reusable import pipeline + CSV/paste adapters (reuse `toCsv` shape and `importBackloggd`).
-10. **9** Steam sync (depends on 12, 3, 14; auth strategy must be decided first).
+9. ~~**9** Steam sync~~ — completed (2026-11-21): `src/data/stores/`, `src/features/stores-settings.tsx`, `src-tauri/src/stores.rs`; only live re-fetch QA remains.
+10. **14** reusable import pipeline + CSV/paste adapters (the pipeline now exists in `src/data/stores/import.ts`; add CSV/paste adapters).
 
 **Phase 5 — Presentation**
 11. **15** shareable card (after stats/badge data is stable and theme direction is known).
@@ -517,6 +583,6 @@ The original task that produced this guide was documentation-only ("Only the thr
 
 # PART 7 — VERIFICATION NOTES AND UNCERTAIN ASSUMPTIONS
 
-- **Verified directly:** file paths, route table, `AppData`/`Game` field lists, 16 Tauri command names (including `igdb_external_games`), `app_state` schema, `FIELDS` sync allow-list, LRU cache implementation, module-swap map, env var names, absence of PWA/manifest/service worker, absence of Steam/priority/ownership/price fields, existing tests.
-- **Uncertain / needs investigation at implementation time:** exact Add Game search bug reproduction; "Played On" semantics; authoritative franchise total source; Steam API/auth availability and "two-way" feasibility; share-card image/CORS feasibility; authoritative web deploy target (Vercel vs Cloudflare Pages); whether stale `web/worker/src/*` duplicates are intentional; exact Tauri Android generated layout and mobile capability schema; product definitions for mood/time/genre recommendation scoring and "total wishlist spending".
-- **Documentation status:** all files in `docs/` were refreshed against source on 2026-11-19 and are consistent with this guide. The root `README.md` and `web/README.md` still contain stale claims (project structure, deploy target, Drive scopes, `.env.example`); use code and this guide for those.
+- **Verified directly:** file paths, route table, `AppData`/`Game` field lists (including optional store fields), 23 Tauri command names (IGDB + `stores_*` + `igdb_external_lookup` + `igdb_epic_lookup`), `app_state` schema, `FIELDS` sync allow-list, LRU cache implementation, module-swap map, env var names, absence of PWA/manifest/service worker, and current test counts (63 Vitest + 9 Rust).
+- **Uncertain / needs investigation at implementation time:** exact Add Game search bug reproduction; "Played On" semantics; authoritative franchise total source; live Steam re-fetch result after the free-game fix; live Epic launcher behavior and needs-review enrichment; share-card image/CORS feasibility; authoritative web deploy target (Vercel vs Cloudflare Pages); whether stale `web/worker/src/*` duplicates are intentional; exact Tauri Android generated layout and mobile capability schema; product definitions for mood/time/genre recommendation scoring and "total wishlist spending".
+- **Documentation status:** store-related files in `docs/`, the root `README.md` and this knowledge base were refreshed against source on 2026-11-21. `web/README.md` still contains stale claims (deploy target, Drive scopes, `.env.example`); use code and this guide for those.

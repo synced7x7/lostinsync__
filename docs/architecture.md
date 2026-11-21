@@ -1,10 +1,10 @@
 # Architecture
 
-> **Verified against source on 2026-11-19.** Cross-cutting details and exact line references live in `agent/PROJECT_CONTEXT.md`; this document is the concise architecture overview.
+> **Verified against source on 2026-11-21.** Cross-cutting details and exact line references live in `agent/PROJECT_CONTEXT.md`; this document is the concise architecture overview.
 
 ## Overview
 
-Lost in Sync follows a layered architecture: domain logic, persistence, and UI are separated, but **routing, shared state, the Library views, and the Game Details view live in `src/main.tsx`**. The Rust backend is a command layer over a single-row SQLite document store plus an IGDB proxy. React state drives the entire UI from one `AppData` document.
+Lost in Sync follows a layered architecture: domain logic, persistence, and UI are separated, but **routing, shared state, the Library views, and the Game Details view live in `src/main.tsx`**. The Rust backend is a command layer over a single-row SQLite document store, an IGDB proxy, and desktop-only store connectors. React state drives the entire UI from one `AppData` document.
 
 ```
 index.html ──> src/main.tsx (React root: manual routing, AppData state, Library, Details)
@@ -15,9 +15,10 @@ index.html ──> src/main.tsx (React root: manual routing, AppData state, Libr
                     │ Tauri IPC (invoke)
                     ▼
       src-tauri/src/lib.rs
-        15 #[tauri::command] functions
+        23 #[tauri::command] functions
         SQLite: app_state.data_json (1 row)
         IGDB proxy: Twitch OAuth + REST
+        Desktop store commands -> stores.rs (HTTP + token file)
         images/ folder: content-addressed files
 
 web/index.html ──> web/src/entry.tsx ──> init() Drive sync ──> import("../../src/main")
@@ -33,14 +34,14 @@ web/index.html ──> web/src/entry.tsx ──> init() Drive sync ──> impor
 
 | File | Contents |
 |---|---|
-| `game.ts` | `STATUSES`, `Status`, `View`, `Game`, `BundleGame`, `Profile`, `GridSize`, `LibraryLayout`, `LibrarySort`, `SortDirection`, `AppSettings`, `CollectionItem`, `Collection`, `AppData`, `defaultData`, and helpers `validateGame`, `formatPlaytime`, `formatCount`, `formatHours` |
+| `game.ts` | `STATUSES`, `Status`, `View`, `Game`, store types (`StoreId`, `StoreLink`, `StoreAchievements`), `BundleGame`, `Profile`, `GridSize`, `LibraryLayout`, `LibrarySort`, `SortDirection`, `AppSettings` (including optional Steam/store fields), `CollectionItem`, `Collection`, `AppData`, `defaultData`, and helpers `validateGame`, `formatPlaytime`, `formatCount`, `formatHours` |
 | `gametype.ts` | IGDB game-type constants (`GAME_TYPES`), `matchesGameType`, `isBundle`, `slimBundle`, `sameBundle` |
 | `library-session.ts` | `LibraryPrefs`, `libraryDefaults`, `SORT_OPTIONS`, module-level `librarySession` (memory only) |
 | `stats.ts` | `index()` row model, `CATEGORIES`, 14 section builders (incl. `playtime()`), ECharts option builders, `build()` |
 | `playtime.ts` | `playtimeHours`, `summarizePlaytime`, `playtimeBuckets` — pure aggregation of recorded `totalSeconds` for the Stats Playtime category |
 | `store-links.ts` | `storeLinksFromExternal`, `storeLabel` — de-duplicate IGDB `external_games` rows, validate URLs, order known storefronts, map source IDs to names |
 | `trophies.ts` | Six rarity tiers (`RARITY_RANK`, `RARITY_LABEL`), `TROPHIES`, `DEV_FAVORITES`, `GOTY`, `evaluate`, `topBadge`, `RARITY_COLOR` |
-| `game.test.ts`, `journey-sort.test.ts`, `playtime.test.ts`, `store-links.test.ts` | Vitest tests for game rules (2), Journey Fit All sorting (4), playtime aggregation (8) and store-link filtering/ordering (4) — 18 total |
+| `game.test.ts`, `journey-sort.test.ts`, `playtime.test.ts`, `store-links.test.ts`, `stores/*.test.ts` | 8 Vitest files / 57 tests covering game rules, Journey sorting, playtime, IGDB store links and store parsers/matching/import mapping; Rust `stores.rs` adds 3 unit tests |
 
 ### `src/data/`
 
@@ -50,6 +51,7 @@ web/index.html ──> web/src/entry.tsx ──> init() Drive sync ──> impor
 | `igdb.ts` | Typed wrappers for all 11 IGDB commands plus `hasTauri`; `memo()` provides a **bounded LRU + 20-minute TTL** cache (`igdbDetailsCached`, `igdbImagesCached`, `igdbDiscoverCached`, `igdbDiscoverFeedCached`, bundle cache, `igdbExternalGamesCached`) |
 | `sync.ts` | `syncWithIgdb`: refresh only IGDB-owned fields from an explicit `FIELDS` allow-list; chunked import with patch reports |
 | `backloggd.ts` | Backloggd CSV importer: `mapEntry`, `withRetry`, `importBackloggd`, dedupe by `igdbId`, abort/report helpers |
+| `stores/` | Desktop store IPC wrappers, connector catalog, Steam parsers, shared IGDB matcher and one-way import pipeline with reports |
 | `platform.ts` | `ALL_PLATFORMS`, `PC`, aliases, `emulatedOn()` |
 
 ### `src/components/`
@@ -77,6 +79,7 @@ Self-contained view components with co-located CSS:
 | `overview.tsx` | `ProfileSection`, collection actions, canvas image helpers |
 | `media.tsx` | Screenshot carousel + YouTube embeds |
 | `series.tsx` / `bundle.tsx` | Franchise tree browser / bundle contents |
+| `stores-settings.tsx` | Desktop-only store connector UI: credentials/sign-in, fetch, progress, one-way import and copyable reports |
 | `settings.tsx` / `settings-data.tsx` | Settings view, appearance defaults / JSON + CSV export, JSON import, Backloggd import, IGDB sync |
 
 **Note:** `Details`, `LibraryView`, `PS4ShelfView`, and `GridLibraryView` are defined in **`src/main.tsx`**, not in `library-components.tsx`.
@@ -96,7 +99,7 @@ The application root. Responsibilities:
 
 ## Backend (Tauri Commands)
 
-All commands live in `src-tauri/src/lib.rs`; the binary entry is `src-tauri/src/main.rs`. There are no controllers, services, middleware, or background processes. All 16 commands are registered in `generate_handler!` at `lib.rs:1214-1231`.
+All commands are declared in `src-tauri/src/lib.rs`; store implementations live in `src-tauri/src/stores.rs`. The binary entry is `src-tauri/src/main.rs`. There are no controllers, services, middleware, or background processes. All 23 commands are registered in `generate_handler!` at the end of `lib.rs`.
 
 ### Persistence / file commands
 
@@ -125,6 +128,22 @@ All commands live in `src-tauri/src/lib.rs`; the binary entry is `src-tauri/src/
 | `igdb_external_games` | Exact storefront entries for a game from `external_games` (source, URL, name, platform, year) |
 | `igdb_sync_check` | Bulk `updated_at` check (500 IDs/request) |
 | `igdb_import_batch` | Details + images + TTB in ~3 requests (bulk import/sync) |
+| `igdb_external_lookup` | Direct `external_games` lookup by store uid (modern field with legacy `category` fallback) |
+| `igdb_epic_lookup` | Epic catalog-id lookup by `external_games.uid`, with title tie-breaking |
+
+### Desktop store commands
+
+`src-tauri/src/stores.rs` owns every store URL, all HTTP calls, and the `store-credentials.json` file in the app-data directory. The webview receives only normalized records, connection status and achievement counts.
+
+| Command | Description |
+|---|---|
+| `stores_status` | Connection flags for Steam (from supplied key/ID) and Epic (stored token) |
+| `stores_auth_url` | Returns the Epic browser sign-in URL |
+| `stores_complete_auth` | Exchanges an authorization code and stores the Epic token locally |
+| `stores_fetch` | Fetches normalized owned/wishlist records for the selected store |
+| `stores_fetch_achievements` | Steam achievement counts and earliest unlock; non-Steam stores return zero totals |
+
+Steam's owned-games request includes `include_all_free_games`, `include_free_sub`, `include_played_free_games` and `skip_unvetted_apps=0`, so free games claimed but never launched are returned. Wishlist titles come from the keyless `IWishlistService/GetWishlist/v1/` endpoint; Rust resolves its app ids with owned-game titles first and `store.steampowered.com/api/appdetails` second. Zero playtime is no longer treated as a private-profile error. User-facing setup and the full field mapping are documented in [`docs/store-import-guide.md`](store-import-guide.md).
 
 ### Web proxy
 
@@ -132,7 +151,7 @@ All commands live in `src-tauri/src/lib.rs`; the binary entry is `src-tauri/src/
 
 ### Security / capabilities
 
-`src-tauri/capabilities/default.json` grants `core:default`, `opener:default`, and `dialog:default` to window `main` only — no `fs`, `shell`, `http`, or `notification` permissions. CSP and the `$APPDATA/images/**` asset scope are in `src-tauri/tauri.conf.json:23-26`. The opener plugin is initialized only in debug builds (`lib.rs:1181-1183`).
+`src-tauri/capabilities/default.json` grants `core:default`, `opener:default`, and `dialog:default` to window `main` only — no `fs`, `shell`, `http`, or `notification` permissions. CSP and the `$APPDATA/images/**` asset scope are in `src-tauri/tauri.conf.json:23-26`. The opener plugin is registered for all desktop builds so store sign-in and media links open in the system browser. Epic tokens are written by Rust to `<app_data>/store-credentials.json`; Steam keys/SteamID64 remain optional `AppSettings` fields. Neither is included in JSON exports or web Drive snapshots.
 
 ---
 
@@ -193,4 +212,5 @@ App mounts → repo.load()
 | Image externalization | Large base64 values become hash-named files/blobs; saves stay small. |
 | Session-only Library/Journey prefs | Memory-only by design; `AppSettings.journeyRange/Zoom/Fit` are declared but unused. |
 | Web via 3 module swaps | Web reuses all shared `src/` code unchanged; only IGDB, repository, and settings-data are swapped. |
+| Desktop-only store import | Store HTTP/token handling lives in Rust; the shared UI hides the panel in web builds. Optional store fields and ids travel through JSON exports without credentials. |
 | Single static "Aurora" theme | CSS variables exist, but there is no runtime theme switching and many hard-coded colors remain. |

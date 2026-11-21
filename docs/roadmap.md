@@ -1,6 +1,6 @@
 # Project Roadmap
 
-> **Verified against source on 2026-11-19.** Items are marked complete only when implemented in code. The detailed, file-specific plans for every pending item are in `agent/future_implementation_guide.md`.
+> **Verified against source on 2026-11-21.** Items are marked complete only when implemented in code. The detailed, file-specific plans for every pending item are in `agent/future_implementation_guide.md`.
 
 This document outlines completed milestones and future enhancements for **Lost in Sync**.
 
@@ -34,6 +34,14 @@ This document outlines completed milestones and future enhancements for **Lost i
 - [x] Bounded LRU + TTL caches on all IGDB client calls.
 - [x] IGDB metadata sync with a field allow-list and progress reports.
 - [x] Backloggd CSV importer with dedupe, retries, cancellation, and reports.
+
+### Store Import (Desktop Only)
+- [x] One-way store connector framework with Steam and Epic Games adapters; all store HTTP and OAuth/token storage remains in Rust.
+- [x] Steam owned-games, free-games, public wishlist and achievement fetches with playtime, date, status and mastery mapping.
+- [x] Shared IGDB matching and import pipeline with dedupe, cancellation, progress, needs-review and failure reports.
+- [x] Optional store fields survive JSON export/import; credentials never enter backups or web Drive snapshots.
+- [x] Desktop-only store settings UI; no web proxy or store connections were added.
+- [x] User-facing Steam/Epic import guide with status, date, playtime and mastery mapping; Epic sign-in controls appear only while disconnected.
 
 ### Visual Journey (Interactive Timeline)
 - [x] SVG connecting strands with cubic bezier curves and dynamic lane coloring.
@@ -73,10 +81,11 @@ The items below are **planned, not implemented**. See `agent/future_implementati
 - [ ] Shareable profile/statistics card.
 
 ### Phase 4 — Imports & synchronization
-- [ ] More import sources: CSV, Steam library, pasted title lists (via a reusable pipeline).
-- [ ] Steam library sync (playtime/achievements; authentication strategy to be decided).
+- [x] Steam library sync (owned/free games, wishlist, playtime and achievements) is implemented; re-fetch QA is pending after the free-game fix.
+- [ ] Remaining import sources: CSV and pasted title lists through the shared import pipeline.
+- [ ] Live QA for the unofficial Epic launcher endpoints.
 - [ ] Automated playtime tracking and multi-session logs.
-- [ ] Game launcher integration (Steam/GOG/local executables).
+- [ ] Game launcher integration (Steam/local executables).
 - [ ] Emulator deep links and playtime hooks.
 
 ### Phase 5 — Packaging & platform

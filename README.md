@@ -10,6 +10,8 @@
   <strong>A personal game library OS</strong>
   <br />
   Track your collection, explore new games, and visualize your gaming history.
+  <br />
+  On desktop, import your Steam and Epic Games libraries, wishlist, playtime and achievements directly into your collection.
 </p>
 
 > [!IMPORTANT]
@@ -54,7 +56,8 @@
 | Icons | Lucide React |
 | Persistence | SQLite via `rusqlite` (Tauri managed state); browser localStorage in web dev mode |
 | Images | Stored as files in the app data folder and referenced by name |
-| External data | IGDB API (Twitch OAuth2 client credentials) |
+| External data | IGDB API (Twitch OAuth2 client credentials); Steam Web API on desktop |
+| Desktop store import | One-way Steam and Epic Games connectors; all store HTTP and token storage stays in Rust |
 | Styling | Custom CSS variables, Aurora Glass dark theme |
 
 ---
@@ -130,7 +133,10 @@ Notes:
 - Library data is stored in a local SQLite database in the application data folder.
 - Large images (screenshots and background art) are written to an `images` folder next to the database. The saved data holds only short file references, which keeps saves small and fast.
 - Existing libraries that contain embedded images are migrated automatically on first launch. Back up your database before upgrading.
-- Use **Settings, Export** to create a JSON backup at any time.
+- Store-imported games use IGDB remote image URLs; store art is never written to the local `images` folder.
+- Steam API keys/SteamID64 are saved with app settings like the IGDB keys and are stripped from JSON backups. Epic OAuth tokens stay in a Rust-managed credentials file and never enter exports or Drive snapshots.
+- Use **Settings, Export** to create a JSON backup at any time. Store ids survive export/import so repeat imports link to the same games.
+- See `docs/store-import-guide.md` for Steam/Epic setup and the exact status, date, playtime and mastery mapping.
 
 ---
 
@@ -142,7 +148,7 @@ lostinsync__/
 │   ├── main.tsx                # App root, global state, routing, shelf and grid views
 │   ├── style.css               # Aurora Glass theme tokens and core layouts
 │   ├── domain/
-│   │   ├── game.ts             # Game type, Status, AppData, helper functions
+│   │   ├── game.ts             # Game type, Status, AppData, optional store fields/helpers
 │   │   ├── gametype.ts         # IGDB game-type filtering
 │   │   ├── library-session.ts  # Session-only Library filters and saved defaults
 │   │   ├── playtime.ts         # Recorded-totalSeconds aggregation for Stats
@@ -152,7 +158,8 @@ lostinsync__/
 │   │   └── stats.ts            # Statistics data builders
 │   ├── data/
 │   │   ├── repository.ts       # AppRepository: Tauri and localStorage adapters
-│   │   └── igdb.ts             # IGDB command wrappers with bounded caches
+│   │   ├── igdb.ts             # IGDB command wrappers with bounded caches
+│   │   └── stores/             # Desktop store connectors, IGDB matching, import pipeline, IPC and tests
 │   ├── components/
 │   │   ├── layout.tsx          # App layout and collapsible sidebar
 │   │   ├── navigation.ts       # Sidebar navigation items
@@ -169,10 +176,12 @@ lostinsync__/
 │       ├── media.tsx           # Screenshot carousel and video embeds
 │       ├── series.tsx          # Franchise and collection browser
 │       ├── bundle.tsx          # Bundle contents (DLC and editions)
+│       ├── stores-settings.tsx # Desktop-only store import UI, progress and reports
 │       └── settings-data.tsx   # Settings, Library defaults, credentials, export/import
 │
 ├── src-tauri/                  # Rust / Tauri backend
-│   ├── src/lib.rs              # Tauri commands (SQLite, image storage, IGDB proxy)
+│   ├── src/lib.rs              # Tauri commands (SQLite, images, IGDB and store IPC)
+│   ├── src/stores.rs           # Store HTTP, Steam achievements/wishlist, Epic token file
 │   ├── Cargo.toml
 │   └── tauri.conf.json
 │
@@ -184,7 +193,8 @@ lostinsync__/
 │   ├── features.md
 │   ├── igdb-image-endpoints.md
 │   ├── performance-optimization-report.md
-│   └── roadmap.md
+│   ├── roadmap.md
+│   └── store-import-guide.md
 │
 └── scripts/
     └── check-environment.ps1   # Verify Node, pnpm, and Rust are on PATH

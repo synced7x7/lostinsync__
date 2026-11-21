@@ -8,6 +8,8 @@ import { STATUSES } from "../domain/game";
 import type { AppSettings } from "../domain/game";
 import { GAME_TYPES, UNSET_TYPE } from "../domain/gametype";
 import { SORT_OPTIONS, librarySession, libraryDefaults } from "../domain/library-session";
+import { StoresSection } from "./stores-settings";
+import { stripStoreCredentials } from "../data/stores/types";
 
 type Notice = { kind: "success" | "error" | "info"; text: string };
 type Props = { data: AppData; update: (data: AppData) => void };
@@ -57,6 +59,7 @@ export function DataSection({ data, update }: Props) {
       <DeleteSection data={data} update={update} />
       <SyncSection data={data} update={update} />
       <BackloggdSection data={data} update={update} />
+      <StoresSection data={data} update={update} />
     </>
   );
 }
@@ -70,6 +73,7 @@ function StorageSection({ data, update }: Props) {
       const settings = { ...data.settings };
       delete settings.igdbClientId; // never write your IGDB keys into a backup file
       delete settings.igdbClientSecret;
+      stripStoreCredentials(settings); // Steam keys and store tokens are device-only too
       const res = await saveOrDownload(`lost-in-sync-backup-${stamp()}.json`, JSON.stringify({ ...data, settings }, null, 2), "application/json", "json", "JSON backup");
       setNotice(res
         ? { kind: "success", text: `Backup exported (${data.games.length} games, ${(data.collections ?? []).length} collections). Saved to: ${res.where}` }
@@ -94,9 +98,18 @@ function StorageSection({ data, update }: Props) {
         ...parsed,
         collections: parsed.collections ?? [],
         profile: { ...data.profile, ...parsed.profile },
-        settings: { ...data.settings, ...parsed.settings, igdbClientId: data.settings.igdbClientId, igdbClientSecret: data.settings.igdbClientSecret },
+        settings: (() => {
+          const settings = {
+            ...data.settings, ...parsed.settings,
+            igdbClientId: data.settings.igdbClientId, igdbClientSecret: data.settings.igdbClientSecret,
+          };
+          stripStoreCredentials(settings); // drop any credentials that came from the backup file
+          settings.steamApiKey = data.settings.steamApiKey; // keep this device's keys, like IGDB's
+          settings.steamId = data.settings.steamId;
+          return settings;
+        })(),
       });
-      setNotice({ kind: "success", text: `Backup imported: ${parsed.games.length} games and ${(parsed.collections ?? []).length} collections restored. Your IGDB keys were kept.` });
+      setNotice({ kind: "success", text: `Backup imported: ${parsed.games.length} games and ${(parsed.collections ?? []).length} collections restored. Your IGDB and store keys were kept on this device.` });
     } catch {
       setNotice({ kind: "error", text: "That file is not a valid Lost in Sync backup. Nothing was changed." });
     }
