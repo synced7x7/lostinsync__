@@ -169,22 +169,22 @@
 }
 
 [data-theme="glacier"] {
-    --bg: #0b141a;
-    --bg-glow-1: #243946;
-    --bg-glow-2: #182a35;
-    --panel: rgba(28, 42, 52, .66);
-    --panel-strong: rgba(36, 52, 64, .88);
-    --line: rgba(168, 216, 240, .14);
-    --line-soft: rgba(168, 216, 240, .08);
+    --bg: #132029;
+    --bg-glow-1: #2d4756;
+    --bg-glow-2: #203645;
+    --panel: rgba(38, 56, 68, .62);
+    --panel-strong: rgba(46, 66, 80, .86);
+    --line: rgba(168, 216, 240, .16);
+    --line-soft: rgba(168, 216, 240, .09);
     --text: #f7fcff;
-    --muted: #b0c7d4;
-    --dim: #829aa8;
+    --muted: #b8ccd8;
+    --dim: #8aa3b1;
     --accent: #A8D8F0;
     --accent-strong: #CFEFFF;
     --cyan: #DCEFF9;
     --rose: #E7C6D6;
     --success: #A9D4BE;
-    --shadow: 0 24px 80px rgba(0, 0, 0, .34);
+    --shadow: 0 24px 80px rgba(0, 0, 0, .28);
     --radius: 18px;
 }
 
