@@ -248,7 +248,7 @@ function DiscoverCard({ game, onDoubleClick }: { game: IgdbDiscoverGame; onDoubl
 /* ============================ game details (reuses the library Details view) ============================ */
 type DetailsViewProps = {
   game: Game; data: AppData; update: (data: AppData) => void; saveGame: (game: Game) => void; deleteGame: (game: Game) => void;
-  goBack: () => void; onOpenGame: (id: number) => void; igdb: IgdbCreds; backLabel?: string; extra?: ReactNode;
+  goBack: () => void; onOpenGame: (id: number) => void; igdb: IgdbCreds; backLabel?: string; extra?: ReactNode; preview?: boolean;
 };
 
 export function DiscoverGameDetails({ igdbId, game, close, openGame, credentials, savedGame, data, update, onAdd, onSave, onDelete, DetailsView }: {
@@ -284,7 +284,7 @@ export function DiscoverGameDetails({ igdbId, game, close, openGame, credentials
   return (
     <DetailsView
       game={view} data={data} update={update} igdb={credentials} onOpenGame={openGame}
-      goBack={close} backLabel="Back to Discover"
+      goBack={close} backLabel="Back to Discover" preview={!savedGame}
       saveGame={(next) => (savedGame ? onSave(next) : onAdd(next))}
       deleteGame={(g) => savedGame && onDelete(g)}
       extra={<>
@@ -303,7 +303,7 @@ export function DiscoverGameDetails({ igdbId, game, close, openGame, credentials
 function draftFromIgdb(game: IgdbGame): Game {
   return {
     id: crypto.randomUUID(), title: game.name, platform: game.platforms[0] ?? "", genre: game.genres.join(", "),
-    tags: [], status: "Completed", notes: "", favorite: false, cover: game.cover, backgroundCover: game.background,
+    tags: [], status: "Backlog", playedPlatforms: [], notes: "", favorite: false, cover: game.cover, backgroundCover: game.background,
     totalSeconds: 0, createdAt: new Date().toISOString(), developer: game.developer,
     releaseDate: game.releaseTs ? new Date(game.releaseTs * 1000).toISOString().slice(0, 10) : undefined,
     description: game.description, genres: game.genres, platforms: game.platforms, igdbId: game.id, igdbRating: game.rating,

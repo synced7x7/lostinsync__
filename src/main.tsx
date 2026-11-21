@@ -864,7 +864,7 @@ const GridCard = memo(function GridCard({
 
 
 function Details({
-  game, data, update, saveGame, deleteGame, goBack, onOpenGame, igdb, backLabel, extra,
+  game, data, update, saveGame, deleteGame, goBack, onOpenGame, igdb, backLabel, extra, preview,
 }: {
   game: Game;
   data: AppData;
@@ -876,6 +876,7 @@ function Details({
   igdb: { clientId: string; clientSecret: string };
   backLabel?: string;
   extra?: React.ReactNode;
+  preview?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -913,7 +914,7 @@ function Details({
     { label: "100% completion", sec: game.timeFullSeconds, icon: Trophy, cls: "full" },
   ];
   const genreList = game.genres?.length ? game.genres : game.genre ? game.genre.split(",").map((s) => s.trim()).filter(Boolean) : [];
-  const playedOn = game.playedPlatforms ?? (game.platform ? [game.platform] : []);
+  const playedOn = preview ? [] : game.playedPlatforms ?? (game.platform ? [game.platform] : []);
   const emulated = game.emulatedOn ?? [];
   const stores = storeLinksFromExternal(externalGames);
   const primaryStores = stores.slice(0, 2);
@@ -930,8 +931,8 @@ function Details({
           <button title={game.favorite ? "Unfavorite" : "Favorite"} className={game.favorite ? "fav on" : "fav"} onClick={() => saveGame({ ...game, favorite: !game.favorite })}>
             <Heart size={16} fill={game.favorite ? "currentColor" : "none"} /><span>Favorite</span>
           </button>
-          <button title="Delete game" className="del" onClick={() => deleteGame(game)}><Trash2 size={16} /><span>Delete</span></button>
-          <CollectionActions data={data} update={update} game={game} igdbId={game.igdbId} cover={game.cover} />        </div>
+          {!preview && <button title="Delete game" className="del" onClick={() => deleteGame(game)}><Trash2 size={16} /><span>Delete</span></button>}
+          {!preview && <CollectionActions data={data} update={update} game={game} igdbId={game.igdbId} cover={game.cover} />}        </div>
         <div className="detail-art" style={game.cover ? { backgroundImage: `linear-gradient(145deg, rgba(68,51,113,.35), rgba(38,113,123,.35)), url(${game.cover})` } : undefined}>
           {!game.cover && <Gamepad2 size={60} />}
         </div>
@@ -940,7 +941,7 @@ function Details({
             {game.gameType && <span className="status">{game.gameType}</span>}
             {game.gameType && game.gameStatus && <i>·</i>}
             {game.gameStatus && <span className={`status igdb-status ${game.gameStatus.toLowerCase().replace(/\s+/g, "-")}`}>{game.gameStatus}</span>}
-            {!game.gameType && !game.gameStatus && <span className="status">{game.status}</span>}
+            {!preview && !game.gameType && !game.gameStatus && <span className="status">{game.status}</span>}
           </div>
           <h1>{game.title}</h1>
 
@@ -1088,20 +1089,22 @@ function Details({
             </section>
           )}
 
-          <section className="glass detail-panel">
-            <div className="about-head">
-              <div><p className="eyebrow">MY JOURNEY</p><h2>Your progress</h2></div>
-              <button className="text-button" onClick={() => setEditing(true)}><PenLine size={14} /> Edit</button>
-            </div>
-            <div className="journey-grid">
-              <div><span>Status</span><strong>{game.status}</strong></div>
-              <div><span>Playtime</span><strong>{formatPlaytime(played)}</strong></div>
-              <div><span>Started</span><strong>{game.startedAt ? formatDate(game.startedAt) : "—"}</strong></div>
-              <div><span>Completed</span><strong>{game.finishedAt ? formatDate(game.finishedAt) : "—"}</strong></div>
-              {span && <div className="journey-grid-ttf"><div><span>Time to finish</span><strong>{span}</strong></div><TrophyToggle value={game.platinumed} readOnly /></div>}
-            </div>
-            <StarRating value={game.rating} readOnly size={16} />
-          </section>
+          {!preview && (
+            <section className="glass detail-panel">
+              <div className="about-head">
+                <div><p className="eyebrow">MY JOURNEY</p><h2>Your progress</h2></div>
+                <button className="text-button" onClick={() => setEditing(true)}><PenLine size={14} /> Edit</button>
+              </div>
+              <div className="journey-grid">
+                <div><span>Status</span><strong>{game.status}</strong></div>
+                <div><span>Playtime</span><strong>{formatPlaytime(played)}</strong></div>
+                <div><span>Started</span><strong>{game.startedAt ? formatDate(game.startedAt) : "—"}</strong></div>
+                <div><span>Completed</span><strong>{game.finishedAt ? formatDate(game.finishedAt) : "—"}</strong></div>
+                {span && <div className="journey-grid-ttf"><div><span>Time to finish</span><strong>{span}</strong></div><TrophyToggle value={game.platinumed} readOnly /></div>}
+              </div>
+              <StarRating value={game.rating} readOnly size={16} />
+            </section>
+          )}
         </div>
       </div>
 

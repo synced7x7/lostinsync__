@@ -397,8 +397,8 @@ function franchises(r: R[]): Section {
   return {
     tiles: [
       tl("Most time invested", top(spn, (x) => x.days), (x) => `${x.days} days start → finish`, "cyan"), tl("Most collected", top(a, (x) => x.n), (x) => `${x.n} games`, "violet"), tl("Most completed", top(a, (x) => x.done), (x) => `${x.done} completed`, "green"), tl("Favorite", top(rp, (x) => x.rating), (x) => `${f1(x.rating)}/10 average`, "gold"),
-      T("Longest journey", lj?.d ? lj.name : dash, lj?.d ? `${lj.d} days, first start → latest finish` : "No data yet", "rose"), T("Franchises completed", String(a.filter((x) => x.n > 0 && x.done === x.n).length), "completed all games in that franchise", "green"),
-      T("Franchise completion", fr.length ? `${f1((fr.filter((x) => x.done).length / fr.length) * 100)}%` : dash, "of your franchise games are completed", "blue"),
+      T("Longest journey", lj?.d ? lj.name : dash, lj?.d ? `${lj.d} days, first start → latest finish` : "No data yet", "rose"), T("Franchises completed", String(a.filter((x) => x.n > 0 && x.done === x.n).length), "completed all main games in that franchise", "green"),
+      T("Franchise completion", fr.length ? `${f1((fr.filter((x) => x.done).length / fr.length) * 100)}%` : dash, "of franchise games are completed", "blue"),
     ],
     charts: [
       { id: "size", title: "Top franchises", option: stackedCollection(a, 10), height: 340 },

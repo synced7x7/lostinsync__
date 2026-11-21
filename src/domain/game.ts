@@ -1,6 +1,6 @@
 import type { IgdbDebugImage } from "../data/igdb";
 
-export const STATUSES = ["Backlog", "Wishlist", "Playing", "Completed", "Shelved", "Abandoned", "On hold"] as const;
+export const STATUSES = ["Backlog", "Wishlist", "Playing", "Completed", "Abandoned", "On hold"] as const;
 export type Status = typeof STATUSES[number];
 export type View = "dashboard" | "library" | "discover" | "details" | "journey" | "franchises" | "trophies" | "stats" | "settings";
 export type Game = {
