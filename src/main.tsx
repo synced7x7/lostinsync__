@@ -57,6 +57,7 @@ import { AddGame } from "./features/library-components";
 import { MediaSection } from "./features/media";
 import { SeriesButton } from "./features/series";
 import { JourneyView } from "./features/journey";
+import { FranchiseView } from "./features/franchises";
 import { CollectionActions, ProfileSection } from "./features/overview";
 import { SettingsView } from "./features/settings";
 import { TrophiesView } from "./features/trophies";
@@ -189,7 +190,7 @@ function App() {
     next.games.forEach((g) => Object.entries(g).forEach(([k, v]) => { sizes[k] = (sizes[k] ?? 0) + JSON.stringify(v ?? "").length; }));
     console.table(Object.entries(sizes).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([field, n]) => ({ field, MB: (n / 1e6).toFixed(2) })));
     console.log("profile MB:", (JSON.stringify(next.profile).length / 1e6).toFixed(2));
-  
+
   }, []);
 
   const update = (next: AppData) => {
@@ -260,6 +261,13 @@ function App() {
         <JourneyView
           games={data.games}
           openGame={openGame}
+        />
+      )}{" "}
+      {view === "franchises" && (
+        <FranchiseView
+          games={data.games}
+          openGame={openGame}
+          creds={{ clientId: data.settings.igdbClientId ?? "", clientSecret: data.settings.igdbClientSecret ?? "" }}
         />
       )}{" "}
       {view === "trophies" && <TrophiesView data={data} />}{" "}

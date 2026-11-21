@@ -463,6 +463,74 @@ Open items / risks
 
 **Investigation Required:** Authoritative franchise total source, UI placement, and whether the web mirror alone is sufficient for parity.
 
+
+## Additional Prompt:
+
+
+Implement a new **Franchise Completion** view in navigation pane, following the latest provided design reference.
+
+### 1. Reuse Existing Infrastructure
+- Thoroughly inspect `Journey.tsx` before implementation.
+- Reuse its existing ribbon/strand rendering system, game cover components, animations, caching, memoization, and performance optimizations.
+- Adapt existing utilities wherever possible instead of rebuilding them.
+- Do not break or modify the existing Game Journey functionality.
+
+### 2. UI & Visualization
+Create a premium dark-themed interface featuring multiple franchise timelines, similar to the reference image.
+
+Each franchise should occupy its own horizontal row, for example:
+- Resident Evil
+- The Legend of Zelda
+- Assassin's Creed
+- Final Fantasy
+- Prince of Persia
+- Tomb Raider
+
+Each row should contain:
+- Franchise name and completion statistics on the left.
+- Games arranged chronologically on the right.
+- Completed games displayed using their actual cover art with glowing borders.
+- Uncompleted games represented by dark question-mark placeholders.
+- Flowing neon ribbon strands connecting the games.
+- A distinct ribbon color for each franchise.
+
+All games belonging to the same franchise must remain on the same horizontal row. Do not create branches for DLCs.
+
+### 3. Data & Completion Logic
+Use the existing series/franchise metadata already loaded by the application.
+
+- Automatically group games by franchise.
+- Determine completion using existing user game data.
+- Calculate completed games, total games, and completion percentage.
+- Preserve chronological ordering.
+- Handle remakes, duplicate editions, DLCs, expansions, and spin-offs appropriately.
+- Exclude DLCs and duplicate editions from mainline completion counts where appropriate.
+- Do not hardcode franchise or game data.
+
+### 4. Performance
+Preserve and extend the optimizations already implemented in `Journey.tsx`.
+
+- Reuse existing caching and image-loading mechanisms.
+- Memoize expensive franchise calculations.
+- Avoid regenerating strand geometry unnecessarily.
+- Minimize unnecessary component re-renders.
+- Ensure smooth rendering with many franchises and game nodes.
+
+### 5. Design & Integration
+- Match the latest reference's premium dark aesthetic, subtle gradients, glowing covers, and flowing ribbons.
+- Add franchise-level progress bars, completion counts, and playtime statistics.
+- Support horizontal scrolling for franchises containing many games.
+- Make the layout responsive.
+- Integrate the feature naturally into existing Game Journey navigation.
+
+### 6. Implementation Approach
+First investigate the existing architecture and identify reusable components. Then implement the feature by extending the existing infrastructure.
+
+Keep franchise data processing separate from visualization where practical.
+
+**Important:** Prioritize reusing the existing Journey strand engine and optimization strategies. The final result should look similar to the reference while feeling like a natural extension of the existing application, not an independently built feature.
+
+Verify that the original Game Journey remains fully functional after implementation.
 ---
 
 # C. IMPORT AND EXPORT

@@ -95,13 +95,16 @@ export const igdbDiscoverFeedCached = (feed: IgdbFeed, preferredGenres: string[]
 export type SeriesData = {
   collections: { id: number; name: string; games?: number[] }[];
   relations: [number, number][]; // [parent, child]
-  games: { id: number; name: string; releaseTs?: number; cover?: string }[];
+  games: { id: number; name: string; releaseTs?: number; cover?: string; gameType?: string }[];
 };
 export async function igdbSeries(id: number, c: IgdbCreds) {
   const { invoke } = await import("@tauri-apps/api/core");
   return invoke<SeriesData>("igdb_series", { id, clientId: c.clientId, clientSecret: c.clientSecret });
 }
 
+const seriesCache = new Map<string, Entry<SeriesData>>();
+export const igdbSeriesCached = (id: number, c: IgdbCreds) =>
+  memo(seriesCache, `${c.clientId}:${id}`, () => igdbSeries(id, c), 40);
 
 
 export type IgdbImport = { game: IgdbGame; images: IgdbDebugImage[] };

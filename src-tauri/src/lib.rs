@@ -926,7 +926,7 @@ async fn igdb_series(
     let mut games: Vec<Value> = vec![];
     for chunk in gids.chunks(500) {
         let q = format!(
-            "fields name,first_release_date,cover.image_id; where id = ({}); limit 500;",
+            "fields name,first_release_date,game_type.type,cover.image_id; where id = ({}); limit 500;",
             idlist(chunk)
         );
         let rows = igdb_post(&auth, "games", q, &client_id, &client_secret).await?;
@@ -936,6 +936,7 @@ async fn igdb_series(
                 "id": r["id"],
                 "name": r["name"],
                 "releaseTs": r["first_release_date"],
+                "gameType": r["game_type"]["type"].as_str(),
                 "cover": r["cover"]["image_id"].as_str().map(|i| img(i, "cover_big_2x")),
             })
             );
@@ -985,20 +986,32 @@ async fn igdb_external_games(
     let rows = igdb_post(
         &auth,
         "external_games",
-        format!("fields external_game_source,category,url,name,platform,year; where game = {game_id}; limit 100;"),
+        format!(
+            "fields external_game_source,category,url,name,platform,year; where game = {game_id}; limit 100;"
+        ),
         &client_id,
         &client_secret
     ).await?;
-    Ok(rows.as_array().cloned().unwrap_or_default().iter().filter_map(|r| {
-        let source = r["external_game_source"].as_i64().or_else(|| r["category"].as_i64())?;
-        Some(json!({
+    Ok(
+        rows
+            .as_array()
+            .cloned()
+            .unwrap_or_default()
+            .iter()
+            .filter_map(|r| {
+                let source = r["external_game_source"].as_i64().or_else(|| r["category"].as_i64())?;
+                Some(
+                    json!({
             "source": source,
             "url": r["url"].as_str(),
             "name": r["name"].as_str(),
             "platform": r["platform"].as_i64(),
             "year": r["year"].as_i64()
-        }))
-    }).collect())
+        })
+                )
+            })
+            .collect()
+    )
 }
 
 /// Cheap check for sync: returns (id, updated_at) for up to thousands of ids, 500 per request.
@@ -1208,7 +1221,12 @@ async fn stores_auth_url(store: String) -> Result<String, String> {
 }
 
 #[tauri::command]
-async fn stores_complete_auth(app: tauri::AppHandle, store: String, code: String, steam_connected: bool) -> Result<Value, String> {
+async fn stores_complete_auth(
+    app: tauri::AppHandle,
+    store: String,
+    code: String,
+    steam_connected: bool
+) -> Result<Value, String> {
     stores::complete_auth(&app, &store, &code, steam_connected).await
 }
 
@@ -1217,7 +1235,7 @@ async fn stores_fetch(
     app: tauri::AppHandle,
     store: String,
     steam_key: Option<String>,
-    steam_id: Option<String>,
+    steam_id: Option<String>
 ) -> Result<Vec<Value>, String> {
     let credentials = stores::read_credentials(&app)?;
     stores::fetch(&store, &credentials, steam_key.as_deref(), steam_id.as_deref()).await
@@ -1228,9 +1246,11 @@ async fn stores_fetch_achievements(
     store: String,
     store_id: String,
     steam_key: Option<String>,
-    steam_id: Option<String>,
+    steam_id: Option<String>
 ) -> Result<Value, String> {
-    if store != "steam" { return Ok(json!({ "achieved": 0, "total": 0 })); }
+    if store != "steam" {
+        return Ok(json!({ "achieved": 0, "total": 0 }));
+    }
     stores::achievements(steam_key.as_deref(), steam_id.as_deref(), &store_id).await
 }
 
@@ -1244,16 +1264,27 @@ async fn igdb_external_lookup(
     client_secret: String
 ) -> Result<Option<i64>, String> {
     let escaped = uid.replace('"', "");
-    let modern = format!("fields game; where uid = \"{}\" & external_game_source = {}; limit 1;", escaped, source);
-    let legacy = format!("fields game; where uid = \"{}\" & category = {}; limit 1;", escaped, source);
+    let modern = format!(
+        "fields game; where uid = \"{}\" & external_game_source = {}; limit 1;",
+        escaped,
+        source
+    );
+    let legacy = format!(
+        "fields game; where uid = \"{}\" & category = {}; limit 1;",
+        escaped,
+        source
+    );
     let rows = match igdb_post(&auth, "external_games", modern, &client_id, &client_secret).await {
         Ok(rows) => rows,
         Err(_) => igdb_post(&auth, "external_games", legacy, &client_id, &client_secret).await?,
     };
-    Ok(rows.as_array()
-        .and_then(|array| array.first())
-        .and_then(|row| row.get("game"))
-        .and_then(Value::as_i64))
+    Ok(
+        rows
+            .as_array()
+            .and_then(|array| array.first())
+            .and_then(|row| row.get("game"))
+            .and_then(Value::as_i64)
+    )
 }
 
 /// Drop characters that would break an IGDB string literal. Store ids are opaque, so this is safe.
@@ -1267,12 +1298,21 @@ fn epic_name_key(value: &str) -> String {
     let mut tokens: Vec<&str> = value.split_whitespace().collect();
     if let Some(last) = tokens.last() {
         let clean = last.trim_matches(|c: char| !c.is_ascii_alphanumeric());
-        if clean.eq_ignore_ascii_case("r") || clean.eq_ignore_ascii_case("tm") || clean.eq_ignore_ascii_case("c") {
+        if
+            clean.eq_ignore_ascii_case("r") ||
+            clean.eq_ignore_ascii_case("tm") ||
+            clean.eq_ignore_ascii_case("c")
+        {
             tokens.pop();
         }
     }
-    tokens.into_iter().collect::<String>().to_lowercase()
-        .chars().filter(|c| c.is_ascii_alphanumeric()).collect()
+    tokens
+        .into_iter()
+        .collect::<String>()
+        .to_lowercase()
+        .chars()
+        .filter(|c| c.is_ascii_alphanumeric())
+        .collect()
 }
 
 fn epic_names_match(left: &str, right: &str) -> bool {
@@ -1285,17 +1325,30 @@ fn epic_games_query(uid: &str) -> String {
 }
 
 fn epic_external_query(uid: &str) -> String {
-    format!("fields game,external_game_source,category,name; where uid = \"{}\"; limit 10;", igdb_literal(uid))
+    format!(
+        "fields game,external_game_source,category,name; where uid = \"{}\"; limit 10;",
+        igdb_literal(uid)
+    )
 }
 
 /// Pick the IGDB id from `games` rows. The external uid is authoritative; names only break ties.
 fn epic_pick_game(rows: &[Value], title: &str) -> Option<i64> {
-    let ids: Vec<(i64, String)> = rows.iter().filter_map(|row| Some((
-        row.get("id")?.as_i64()?,
-        row.get("name").and_then(Value::as_str).unwrap_or("").to_string(),
-    ))).collect();
-    if ids.len() == 1 { return Some(ids[0].0); }
-    let mut matches = ids.iter().filter(|(_, name)| epic_names_match(name, title)).map(|(id, _)| *id);
+    let ids: Vec<(i64, String)> = rows
+        .iter()
+        .filter_map(|row|
+            Some((
+                row.get("id")?.as_i64()?,
+                row.get("name").and_then(Value::as_str).unwrap_or("").to_string(),
+            ))
+        )
+        .collect();
+    if ids.len() == 1 {
+        return Some(ids[0].0);
+    }
+    let mut matches = ids
+        .iter()
+        .filter(|(_, name)| epic_names_match(name, title))
+        .map(|(id, _)| *id);
     let first = matches.next()?;
     matches.all(|id| id == first).then_some(first)
 }
@@ -1303,24 +1356,38 @@ fn epic_pick_game(rows: &[Value], title: &str) -> Option<i64> {
 /// Pick the IGDB id from `external_games` rows. Epic catalog ids are GUIDs, so a uid match is
 /// authoritative even if IGDB tagged the row with a non-Epic source; Epic/legacy sources win ties.
 fn epic_pick_external(rows: &[Value], title: &str) -> Option<i64> {
-    let ids: Vec<(i64, String, bool)> = rows.iter().filter_map(|row| {
-        let game = row.get("game")?.as_i64()?;
-        let source = row.get("external_game_source").and_then(Value::as_i64)
-            .or_else(|| row.get("category").and_then(Value::as_i64)).unwrap_or(-1);
-        let name = row.get("name").and_then(Value::as_str).unwrap_or("").to_string();
-        Some((game, name, source == 26 || source == 0))
-    }).collect();
+    let ids: Vec<(i64, String, bool)> = rows
+        .iter()
+        .filter_map(|row| {
+            let game = row.get("game")?.as_i64()?;
+            let source = row
+                .get("external_game_source")
+                .and_then(Value::as_i64)
+                .or_else(|| row.get("category").and_then(Value::as_i64))
+                .unwrap_or(-1);
+            let name = row.get("name").and_then(Value::as_str).unwrap_or("").to_string();
+            Some((game, name, source == 26 || source == 0))
+        })
+        .collect();
 
     // Prefer correctly-tagged Epic rows, then fall back to any GUID match.
     for epic_only in [true, false] {
-        let candidates: Vec<&(i64, String, bool)> = ids.iter().filter(|row| row.2 == epic_only).collect();
-        if candidates.len() == 1 { return Some(candidates[0].0); }
+        let candidates: Vec<&(i64, String, bool)> = ids
+            .iter()
+            .filter(|row| row.2 == epic_only)
+            .collect();
+        if candidates.len() == 1 {
+            return Some(candidates[0].0);
+        }
         if candidates.len() > 1 {
-            let mut matches = candidates.iter()
+            let mut matches = candidates
+                .iter()
                 .filter(|row| row.1.is_empty() || epic_names_match(&row.1, title))
                 .map(|row| row.0);
             if let Some(first) = matches.next() {
-                if matches.all(|id| id == first) { return Some(first); }
+                if matches.all(|id| id == first) {
+                    return Some(first);
+                }
             }
         }
     }
@@ -1337,13 +1404,31 @@ async fn igdb_epic_lookup(
     client_id: String,
     client_secret: String
 ) -> Result<Option<i64>, String> {
-    if igdb_literal(&uid).is_empty() { return Ok(None); }
-
-    if let Ok(rows) = igdb_post(&auth, "games", epic_games_query(&uid), &client_id, &client_secret).await {
-        if let Some(id) = rows.as_array().and_then(|array| epic_pick_game(array, &title)) { return Ok(Some(id)); }
+    if igdb_literal(&uid).is_empty() {
+        return Ok(None);
     }
 
-    let rows = igdb_post(&auth, "external_games", epic_external_query(&uid), &client_id, &client_secret).await?;
+    if
+        let Ok(rows) = igdb_post(
+            &auth,
+            "games",
+            epic_games_query(&uid),
+            &client_id,
+            &client_secret
+        ).await
+    {
+        if let Some(id) = rows.as_array().and_then(|array| epic_pick_game(array, &title)) {
+            return Ok(Some(id));
+        }
+    }
+
+    let rows = igdb_post(
+        &auth,
+        "external_games",
+        epic_external_query(&uid),
+        &client_id,
+        &client_secret
+    ).await?;
     Ok(rows.as_array().and_then(|array| epic_pick_external(array, &title)))
 }
 
@@ -1396,8 +1481,12 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::{
-        epic_external_query, epic_games_query, epic_name_key, epic_names_match,
-        epic_pick_external, epic_pick_game,
+        epic_external_query,
+        epic_games_query,
+        epic_name_key,
+        epic_names_match,
+        epic_pick_external,
+        epic_pick_game,
     };
     use serde_json::json;
 
@@ -1435,7 +1524,9 @@ mod tests {
 
     #[test]
     fn epic_pick_external_accepts_legacy_and_modern_sources() {
-        let modern = vec![json!({ "game": 42, "external_game_source": 26, "name": "Rocket League" })];
+        let modern = vec![
+            json!({ "game": 42, "external_game_source": 26, "name": "Rocket League" })
+        ];
         assert_eq!(epic_pick_external(&modern, "Rocket League R"), Some(42));
         let legacy = vec![json!({ "game": 42, "category": 0, "name": "Rocket League" })];
         assert_eq!(epic_pick_external(&legacy, "Rocket League R"), Some(42));
@@ -1444,7 +1535,7 @@ mod tests {
         // Correctly tagged Epic rows still win when both sources share the same uid.
         let mixed = vec![
             json!({ "game": 99, "external_game_source": 1, "name": "Rocket League" }),
-            json!({ "game": 42, "external_game_source": 26, "name": "Rocket League" }),
+            json!({ "game": 42, "external_game_source": 26, "name": "Rocket League" })
         ];
         assert_eq!(epic_pick_external(&mixed, "Rocket League R"), Some(42));
     }

@@ -23,7 +23,7 @@ const K = { main: "#8f86ff", active: "#5be3a4" };
 type Kind = keyof typeof K;
 type Range = "all" | "month" | number;
 
-const PALETTE = ["#6ea8ff", "#5be3a4", "#ff9a4d", "#c58bff", "#f0c674", "#ff7aa8", "#4fd8e8"];
+export const PALETTE = ["#6ea8ff", "#5be3a4", "#ff9a4d", "#c58bff", "#f0c674", "#ff7aa8", "#4fd8e8"];
 const STATUS_LABEL: Record<Kind, string> = { main: "Completed", active: "In progress" };
 const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -35,10 +35,10 @@ const fmtShort = (t: number) =>
 const level = (lane: number) => (lane === 0 ? 0 : lane % 2 ? -(lane + 1) / 2 : lane / 2);
 const clamp = (v: number, max: number) => Math.max(0, Math.min(max, v));
 const clampZoom = (z: number) => Math.max(0.1, Math.min(2.4, Math.round(z * 1000) / 1000));
-const cssVar = (c: string) => ({ ["--c" as string]: c }) as CSSProperties;
+export const cssVar = (c: string) => ({ ["--c" as string]: c }) as CSSProperties;
 
 /** IGDB covers -> 180x256 thumbnails. Uploaded (data:) covers are left alone. */
-const thumb = (u?: string) =>
+export const thumb = (u?: string) =>
   u && u.includes("images.igdb.com") ? u.replace(/\/t_[a-z0-9_]+\//, "/t_cover_small_2x/") : u;
 
 /** axis ticks: years for long spans, months for medium, weeks/days for short */
@@ -77,7 +77,7 @@ const bez = (a: P, b: P, c: P, d: P, n = 14): P[] =>
     };
   });
 
-const line = (a: P, b: P): P[] => {
+export const line = (a: P, b: P): P[] => {
   const n = Math.max(1, Math.round(Math.hypot(b.x - a.x, b.y - a.y) / 8));
   return Array.from({ length: n + 1 }, (_, i) => ({
     x: a.x + ((b.x - a.x) * i) / n,
@@ -97,7 +97,7 @@ const route = (x1: number, x2: number, T: number, y: number, merge: boolean): P[
     : [...out, ...line({ x: x2 - 2 * c, y }, { x: x2, y }).slice(1)];
 };
 
-const strand = (pts: P[], phase: number, amp: number) => {
+export const strand = (pts: P[], phase: number, amp: number) => {
   const len: number[] = [0];
   pts.forEach((p, i) => i && len.push(len[i - 1] + Math.hypot(p.x - pts[i - 1].x, p.y - pts[i - 1].y)));
   const total = len[len.length - 1] || 1;
@@ -113,12 +113,12 @@ const strand = (pts: P[], phase: number, amp: number) => {
     .join(" ");
 };
 
-const STRANDS = [
+export const STRANDS = [
   { phase: 0, mix: "white 0%" },
   { phase: (2 * Math.PI) / 3, mix: "white 45%" },
   { phase: (4 * Math.PI) / 3, mix: "black 35%" },
 ];
-const mix = (c: string, i: number) => (i === 0 ? c : `color-mix(in srgb, ${c}, ${STRANDS[i].mix})`);
+export const mix = (c: string, i: number) => (i === 0 ? c : `color-mix(in srgb, ${c}, ${STRANDS[i].mix})`);
 
 /* ───────────── types ───────────── */
 type Item = { id: string; start: number; end?: number; status: string };
