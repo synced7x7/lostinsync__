@@ -914,7 +914,8 @@ function Details({
     { label: "100% completion", sec: game.timeFullSeconds, icon: Trophy, cls: "full" },
   ];
   const genreList = game.genres?.length ? game.genres : game.genre ? game.genre.split(",").map((s) => s.trim()).filter(Boolean) : [];
-  const playedOn = preview ? [] : game.playedPlatforms ?? (game.platform ? [game.platform] : []);
+  const inLibrary = data.games.some((g) => g.id === game.id);
+  const playedOn = inLibrary ? (game.playedPlatforms ?? (game.platform ? [game.platform] : [])) : [];
   const emulated = game.emulatedOn ?? [];
   const stores = storeLinksFromExternal(externalGames);
   const primaryStores = stores.slice(0, 2);
@@ -941,7 +942,7 @@ function Details({
             {game.gameType && <span className="status">{game.gameType}</span>}
             {game.gameType && game.gameStatus && <i>·</i>}
             {game.gameStatus && <span className={`status igdb-status ${game.gameStatus.toLowerCase().replace(/\s+/g, "-")}`}>{game.gameStatus}</span>}
-            {!preview && !game.gameType && !game.gameStatus && <span className="status">{game.status}</span>}
+            {!game.gameType && !game.gameStatus && inLibrary && <span className="status">{game.status}</span>}
           </div>
           <h1>{game.title}</h1>
 
@@ -1089,7 +1090,7 @@ function Details({
             </section>
           )}
 
-          {!preview && (
+          {inLibrary && (
             <section className="glass detail-panel">
               <div className="about-head">
                 <div><p className="eyebrow">MY JOURNEY</p><h2>Your progress</h2></div>

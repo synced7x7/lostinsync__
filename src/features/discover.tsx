@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from "react";
-import { ChevronLeft, Compass, Search } from "lucide-react";
+import { ChevronLeft, Compass, Search, X } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Header } from "../components/shared";
 import { igdbDetailsCached, igdbDiscoverFeedCached, igdbImagesCached, igdbSearch, type IgdbCreds, type IgdbDiscoverGame, type IgdbFeed, type IgdbGame, type IgdbHit, type IgdbDebugImage, type TasteProfile } from "../data/igdb";
@@ -101,6 +101,7 @@ export function DiscoverView({ data }: { data: AppData }) {
   const [searchResults, setResultsState] = useState<IgdbHit[]>(discoverSession.results);
   const setSearch = (value: string) => { discoverSession.search = value; setSearchState(value); };
   const setSearchResults = (results: IgdbHit[]) => { discoverSession.results = results; setResultsState(results); };
+  const [searching, setSearching] = useState(false);
   const [error, setError] = useState("");
   const taste = useMemo(() => buildTaste(data.games), [data.games]);
 
@@ -132,15 +133,17 @@ export function DiscoverView({ data }: { data: AppData }) {
 
   const runSearch = async () => {
     if (!search.trim()) return;
+    setSearching(true);
     try { setError(""); setSearchResults(await igdbSearch(search, credentials)); }
     catch (reason) { setError(reason instanceof Error ? reason.message : "Search failed."); }
+    finally { setSearching(false); }
   };
   const openGame = (id: number) => navigate(`/details?igdb=${id}`);
 
   if (!credentials.clientId || !credentials.clientSecret) {
     return (
       <>
-        <Header eyebrow="IGDB DISCOVERY" title="Discover" />
+    
         <div className="discover-empty glass"><Compass size={34} /><h2>Connect IGDB to discover your next game</h2><p>Add your Twitch Client ID and Client Secret in Settings to unlock live recommendations, releases, ratings, and search.</p></div>
       </>
     );
@@ -149,35 +152,76 @@ export function DiscoverView({ data }: { data: AppData }) {
 
   return (
     <div className="discover-page">
-      <div />
+      
+        <DiscoverSearch
+          value={search} onChange={setSearch} onSubmit={() => void runSearch()} busy={searching} results={searchResults}
+          onPick={(game) => { seedGame(game); prefetchGame(game.id); openGame(game.id); }}
+        />
+   
       {error && <div className="discover-error">{error}</div>}
-      <section className="discover-search glass">
-        <div><p className="eyebrow">SEARCH THE DATABASE</p></div>
-        <div className="discover-search-row">
-          <input value={search} onChange={(event) => setSearch(event.target.value)} onKeyDown={(event) => event.key === "Enter" && void runSearch()} placeholder='Try "Hades", "/ Hades", or "& 12345" for an IGDB ID' />
-          <button className="button primary" onClick={() => void runSearch()}><Search size={16} /> Search</button>
-        </div>
-        {searchResults.length > 0 && (
-          <div className="discover-results">
-            {searchResults.map((game) => (
-              <button key={game.id} className="discover-result" title="Double-click to open"
-                onClick={() => { seedGame(game); prefetchGame(game.id); }}
-                onDoubleClick={() => { seedGame(game); openGame(game.id); }}>
-                <img src={game.cover} alt="" />
-                <span>
-                  <strong>{game.name}</strong>
-                  <small>{game.gameType ?? "Unknown"} · {game.releaseTs ? new Date(game.releaseTs * 1000).getFullYear() : "TBA"}</small>
-                </span>
-              </button>
-            ))}
-          </div>
-        )}
-      </section>
       {sections.map((item) => {
         const games = feeds[item.key];
         if (!games) return <FeedSkeleton key={item.key} title={item.title} tone={item.tone} />;
         return games.length ? <FeedSection key={item.key} section={item} games={games} openGame={openGame} onViewAll={() => navigate(`/discover?feed=${item.key}`)} /> : null;
       })}
+    </div>
+  );
+}
+
+function DiscoverSearch({ value, onChange, onSubmit, busy, results, onPick }: {
+  value: string; onChange: (v: string) => void; onSubmit: () => void; busy: boolean;
+  results: IgdbHit[]; onPick: (game: IgdbHit) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
+  const input = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { if (open) input.current?.focus(); }, [open]);
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement | null;
+      const typing = !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable);
+      if ((e.key === "k" && (e.ctrlKey || e.metaKey)) || (e.key === "/" && !typing)) { e.preventDefault(); setOpen(true); }
+      else if (e.key === "Escape") setOpen(false);
+    };
+    const down = (e: MouseEvent) => { if (box.current && !box.current.contains(e.target as Node)) setOpen(false); };
+    window.addEventListener("keydown", key);
+    document.addEventListener("mousedown", down);
+    return () => { window.removeEventListener("keydown", key); document.removeEventListener("mousedown", down); };
+  }, []);
+
+  return (
+    <div className={`dsearch${open ? " open" : ""}`} ref={box}>
+      <div className="dsearch-bar">
+        <button className="dsearch-icon" onClick={() => (open ? onSubmit() : setOpen(true))} aria-label="Search the database" title="Search (/ or Ctrl+K)">
+          <Search size={18} />
+        </button>
+        <input
+          ref={input} value={value} tabIndex={open ? 0 : -1}
+          onChange={(e) => onChange(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && onSubmit()}
+          placeholder='Search games · "/ Hades" · "& 12345"'
+        />
+        {busy
+          ? <span className="dsearch-spin" />
+          : value && <button className="dsearch-clear" onClick={() => { onChange(""); input.current?.focus(); }} aria-label="Clear"><X size={14} /></button>}
+      </div>
+      {open && results.length > 0 && (
+        <div className="dsearch-pop">
+          {results.map((game, i) => (
+            <button
+              key={game.id} className="dsearch-item" style={{ animationDelay: `${Math.min(i, 8) * 28}ms` }}
+              onClick={() => { setOpen(false); onPick(game); }}
+            >
+              <img src={game.cover} alt="" loading="lazy" />
+              <span>
+                <strong>{game.name}</strong>
+                <small>{game.gameType ?? "Unknown"} · {game.releaseTs ? new Date(game.releaseTs * 1000).getFullYear() : "TBA"}</small>
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
