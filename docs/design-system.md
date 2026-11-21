@@ -4,7 +4,7 @@
 
 ## Current state
 
-The app has a **theme system** with six built-in dark themes: **Aurora** (default), **Moonlight**, **Rose**, **Solarized**, **Graphite**, and **Merlot**. Semantic tokens are declared in `src/style.css` on `:root, [data-theme="aurora"]` and overridden by the other `[data-theme="..."]` blocks.
+The app has a **theme system** with seven built-in dark themes: **Aurora** (default), **Moonlight**, **Rose**, **Solarized**, **Graphite**, **Arctic**, and **Canopy**. Semantic tokens are declared in `src/style.css` on `:root, [data-theme="aurora"]` and overridden by the other `[data-theme="..."]` blocks.
 
 ```css
 --bg, --bg-glow-1, --bg-glow-2, --panel, --panel-strong, --line, --line-soft,
@@ -18,7 +18,7 @@ The visual language uses translucent panels, backdrop blur, thin borders, soft g
 
 ## Theming
 
-- `src/domain/theme.ts` defines `ThemeId` (`aurora | moonlight | rose | solarized | graphite | merlot`), theme metadata, `normalizeTheme()` (unknown values fall back to `aurora`), and `applyTheme()` which sets `document.documentElement.dataset.theme`.
+- `src/domain/theme.ts` defines `ThemeId` (`aurora | moonlight | rose | solarized | graphite | arctic | canopy`), theme metadata, `normalizeTheme()` (unknown values fall back to `aurora`), and `applyTheme()` which sets `document.documentElement.dataset.theme`.
 - `AppSettings.theme` is typed as `ThemeId` (`src/domain/game.ts`) and persisted in the normal `AppData.settings` JSON blob. Desktop (`src/data/repository.ts`) and web (`web/src/codec.ts`) normalize legacy/unknown values on load.
 - `src/main.tsx` applies the active theme via `useEffect` when `data.settings.theme` changes.
 - Settings (`src/features/settings.tsx`) exposes a theme picker; selecting a theme persists through `updateSettings`.
