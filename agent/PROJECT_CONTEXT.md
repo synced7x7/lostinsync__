@@ -226,7 +226,7 @@ Utilities: `compareGames` (`src/main.tsx:300-314`), `formatSpan` (`:316-333`), `
 
 ### Styling and theme
 
-- Theme tokens in `src/style.css`: `--bg`, `--bg-glow-1`, `--bg-glow-2`, `--panel`, `--panel-strong`, `--line`, `--line-soft`, `--text`, `--muted`, `--dim`, `--accent`, `--accent-strong`, `--cyan`, `--rose`, `--success`, `--shadow`, `--radius`, defined per `[data-theme]` block (`aurora`, `moonlight`, `rose`, `solarized`, `graphite`, `arctic`, `canopy`).
+- Theme tokens in `src/style.css`: `--bg`, `--bg-glow-1`, `--bg-glow-2`, `--panel`, `--panel-strong`, `--line`, `--line-soft`, `--text`, `--muted`, `--dim`, `--accent`, `--accent-strong`, `--cyan`, `--rose`, `--success`, `--shadow`, `--radius`, defined per `[data-theme]` block (`aurora`, `moonlight`, `rose`, `solarized`, `graphite`, `arctic`, `canopy`, `glacier`). Glacier uses `color-scheme: light`.
 - Component-scoped vars: `--p` (rating ring), `--c`, `--rc` (rarity color), `--g` (trophy rarity RGB), `--tc` (chart tone), `--jn-left` (timeline).
 - Theme system: `src/domain/theme.ts` defines IDs/metadata/normalize/apply; `AppSettings.theme` is `ThemeId`; `src/main.tsx` applies `data-theme` on theme changes; Settings provides a dropdown; desktop/web loads normalize unknown values to `aurora`.
 - ECharts colors are synced from CSS variables at build time via `syncChartTheme()` in `src/domain/stats.ts`, and stats charts remount on theme change. Some hard-coded colors remain in feature CSS/SVG/canvas hotspots, so theme coverage is good but not exhaustive.
@@ -345,7 +345,7 @@ CREATE TABLE IF NOT EXISTS app_state (
 - **No** `playedAt`, `priority`, `played` status, full ownership/medium, price, bought-on, amount-paid, or session-log fields exist (verified by grep).
 
 `Profile = { displayName, bio, accent, picture?, topFive? }` (`:24`).
-`AppSettings`: `theme: ThemeId` (`aurora | moonlight | rose | solarized | graphite | arctic | canopy`), `defaultView`, `libraryLayout: "ps4"|"catalog"`, `libraryFullscreen`, `gridSize: "sm"|"md"|"lg"`, `librarySort` (10 keys), `librarySortDirection`, `libraryFilter`, `libraryGenre`, `libraryFavoritesOnly`, optional `journeyRange/journeyZoom/journeyFit` (declared but unused), `igdbClientId?`, `igdbClientSecret?`, `steamApiKey?`, `steamId?`, `lastIgdbSyncAt?`, `libraryGameType?`, `lastStoreSyncAt?`, `storeSyncSource?`. Steam fields are credentials/settings, not game fields, and are stripped from exports.
+`AppSettings`: `theme: ThemeId` (`aurora | moonlight | rose | solarized | graphite | arctic | canopy | glacier`), `defaultView`, `libraryLayout: "ps4"|"catalog"`, `libraryFullscreen`, `gridSize: "sm"|"md"|"lg"`, `librarySort` (10 keys), `librarySortDirection`, `libraryFilter`, `libraryGenre`, `libraryFavoritesOnly`, optional `journeyRange/journeyZoom/journeyFit` (declared but unused), `igdbClientId?`, `igdbClientSecret?`, `steamApiKey?`, `steamId?`, `lastIgdbSyncAt?`, `libraryGameType?`, `lastStoreSyncAt?`, `storeSyncSource?`. Steam fields are credentials/settings, not game fields, and are stripped from exports.
 `Collection = { id, name, description?, items: CollectionItem[], image? }` (`:49`).
 
 ### Persistence strategy

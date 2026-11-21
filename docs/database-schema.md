@@ -140,7 +140,7 @@ export type Profile = {
 
 ```typescript
 export type AppSettings = {
-  theme: ThemeId;                  // "aurora" | "moonlight" | "rose" | "solarized" | "graphite" | "arctic" | "canopy"; unknown values normalize to "aurora"
+  theme: ThemeId;                  // "aurora" | "moonlight" | "rose" | "solarized" | "graphite" | "arctic" | "canopy" | "glacier"; unknown values normalize to "aurora"
   defaultView: View | "grid" | "list";
   libraryLayout: "ps4" | "catalog";
   libraryFullscreen: boolean;
