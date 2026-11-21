@@ -1,5 +1,6 @@
-import { Sparkles } from "lucide-react";
+import { Check, Sparkles } from "lucide-react";
 import type { AppData } from "../domain/game";
+import { THEMES, normalizeTheme, type ThemeId } from "../domain/theme";
 import { Header } from "../components/shared";
 import { DataSection } from "./settings-data";
 import "./settings.css";
@@ -8,6 +9,7 @@ export function SettingsView({ data, update }: { data: AppData; update: (data: A
   const updateSettings = (partial: Partial<AppData["settings"]>) => {
     update({ ...data, settings: { ...data.settings, ...partial } });
   };
+  const activeTheme = normalizeTheme(data.settings.theme);
 
   return (
     <>
@@ -15,7 +17,32 @@ export function SettingsView({ data, update }: { data: AppData; update: (data: A
       <div className="settings-grid">
         <section className="glass settings-panel">
           <p className="eyebrow">PREFERENCES & APPEARANCE</p><h2>Preferences</h2>
-          <div className="setting-row"><div><strong>Active theme</strong><span>Aurora glass aesthetic</span></div><span className="pill"><Sparkles size={13} /> Aurora</span></div>
+          <div className="setting-row theme-setting-row">
+            <div><strong>Theme</strong><span>Choose the app's visual atmosphere.</span></div>
+          </div>
+          <div className="theme-picker" role="radiogroup" aria-label="Theme">
+            {THEMES.map((theme) => {
+              const active = theme.id === activeTheme;
+              return (
+                <button
+                  key={theme.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  className={`theme-option ${active ? "active" : ""}`}
+                  data-theme-preview={theme.id}
+                  onClick={() => updateSettings({ theme: theme.id as ThemeId })}
+                >
+                  <span className="theme-swatch" style={{ "--swatch": theme.color } as Record<string, string>} />
+                  <span className="theme-copy">
+                    <strong>{theme.label}</strong>
+                    <span>{theme.description}</span>
+                  </span>
+                  <span className="theme-state">{active ? <Check size={14} /> : <Sparkles size={14} />}</span>
+                </button>
+              );
+            })}
+          </div>
         </section>
         <section className="glass settings-panel">
           <p className="eyebrow">IGDB CONNECTION</p><h2>API credentials</h2>

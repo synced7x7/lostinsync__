@@ -227,4 +227,4 @@ App mounts → repo.load()
 | Session-only Library/Journey prefs | Memory-only by design; `AppSettings.journeyRange/Zoom/Fit` are declared but unused. |
 | Web via 3 module swaps | Web reuses all shared `src/` code unchanged; only IGDB, repository, and settings-data are swapped. |
 | Desktop-only store import | Store HTTP/token handling lives in Rust; the shared UI hides the panel in web builds. Optional store fields and ids travel through JSON exports without credentials. |
-| Single static "Aurora" theme | CSS variables exist, but there is no runtime theme switching and many hard-coded colors remain. |
+| CSS-variable theme system | `ThemeId` tokens in `src/style.css` are selected via `data-theme`; theme is persisted in settings and normalized on load. Charts recompute colors from CSS vars on theme change; some hard-coded colors remain in feature styles/SVGs. |

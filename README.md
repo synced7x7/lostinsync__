@@ -59,7 +59,7 @@
 | External data | IGDB API (Twitch OAuth2 client credentials); Steam Web API on desktop |
 | CSV import | Generic, IGDB-enriched CSV importer in Settings with dedupe, cancellation and reports |
 | Desktop store import | One-way Steam and Epic Games connectors; all store HTTP and token storage stays in Rust |
-| Styling | Custom CSS variables, Aurora Glass dark theme |
+| Styling | Custom CSS variables with selectable themes (Aurora, Ember, Moonlight) |
 
 ---
 

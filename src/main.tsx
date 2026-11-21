@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { createAppRepository } from "./data/repository";
+import { applyTheme } from "./domain/theme";
 import {
   defaultData,
   formatCount,
@@ -129,6 +130,7 @@ function App() {
       window.removeEventListener("keydown", onFirstInteraction);
     };
   }, []);
+  useEffect(() => { applyTheme(data.settings.theme); }, [data.settings.theme]);
   useEffect(() => {
     if (location.pathname === "/profile") navigate("/");
   }, [location.pathname, navigate]);

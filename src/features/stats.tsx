@@ -57,7 +57,8 @@ export function StatsView({ data }: { data: AppData }) {
     const years = useMemo(() => yearsOf(data.games), [data.games]);
     const games = useMemo(() => (range === "all" ? data.games : data.games.filter((g) => touchedIn(g, Number(range)))), [data.games, range]);
     const rows = useMemo(() => index(games), [games]);
-    const section = useMemo(() => (cat ? build(cat, rows, data.games) : undefined), [cat, rows, data.games]); // only the open category is computed
+    const theme = data.settings.theme;
+    const section = useMemo(() => (cat ? build(cat, rows, data.games) : undefined), [cat, rows, data.games, theme]); // only the open category is computed; theme forces chart recolor
     const meta = CATEGORIES.find((c) => c.id === cat);
 
     if (!cat || !meta || !section) {
@@ -85,7 +86,7 @@ export function StatsView({ data }: { data: AppData }) {
 
     const Icon = ICONS[meta.id];
     return (
-        <div className="st-page" key={`${cat}-${range}`}>
+        <div className="st-page" key={`${cat}-${range}-${theme}`}>
             <button className="st-back" onClick={close}><ArrowLeft size={16} /> All categories</button>
             <header className={`st-hero tone-${meta.tone}`}>
                 <span className="st-ico big"><Icon size={28} /></span>

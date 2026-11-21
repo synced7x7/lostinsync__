@@ -2,6 +2,7 @@
 // into a small stored form (images as "img:<hash>" references) and back.
 import type { AppData, Game } from "../../src/domain/game";
 import { defaultData } from "../../src/domain/game";
+import { normalizeTheme } from "../../src/domain/theme";
 import * as db from "./db";
 
 export const REF = "img:";
@@ -123,6 +124,7 @@ export function prepare(raw?: Partial<AppData>): AppData {
     games: merged.games.map((g) => ((g.status as string) === "Retired" ? { ...g, status: "Completed" } : g)),
     settings: {
       ...merged.settings,
+      theme: normalizeTheme(merged.settings.theme),
       libraryFilter: (merged.settings.libraryFilter as string) === "Played" ? "All" : merged.settings.libraryFilter,
     },
   } as AppData;

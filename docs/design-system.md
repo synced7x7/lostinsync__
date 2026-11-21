@@ -4,10 +4,10 @@
 
 ## Current state
 
-The only implemented theme is **Aurora Glass**. Its semantic tokens are declared on `:root` at the top of `src/style.css` (around lines 25-44):
+The app has a **theme system** with three built-in dark themes: **Aurora** (default), **Ember**, and **Moonlight**. Semantic tokens are declared in `src/style.css` on `:root, [data-theme="aurora"]` and overridden in `[data-theme="ember"]` and `[data-theme="moonlight"]`.
 
 ```css
---bg, --panel, --panel-strong, --line, --line-soft,
+--bg, --bg-glow-1, --bg-glow-2, --panel, --panel-strong, --line, --line-soft,
 --text, --muted, --dim, --accent, --accent-strong,
 --cyan, --rose, --success, --shadow, --radius
 ```
@@ -16,24 +16,20 @@ Component-scoped variables extend these: `--p` (rating ring), `--c` / `--rc` (ra
 
 The visual language uses translucent panels, backdrop blur, thin borders, soft gradients, generous spacing, and restrained accent colors. The interface remains usable without the remote font import so core features stay offline.
 
-## Theming today
+## Theming
 
-`AppSettings.theme` is the literal type `"aurora"` (`src/domain/game.ts:30`), the Settings view shows a static "Aurora" pill (`src/features/settings.tsx:18`), and there is **no** `data-theme` attribute, theme provider, class toggle, or `prefers-color-scheme` handling anywhere in the app. Saving a theme selection is therefore not currently possible.
+- `src/domain/theme.ts` defines `ThemeId` (`aurora | ember | moonlight`), theme metadata, `normalizeTheme()` (unknown values fall back to `aurora`), and `applyTheme()` which sets `document.documentElement.dataset.theme`.
+- `AppSettings.theme` is typed as `ThemeId` (`src/domain/game.ts`) and persisted in the normal `AppData.settings` JSON blob. Desktop (`src/data/repository.ts`) and web (`web/src/codec.ts`) normalize legacy/unknown values on load.
+- `src/main.tsx` applies the active theme via `useEffect` when `data.settings.theme` changes.
+- Settings (`src/features/settings.tsx`) exposes a theme picker; selecting a theme persists through `updateSettings`.
+- ECharts colors are canvas-based, so `src/domain/stats.ts` reads CSS variables through `syncChartTheme()` inside `build()`, and `src/features/stats.tsx` includes the theme in chart keys/memo deps to rebuild charts on theme change.
 
-Some literal colors remain at the top of `style.css` and throughout feature stylesheets, and ECharts palette values (`C`, `MUTED`, `AX`, `TIP`, `LEG` in `src/domain/stats.ts:101-114`) are JavaScript constants rather than CSS variables. A future theme system must migrate those too; overriding variables alone would only partially change the UI.
+## Adding a theme
 
-## Adding a theme (not yet implemented)
+1. Add the theme ID to `THEME_IDS` and metadata to `THEMES` in `src/domain/theme.ts`.
+2. Add a `[data-theme="your-id"]` token block in `src/style.css`.
+3. Verify contrast and hard-coded color hotspots (charts, gradients, SVG fills) still read acceptably.
 
-The example below is a **proposed pattern**, not something the code currently supports. To implement multiple themes you would need to widen `AppSettings.theme`, apply an attribute to the document root, add override blocks, and persist the selection through settings:
-
-```css
-[data-theme="ember"] {
-  --accent: #ff9a76;
-  --accent-strong: #e36a4f;
-  --cyan: #ffd166;
-}
-```
-
-See feature 5 in `agent/future_implementation_guide.md` for the full investigation and file list.
+Some literal colors remain in feature stylesheets and canvas/SVG code; overriding tokens covers most of the UI, but full theme fidelity requires migrating remaining hard-coded colors to CSS variables or theme-aware JS.
 
 Web-specific styling lives in `web/src/cloud.css`. The copy at `web/worker/src/cloud.css` is stale, unused dead code.

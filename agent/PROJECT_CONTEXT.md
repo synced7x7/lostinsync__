@@ -226,10 +226,10 @@ Utilities: `compareGames` (`src/main.tsx:300-314`), `formatSpan` (`:316-333`), `
 
 ### Styling and theme
 
-- Theme tokens in `src/style.css:25-44`: `--bg`, `--panel`, `--panel-strong`, `--line`, `--line-soft`, `--text`, `--muted`, `--dim`, `--accent`, `--accent-strong`, `--cyan`, `--rose`, `--success`, `--shadow`, `--radius`.
+- Theme tokens in `src/style.css`: `--bg`, `--bg-glow-1`, `--bg-glow-2`, `--panel`, `--panel-strong`, `--line`, `--line-soft`, `--text`, `--muted`, `--dim`, `--accent`, `--accent-strong`, `--cyan`, `--rose`, `--success`, `--shadow`, `--radius`, defined per `[data-theme]` block (`aurora`, `ember`, `moonlight`).
 - Component-scoped vars: `--p` (rating ring), `--c`, `--rc` (rarity color), `--g` (trophy rarity RGB), `--tc` (chart tone), `--jn-left` (timeline).
-- **Only one theme exists**: `AppSettings.theme` is the literal `"aurora"` (`src/domain/game.ts:30`), the Settings view shows a static pill (`src/features/settings.tsx:18`), and there is no `data-theme`, class toggle, or runtime variable assignment. `docs/design-system.md` now explicitly marks the `[data-theme]` pattern as proposed, not implemented.
-- Many hard-coded colors remain in feature CSS and ECharts options (`src/domain/stats.ts:101-114`), so variable overrides alone would be partial.
+- Theme system: `src/domain/theme.ts` defines IDs/metadata/normalize/apply; `AppSettings.theme` is `ThemeId`; `src/main.tsx` applies `data-theme` on theme changes; Settings provides a picker; desktop/web loads normalize unknown values to `aurora`.
+- ECharts colors are synced from CSS variables at build time via `syncChartTheme()` in `src/domain/stats.ts`, and stats charts remount on theme change. Some hard-coded colors remain in feature CSS/SVG/canvas hotspots, so theme coverage is good but not exhaustive.
 - Web-only styling: `web/src/cloud.css`; stale unused copy at `web/worker/src/cloud.css`.
 
 ### Important UI workflows
@@ -345,7 +345,7 @@ CREATE TABLE IF NOT EXISTS app_state (
 - **No** `playedAt`, `priority`, `played` status, full ownership/medium, price, bought-on, amount-paid, or session-log fields exist (verified by grep).
 
 `Profile = { displayName, bio, accent, picture?, topFive? }` (`:24`).
-`AppSettings`: `theme: "aurora"`, `defaultView`, `libraryLayout: "ps4"|"catalog"`, `libraryFullscreen`, `gridSize: "sm"|"md"|"lg"`, `librarySort` (10 keys), `librarySortDirection`, `libraryFilter`, `libraryGenre`, `libraryFavoritesOnly`, optional `journeyRange/journeyZoom/journeyFit` (declared but unused), `igdbClientId?`, `igdbClientSecret?`, `steamApiKey?`, `steamId?`, `lastIgdbSyncAt?`, `libraryGameType?`, `lastStoreSyncAt?`, `storeSyncSource?`. Steam fields are credentials/settings, not game fields, and are stripped from exports.
+`AppSettings`: `theme: ThemeId` (`aurora | ember | moonlight`), `defaultView`, `libraryLayout: "ps4"|"catalog"`, `libraryFullscreen`, `gridSize: "sm"|"md"|"lg"`, `librarySort` (10 keys), `librarySortDirection`, `libraryFilter`, `libraryGenre`, `libraryFavoritesOnly`, optional `journeyRange/journeyZoom/journeyFit` (declared but unused), `igdbClientId?`, `igdbClientSecret?`, `steamApiKey?`, `steamId?`, `lastIgdbSyncAt?`, `libraryGameType?`, `lastStoreSyncAt?`, `storeSyncSource?`. Steam fields are credentials/settings, not game fields, and are stripped from exports.
 `Collection = { id, name, description?, items: CollectionItem[], image? }` (`:49`).
 
 ### Persistence strategy

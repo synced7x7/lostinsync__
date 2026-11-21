@@ -1,5 +1,6 @@
 import type { AppData, Game } from "../domain/game";
 import { defaultData } from "../domain/game";
+import { normalizeTheme } from "../domain/theme";
 const KEY = "lost-in-sync.data";
 import { convertFileSrc } from "@tauri-apps/api/core";
 const upgradeIgdbCover = (u?: string) =>
@@ -12,7 +13,11 @@ const normalizeStatuses = (data: AppData): AppData => ({
     status: (game.status as string) === "Retired" ? "Completed" : game.status,
     cover: upgradeIgdbCover(game.cover),
   })),
-  settings: { ...data.settings, libraryFilter: (data.settings.libraryFilter as string) === "Played" ? "All" : data.settings.libraryFilter },
+  settings: {
+    ...data.settings,
+    theme: normalizeTheme(data.settings.theme),
+    libraryFilter: (data.settings.libraryFilter as string) === "Played" ? "All" : data.settings.libraryFilter,
+  },
 });
 export interface AppRepository { load(): Promise<AppData>; save(data: AppData): Promise<void>; }
 export class LocalAppRepository implements AppRepository {

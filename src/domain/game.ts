@@ -1,4 +1,5 @@
 import type { IgdbDebugImage } from "../data/igdb";
+import { DEFAULT_THEME, type ThemeId } from "./theme";
 
 export const STATUSES = ["Backlog", "Wishlist", "Playing", "Completed", "Abandoned", "On hold"] as const;
 export type Status = typeof STATUSES[number];
@@ -34,7 +35,7 @@ export type LibrarySort = "recent" | "completion" | "playtime" | "rating" | "igd
 export type SortDirection = "asc" | "desc";
 
 export type AppSettings = {
-  theme: "aurora";
+  theme: ThemeId;
   defaultView: View | "grid" | "list";
   libraryLayout: LibraryLayout;
   libraryFullscreen: boolean;
@@ -75,7 +76,7 @@ export const defaultData: AppData = {
   collections: [],
   profile: { displayName: "Player One", bio: "Building a life in games.", accent: "#9b8cff" },
   settings: {
-    theme: "aurora",
+    theme: DEFAULT_THEME,
     defaultView: "library",
     libraryLayout: "ps4",
     libraryFullscreen: false,

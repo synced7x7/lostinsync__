@@ -100,12 +100,38 @@ const verdict = (r: number | undefined, hi: string, lo: string, flat: string) =>
 const ERAS: [string, number, number][] = [["Pre-1990", 0, 1989], ["1990s", 1990, 1999], ["2000s", 2000, 2009], ["2010s", 2010, 2019], ["2020s", 2020, 2029]];
 const eraOf = (y?: number) => (y === undefined ? undefined : ERAS.find((e) => y >= e[1] && y <= e[2])?.[0]);
 
-/* ============================ ECharts option builders (purple theme) ============================ */
-const C = ["#a495ff", "#67d8e6", "#f08ab5", "#e7c56c", "#75a8ee", "#7bd88f", "#ff9f6b", "#c58bff", "#5eead4", "#f472b6"];
-const MUTED = "#9b98b5";
-const AX = { axisLine: { lineStyle: { color: "rgba(255,255,255,.14)" } }, axisTick: { show: false }, axisLabel: { color: MUTED, fontSize: 11 }, splitLine: { lineStyle: { color: "rgba(255,255,255,.06)" } } };
-const TIP = { backgroundColor: "rgba(16,14,34,.94)", borderColor: "rgba(164,149,255,.35)", textStyle: { color: "#eee", fontSize: 12 }, extraCssText: "backdrop-filter:blur(8px);border-radius:10px" };
-const LEG = { textStyle: { color: MUTED }, top: 0, icon: "roundRect", itemWidth: 10, itemHeight: 10 };
+/* ============================ ECharts option builders (theme-aware) ============================ */
+const css = (name: string, fallback: string) => {
+  if (typeof document === "undefined") return fallback;
+  const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  return v || fallback;
+};
+let C = ["#a495ff", "#67d8e6", "#f08ab5", "#e7c56c", "#75a8ee", "#7bd88f", "#ff9f6b", "#c58bff", "#5eead4", "#f472b6"];
+let MUTED = "#9b98b5";
+let ACCENT = "#a495ff";
+let ACCENT_STRONG = "#846df4";
+let CYAN = "#67d8e6";
+let DIM_BAR = "#3b3470";
+let AX: any = {};
+let TIP: any = {};
+let LEG: any = {};
+let GLASS_VM: any = {};
+function syncChartTheme() {
+  ACCENT = css("--accent", "#a495ff");
+  ACCENT_STRONG = css("--accent-strong", "#846df4");
+  CYAN = css("--cyan", "#67d8e6");
+  const rose = css("--rose", "#f08ab5");
+  const success = css("--success", "#75ddb1");
+  const text = css("--text", "#eee");
+  MUTED = css("--muted", "#9b98b5");
+  DIM_BAR = ACCENT_STRONG + "55";
+  C = [ACCENT, CYAN, rose, "#e7c56c", "#75a8ee", success, "#ff9f6b", ACCENT_STRONG, "#5eead4", "#f472b6"];
+  AX = { axisLine: { lineStyle: { color: "rgba(255,255,255,.14)" } }, axisTick: { show: false }, axisLabel: { color: MUTED, fontSize: 11 }, splitLine: { lineStyle: { color: "rgba(255,255,255,.06)" } } };
+  TIP = { backgroundColor: "rgba(16,14,34,.94)", borderColor: ACCENT + "59", textStyle: { color: text, fontSize: 12 }, extraCssText: "backdrop-filter:blur(8px);border-radius:10px" };
+  LEG = { textStyle: { color: MUTED }, top: 0, icon: "roundRect", itemWidth: 10, itemHeight: 10 };
+  GLASS_VM = { calculable: false, orient: "horizontal", left: "center", bottom: 0, itemHeight: 90, inRange: { color: ["rgba(255,255,255,.05)", ACCENT_STRONG, ACCENT, CYAN] }, textStyle: { color: MUTED } };
+}
+syncChartTheme();
 const fade = (c: string) => {
   if (/^#[0-9a-f]{6}$/i.test(c)) return c + "55";
   if (/^#[0-9a-f]{3}$/i.test(c)) return "#" + [...c.slice(1)].map((x) => x + x).join("") + "55";
@@ -114,7 +140,6 @@ const fade = (c: string) => {
   return c;
 };
 const grad = (c: string) => ({ type: "linear", x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: c }, { offset: 1, color: fade(c) }] });
-const GLASS_VM = { calculable: false, orient: "horizontal", left: "center", bottom: 0, itemHeight: 90, inRange: { color: ["rgba(255,255,255,.05)", "#4b3f9e", "#a495ff", "#67d8e6"] }, textStyle: { color: MUTED } };
 
 type S = { name: string; data: number[]; color?: string; kind?: "bar" | "line" | "area"; stack?: string; y2?: boolean };
 function cartesian(cats: string[], series: S[], o: { horizontal?: boolean; zoom?: boolean; max?: number; rotate?: number } = {}): Opt {
@@ -127,7 +152,7 @@ function cartesian(cats: string[], series: S[], o: { horizontal?: boolean; zoom?
     grid: { left: 6, right: 16, top: series.length > 1 ? 36 : 14, bottom: o.zoom ? 40 : 6, containLabel: true },
     xAxis: o.horizontal ? val : catAxis,
     yAxis: o.horizontal ? { ...catAxis, inverse: true } : series.some((s) => s.y2) ? [val, { ...val, splitLine: { show: false } }] : val,
-    dataZoom: o.zoom ? [{ type: "inside" }, { type: "slider", height: 16, bottom: 6, borderColor: "transparent", backgroundColor: "rgba(255,255,255,.04)", fillerColor: "rgba(164,149,255,.2)", handleStyle: { color: "#a495ff" }, textStyle: { color: MUTED } }] : undefined,
+    dataZoom: o.zoom ? [{ type: "inside" }, { type: "slider", height: 16, bottom: 6, borderColor: "transparent", backgroundColor: "rgba(255,255,255,.04)", fillerColor: ACCENT + "33", handleStyle: { color: ACCENT }, textStyle: { color: MUTED } }] : undefined,
     series: series.map((s, i) => {
       const color = s.color ?? C[i % C.length], line = s.kind === "line" || s.kind === "area";
       return { name: s.name, type: line ? "line" : "bar", data: s.data, stack: s.stack, yAxisIndex: s.y2 ? 1 : 0, smooth: line, symbol: "circle", symbolSize: 6, showSymbol: s.data.length < 40, areaStyle: s.kind === "area" ? { opacity: 0.35 } : undefined, lineStyle: line ? { width: 3 } : undefined, itemStyle: line ? { color } : { color: o.horizontal ? color : grad(color), borderRadius: o.horizontal ? [0, 6, 6, 0] : [6, 6, 0, 0] }, barMaxWidth: 28, emphasis: { focus: "series" } };
@@ -235,7 +260,7 @@ function scatter(pts: [number, number, string][], xName: string, yName: string):
     grid: { left: 6, right: 16, top: 22, bottom: 26, containLabel: true },
     xAxis: { type: "value", name: xName, nameLocation: "middle", nameGap: 30, nameTextStyle: { color: MUTED }, scale: true, ...AX },
     yAxis: { type: "value", name: yName, nameTextStyle: { color: MUTED }, min: 0, max: 10, ...AX },
-    series: [{ type: "scatter", data: pts, symbolSize: 12, itemStyle: { color: "#a495ff", shadowBlur: 10, shadowColor: "rgba(164,149,255,.6)", opacity: 0.85 } }, ...(line ? [{ type: "line", data: line, symbol: "none", silent: true, lineStyle: { color: "#67d8e6", width: 2, type: "dashed" } }] : [])]
+    series: [{ type: "scatter", data: pts, symbolSize: 12, itemStyle: { color: ACCENT, shadowBlur: 10, shadowColor: ACCENT + "99", opacity: 0.85 } }, ...(line ? [{ type: "line", data: line, symbol: "none", silent: true, lineStyle: { color: CYAN, width: 2, type: "dashed" } }] : [])]
   };
 }
 function evolution(rows: R[], names: string[], keys: (x: R) => string[]): Opt {
@@ -245,7 +270,7 @@ function evolution(rows: R[], names: string[], keys: (x: R) => string[]): Opt {
   return cartesian(ys.map(String), names.map((n) => ({ name: cut(n), kind: "area" as const, stack: "e", data: ys.map((y) => act.filter((x) => yr(x.at) === y && keys(x).includes(n)).length) })));
 }
 const slice = (a: Agg[], key: (x: Agg) => number, n: number) => { const s = [...a].filter((x) => key(x) > 0).sort((x, y) => key(y) - key(x)), rest = sum(s.slice(n).map(key)); return [...s.slice(0, n).map((x) => ({ name: cut(x.name), value: Math.round(key(x) * 10) / 10 })), ...(rest ? [{ name: "Other", value: Math.round(rest) }] : [])]; };
-const stackedCollection = (a: Agg[], n = 12) => { const t = [...a].sort((x, y) => y.n - x.n).slice(0, n); return cartesian(t.map((x) => cut(x.name)), [{ name: "Completed", data: t.map((x) => x.done), stack: "c", color: "#a495ff" }, { name: "Not completed", data: t.map((x) => x.n - x.done), stack: "c", color: "#3b3470" }], { horizontal: true }); };
+const stackedCollection = (a: Agg[], n = 12) => { const t = [...a].sort((x, y) => y.n - x.n).slice(0, n); return cartesian(t.map((x) => cut(x.name)), [{ name: "Completed", data: t.map((x) => x.done), stack: "c", color: ACCENT }, { name: "Not completed", data: t.map((x) => x.n - x.done), stack: "c", color: DIM_BAR }], { horizontal: true }); };
 
 /* ============================ categories ============================ */
 function overview(r: R[]): Section {
@@ -301,7 +326,7 @@ function playtime(r: R[]): Section {
   const logged = r.filter((x) => x.play !== undefined).sort((a, b) => b.play! - a.play!);
   const buckets = playtimeBuckets(logged.map((x) => x.play!));
   const most = logged[0], least = logged[logged.length - 1];
-  const bars = (rows: R[]) => cartesian(rows.map((x) => cut(x.g.title, 18)), [{ name: "Your playtime (h)", data: rows.map((x) => Math.round(x.play! * 10) / 10), color: "#a495ff" }], { horizontal: true });
+  const bars = (rows: R[]) => cartesian(rows.map((x) => cut(x.g.title, 18)), [{ name: "Your playtime (h)", data: rows.map((x) => Math.round(x.play! * 10) / 10), color: ACCENT }], { horizontal: true });
 
   const byStatus = STATUSES.map((st) => ({ name: st, value: Math.round(r.filter((x) => x.g.status === st).reduce((t, x) => t + (x.play ?? 0), 0) * 10) / 10 })).filter((d) => d.value > 0);
   const genreHours = new Map<string, number>();
@@ -311,7 +336,7 @@ function playtime(r: R[]): Section {
   // IGDB numbers are community estimates — kept as a separate, muted series for comparison only.
   const both = logged.filter((x) => x.len !== undefined).slice(0, 10);
   const compare = cartesian(both.map((x) => cut(x.g.title, 18)), [
-    { name: "Your playtime", data: both.map((x) => Math.round(x.play! * 10) / 10), color: "#a495ff" },
+    { name: "Your playtime", data: both.map((x) => Math.round(x.play! * 10) / 10), color: ACCENT },
     { name: "IGDB average (estimate)", data: both.map((x) => Math.round(x.len! * 10) / 10), color: "#6b6f86" },
   ], { horizontal: true });
 
@@ -327,7 +352,7 @@ function playtime(r: R[]): Section {
       T("Not tracked", String(s.untracked), "no playtime recorded", "gold"),
     ],
     charts: [
-      { id: "dist", title: "Playtime distribution", note: "How your logged hours are spread across individual games.", option: cartesian(buckets.map((b) => b.label), [{ name: "Games", data: buckets.map((b) => b.games), color: "#a495ff" }, { name: "Hours", kind: "line", y2: true, data: buckets.map((b) => Math.round(b.hours)), color: "#67d8e6" }]) },
+      { id: "dist", title: "Playtime distribution", note: "How your logged hours are spread across individual games.", option: cartesian(buckets.map((b) => b.label), [{ name: "Games", data: buckets.map((b) => b.games), color: ACCENT }, { name: "Hours", kind: "line", y2: true, data: buckets.map((b) => Math.round(b.hours)), color: CYAN }]) },
       { id: "top", title: "Most time-consuming games", note: "Ranked by the playtime you logged, not by IGDB estimates.", height: 360, tabs: [{ label: "Longest 10", option: bars(logged.slice(0, 10)) }, { label: "Shortest 10", option: bars([...logged].reverse().slice(0, 10)) }] },
       { id: "status", title: "Where your hours went", note: "Logged playtime grouped by the game's current status.", option: donut(byStatus, { unit: "h" }), height: 340 },
       { id: "genres", title: "Hours per genre", note: "Your top genres by logged playtime.", option: cartesian(topGenres.map(([g]) => cut(g, 16)), [{ name: "Hours", data: topGenres.map(([, h]) => Math.round(h * 10) / 10), color: "#7bd88f" }], { horizontal: true }), height: 340 },
@@ -433,7 +458,7 @@ function ratings(r: R[]): Section {
         id: "by", title: "Average rating by…", note: "Groups with at least 2 rated games when possible.", option: bars(agg(R_, (x) => x.genres)), height: 360,
         tabs: [{ label: "Genre", option: bars(agg(R_, (x) => x.genres)) }, { label: "Developer", option: bars(agg(R_, (x) => (x.dev ? [x.dev] : []))) }, { label: "Franchise", option: bars(agg(R_, (x) => x.fr)) }, { label: "Platform", option: bars(agg(R_, (x) => [x.platform])) }, { label: "Era", option: bars(agg(R_, (x) => (x.rel ? [`${Math.floor(x.rel / 10) * 10}s`] : []))) }]
       },
-      { id: "evo", title: "Rating evolution", note: "Average rating by year of activity, with games rated per year.", wide: true, option: cartesian(ey.map(String), [{ name: "Games rated", data: ya.map((x) => x.length), color: "#3b3470" }, { name: "Average rating", kind: "line", y2: true, data: ya.map((x) => Math.round(avg(x.map((y) => y.rating!)) * 10) / 10), color: "#e7c56c" }]) },
+      { id: "evo", title: "Rating evolution", note: "Average rating by year of activity, with games rated per year.", wide: true, option: cartesian(ey.map(String), [{ name: "Games rated", data: ya.map((x) => x.length), color: DIM_BAR }, { name: "Average rating", kind: "line", y2: true, data: ya.map((x) => Math.round(avg(x.map((y) => y.rating!)) * 10) / 10), color: "#e7c56c" }]) },
       { id: "j", title: "Rating vs time invested", note: verdict(corr(pj), "You tend to rate games higher the longer you stay with them. Time invested seems to pay off.", "Games you finish quickly score higher with you. You reward tight, focused experiences.", "How long you spend with a game barely moves your rating."), option: scatter(pj, "Days start → finish", "Rating") },
       { id: "y", title: "Rating vs release year", note: verdict(corr(pr), "Newer games tend to win higher scores from you.", "Classics beat modern releases in your ratings.", "Your ratings don't favour any particular generation."), option: scatter(pr, "Release year", "Rating") },
       { id: "l", title: "Rating vs game length", note: verdict(corr(pl), "You enjoy longer games more. Big adventures tend to score well with you.", "Shorter games tend to impress you more than long ones.", "Game length doesn't predict how much you enjoy a game."), option: scatter(pl, "Average playtime (hours)", "Rating"), wide: true },
@@ -444,11 +469,11 @@ function ratings(r: R[]): Section {
 function length(r: R[]): Section {
   const L = r.filter((x) => x.len), dn = L.filter((x) => x.done), lv = L.map((x) => x.len!), mx = top(L, (x) => x.len!), mn = top(L, (x) => x.len!, -1);
   const B: [string, number, number][] = [["< 5h", 0, 5], ["5–10h", 5, 10], ["10–20h", 10, 20], ["20–40h", 20, 40], ["40–80h", 40, 80], ["80h+", 80, Infinity]];
-  const lst = (rows: R[]) => cartesian(rows.map((x) => cut(x.g.title)), [{ name: "Playtime (h)", data: rows.map((x) => Math.round(x.len! * 10) / 10), color: "#67d8e6" }], { horizontal: true });
+  const lst = (rows: R[]) => cartesian(rows.map((x) => cut(x.g.title)), [{ name: "Playtime (h)", data: rows.map((x) => Math.round(x.len! * 10) / 10), color: CYAN }], { horizontal: true });
   return {
     tiles: [T("Longest game", mx ? hrs(mx.len!) : dash, mx?.g.title ?? "No length data yet", "rose"), T("Shortest game", mn ? hrs(mn.len!) : dash, mn?.g.title ?? "", "green"), T("Average game length", lv.length ? hrs(avg(lv)) : dash, "average playtime", "violet"), T("Median game length", lv.length ? hrs(median(lv)) : dash, "median playtime", "blue"), T("Playtime per completion", dn.length ? hrs(avg(dn.map((x) => x.len!))) : dash, "average for completed games", "cyan"), T("Total in completed games", hrs(sum(dn.map((x) => x.len!))), `${L.length} of ${r.length} games have length data`, "gold")],
     charts: [
-      { id: "hist", title: "How long are your games?", option: cartesian(B.map((b) => b[0]), [{ name: "Games", data: B.map(([, a, b]) => lv.filter((v) => v >= a && v < b).length), color: "#67d8e6" }]) },
+      { id: "hist", title: "How long are your games?", option: cartesian(B.map((b) => b[0]), [{ name: "Games", data: B.map(([, a, b]) => lv.filter((v) => v >= a && v < b).length), color: CYAN }]) },
       { id: "top", title: "Longest & shortest games", height: 340, option: lst([...L].sort((a, b) => b.len! - a.len!).slice(0, 10)), tabs: [{ label: "Longest 10", option: lst([...L].sort((a, b) => b.len! - a.len!).slice(0, 10)) }, { label: "Shortest 10", option: lst([...L].sort((a, b) => a.len! - b.len!).slice(0, 10)) }] },
     ],
   };
@@ -465,8 +490,8 @@ function exploration(r: R[]): Section {
       T("Overall diversity", `${Math.round(avg(sc))}/100`, "how evenly your games are spread", "cyan"), T("Most experimental year", pk ? String(pk[0]) : dash, pk ? `${pk[1]} new genres tried` : "", "rose"),
     ],
     charts: [
-      { id: "radar", title: "Diversity scores", note: "100 means your games are spread perfectly evenly across the category.", height: 340, option: { color: C, tooltip: { ...TIP }, radar: { shape: "circle", radius: "68%", indicator: ["Genres", "Developers", "Franchises", "Eras", "Platforms"].map((name) => ({ name, max: 100 })), axisName: { color: MUTED }, splitLine: { lineStyle: { color: "rgba(255,255,255,.1)" } }, splitArea: { show: false }, axisLine: { lineStyle: { color: "rgba(255,255,255,.1)" } } }, series: [{ type: "radar", data: [{ value: sc.map(Math.round), name: "Diversity" }], areaStyle: { color: "rgba(164,149,255,.35)" }, lineStyle: { color: "#a495ff", width: 3 }, itemStyle: { color: "#67d8e6" } }] } },
-      { id: "new", title: "New genres discovered per year", height: 340, option: cartesian(ys.map(String), [{ name: "New genres", data: ys.map((y) => ng.get(y) ?? 0) }, { name: "Total genres", kind: "line", y2: true, data: ys.map((y) => (run += ng.get(y) ?? 0)), color: "#67d8e6" }]) },
+      { id: "radar", title: "Diversity scores", note: "100 means your games are spread perfectly evenly across the category.", height: 340, option: { color: C, tooltip: { ...TIP }, radar: { shape: "circle", radius: "68%", indicator: ["Genres", "Developers", "Franchises", "Eras", "Platforms"].map((name) => ({ name, max: 100 })), axisName: { color: MUTED }, splitLine: { lineStyle: { color: "rgba(255,255,255,.1)" } }, splitArea: { show: false }, axisLine: { lineStyle: { color: "rgba(255,255,255,.1)" } } }, series: [{ type: "radar", data: [{ value: sc.map(Math.round), name: "Diversity" }], areaStyle: { color: ACCENT + "59" }, lineStyle: { color: ACCENT, width: 3 }, itemStyle: { color: CYAN } }] } },
+      { id: "new", title: "New genres discovered per year", height: 340, option: cartesian(ys.map(String), [{ name: "New genres", data: ys.map((y) => ng.get(y) ?? 0) }, { name: "Total genres", kind: "line", y2: true, data: ys.map((y) => (run += ng.get(y) ?? 0)), color: CYAN }]) },
     ],
   };
 }
@@ -495,7 +520,7 @@ function records(r: R[]): Section {
   const ra = [...new Set(r.filter((x) => x.rating && x.at > 0).map((x) => yr(x.at)))].map((y) => { const rs = r.filter((x) => x.rating && x.at > 0 && yr(x.at) === y); return { y, n: rs.length, v: avg(rs.map((x) => x.rating!)) }; });
   const hy = top(ra.filter((x) => x.n >= 2).length ? ra.filter((x) => x.n >= 2) : ra, (x) => x.v);
   const cy = [...Y.keys()].length ? range(Math.min(...Y.keys()), Math.max(...Y.keys())) : [], yo = cartesian(cy.map(String), [{ name: "Completed", data: cy.map((y) => Y.get(y) ?? 0), color: "#e7c56c" }]);
-  yo.series[0].markPoint = { data: [{ type: "max", name: "Record" }], symbolSize: 54, itemStyle: { color: "#a495ff" }, label: { color: "#fff", fontWeight: 700 } };
+  yo.series[0].markPoint = { data: [{ type: "max", name: "Record" }], symbolSize: 54, itemStyle: { color: ACCENT }, label: { color: "#fff", fontWeight: 700 } };
   const vals = cy.flatMap((y, yi) => MONTHS.map((_, m) => [m, yi, count(D.filter((x) => yr(x.f!) === y), (x) => new Date(x.f!).getUTCMonth()).get(m) ?? 0]));
   return {
     tiles: [
@@ -540,10 +565,10 @@ function insights(r: R[]): Section {
     ],
     charts: [
       { id: "idx", title: "Your indexes", note: "0–100, higher means a stronger tendency.", option: cartesian(["Franchise loyalty", "Developer loyalty", "Nostalgia", "Long-game preference"], [{ name: "Index", data: [fl, dl, nos, lp].map(Math.round) }], { horizontal: true, max: 100 }) },
-      { id: "shift", title: "How your taste shifted", note: "Share of your early games vs your most recent games, per genre.", option: cartesian(top6.map((n) => cut(n, 14)), [{ name: "Early", data: top6.map((n) => share(early, n)), color: "#3b3470" }, { name: "Recent", data: top6.map((n) => share(late, n)), color: "#a495ff" }]) },
+      { id: "shift", title: "How your taste shifted", note: "Share of your early games vs your most recent games, per genre.", option: cartesian(top6.map((n) => cut(n, 14)), [{ name: "Early", data: top6.map((n) => share(early, n)), color: DIM_BAR }, { name: "Recent", data: top6.map((n) => share(late, n)), color: ACCENT }]) },
     ],
   };
 }
 
 const BUILD: Record<CategoryId, (r: R[], all: Game[]) => Section> = { overview, activity, playtime, genres, platforms, eras, franchises, developers, ratings, length, exploration, milestones, records, insights };
-export const build = (id: CategoryId, rows: R[], all: Game[]) => BUILD[id](rows, all);
+export function build(id: CategoryId, rows: R[], all: Game[]) { syncChartTheme(); return BUILD[id](rows, all); }

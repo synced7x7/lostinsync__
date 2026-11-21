@@ -13,7 +13,7 @@ Feature-rich, working **prototype / pre-1.0 product** with two shipping surfaces
 
 Built installer artifacts exist in `src-tauri/target/release/bundle/` (NSIS `.exe` and MSI). No development branch activity, commit history, or issue tracker was inspected, so "in progress" claims below are limited to what source and docs show.
 
-**Maturity signals:** most planned core features are implemented; primary weaknesses are architectural (single-blob persistence, monolithic `src/main.tsx`), some documentation drift, and unfinished platform variants (theme, PWA, Android). Desktop store import is implemented; live Steam re-fetch QA after the free-game fix is **unverified**.
+**Maturity signals:** most planned core features are implemented; primary weaknesses are architectural (single-blob persistence, monolithic `src/main.tsx`), some documentation drift, and unfinished platform variants (PWA, Android). Desktop store import is implemented; live Steam re-fetch QA after the free-game fix is **unverified**.
 
 ---
 
@@ -32,6 +32,7 @@ Built installer artifacts exist in `src-tauri/target/release/bundle/` (NSIS `.ex
 | Discover / IGDB | 9 active feeds, paginated feed loader, Rust-ranked For You/Top Rated/Indie Spotlight/Story-Driven feeds, fuzzy/exact/ID search, one-click draft import, exact `external_games` storefronts, bounded LRU caches | `src/features/discover.tsx`, `src/data/igdb.ts`, `src-tauri/src/lib.rs`, `web/src/igdb.web.ts`, `docs/discovery-and-recommendation-algorithms.md` |
 | Find My Next Game | Desktop-only, history-driven backlog recommender on Dashboard; Rust `get_backlog_recommendations` scores Backlog candidates from long-term/recent taste profiles, Bayesian quality, diversity, and explanations; frontend caches result once per app session with no refresh button | `src-tauri/src/lib.rs`, `src/data/recommendations.ts`, `src/features/dashboard.tsx`, `src/features/overview.css`, `docs/discovery-and-recommendation-algorithms.md` |
 | Desktop store import (feature 9) | One-way Steam and Epic Games connectors, all HTTP/token handling in Rust; Steam owned/free games, public wishlist, achievements, status/date/mastery mapping, Epic catalog-id matching, reports, desktop-only UI, credential-safe export, user guide | `src-tauri/src/stores.rs`, `src/data/stores/`, `src/features/stores-settings.tsx`, `src/domain/game.ts`, `src/features/settings-data.tsx`, `docs/store-import-guide.md` |
+| Theme system | Selectable Aurora/Ember/Moonlight themes with `data-theme` tokens in `src/style.css`, persisted `AppSettings.theme`, normalized fallback on load, settings picker, and theme-aware ECharts rebuilds | `src/domain/theme.ts`, `src/domain/game.ts`, `src/main.tsx`, `src/features/settings.tsx`, `src/features/stats.tsx`, `src/domain/stats.ts`, `src/style.css` |
 | Generic CSV import | Settings panel that parses `,`/`;` CSV (BOM, quotes, CRLF), requires a `title` or `igdb_id` header, resolves by `igdb_id` first then strict `/ ` and generic title search, dedupes by id/title, fetches details in batches, supports cancel, progress and a copyable report; available wherever IGDB credentials are configured (web sets `hasTauri = true`, so the panel renders there too) | `src/data/stores/import.ts` (`parseCsv`, `parsePlaytimeSeconds`, `importCsv`, `csvReportSections`, `csvReportToText`), `src/features/settings-data.tsx:359-477` (`CsvImportSection`) |
 | Stats | 13 visible categories (incl. Playtime), tiles, tabbed ECharts charts, year filter | `src/domain/stats.ts`, `src/domain/playtime.ts`, `src/features/stats.tsx` |
 | Trophies | Six rarity tiers including `lostinsync`, badge gallery, `evaluate`/`topBadge` | `src/domain/trophies.ts`, `src/features/trophies.tsx` |
@@ -50,7 +51,7 @@ Note: feature 1 was originally titled "Played On and Completed Status Without En
 
 | Feature | What works | What is missing / limited |
 |---|---|---|
-| Theme system | Single "Aurora" theme via CSS variables; `AppSettings.theme` literal `"aurora"` | No theme switching, no `data-theme`/provider, no light mode, many hard-coded colors, ECharts colors are JS constants. `docs/design-system.md` now marks its `[data-theme]` example as proposed. |
+| Theme hardcoded-color migration | Theme system works (Aurora/Ember/Moonlight, `data-theme`, persisted/normalized, theme-aware stats charts) | Many literal colors remain in feature CSS/SVG/canvas hotspots; full visual parity across themes needs incremental token migration. |
 | Status changes | Fully changeable through the AddGame edit modal | No inline status/platinum/date control on cards or details; Details controls are `readOnly`. |
 | IGDB sync | Field allow-list, chunking, report, staleness check | 401 clears token without retry; no HTTP timeout/429 handling in Rust; cannot run in plain browser dev mode. |
 | Web app | Full shared UI + local-first persistence + cloud backup | No PWA; no `web/.env.example`; stale dead frontend copies in `web/worker/src/`; deploy target docs conflict; `hasTauri = true` hack. |
@@ -77,8 +78,8 @@ From `docs/roadmap.md` and the current request list:
 
 - Automated playtime tracking, launcher integration, multi-session log.
 - Emulator deep links; additional CSV/pasted-title importers.
-- Year-in-review image, tier list creator, custom themes.
-- Inline played-on/completed status updates (original feature-1 idea; re-scoped to the dropdown fix, still not implemented); improved Discover relevance; theme system.
+- Year-in-review image, tier list creator, custom user-created themes/theme editor.
+- Inline played-on/completed status updates (original feature-1 idea; re-scoped to the dropdown fix, still not implemented).
 - Android app (isolated directory); Add Game search-appearance fix; backlog priority and manual intent-driven "What Should I Play Next?" controls (automatic history-driven Find My Next Game is implemented).
 - Wishlist extras (price, reminders, bought-on, amount paid, spending stats); platform ownership.
 - More import sources (CSV and pasted titles); shareable profile/statistics card.
