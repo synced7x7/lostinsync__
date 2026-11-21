@@ -2,8 +2,8 @@ import { useEffect, useMemo, useRef, useState, type ComponentType, type ReactNod
 import { ChevronLeft, Compass, Search } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Header } from "../components/shared";
-import { igdbDetailsCached, igdbDiscoverFeedCached, igdbImagesCached, igdbSearch, type IgdbCreds, type IgdbDiscoverGame, type IgdbFeed, type IgdbGame, type IgdbHit, type IgdbDebugImage } from "../data/igdb";
-import type { AppData, Game } from "../domain/game";
+import { igdbDetailsCached, igdbDiscoverFeedCached, igdbImagesCached, igdbSearch, type IgdbCreds, type IgdbDiscoverGame, type IgdbFeed, type IgdbGame, type IgdbHit, type IgdbDebugImage, type TasteProfile } from "../data/igdb";
+import { formatCount, type AppData, type Game } from "../domain/game";
 import "./discover.css";
 
 const sections: { key: IgdbFeed; title: string; tone: string }[] = [
@@ -13,11 +13,56 @@ const sections: { key: IgdbFeed; title: string; tone: string }[] = [
   { key: "popular", title: "All Time Popular", tone: "cyan" },
   { key: "topRated", title: "Top Rated", tone: "gold" },
   { key: "latest", title: "Latest Releases", tone: "rose" },
-  { key: "hiddenGems", title: "Hidden Gems", tone: "violet" },
   { key: "indie", title: "Indie Spotlight", tone: "cyan" },
   { key: "upcoming", title: "Upcoming", tone: "blue" },
   { key: "story", title: "Story-Driven Adventures", tone: "rose" },
 ];
+
+/* ---------- For You: taste profile (30% frequency, 40% rating, 30% playtime) ---------- */
+const IGDB_GENRES = ["Point-and-click", "Fighting", "Shooter", "Music", "Platform", "Puzzle", "Racing", "Real Time Strategy (RTS)", "Role-playing (RPG)", "Simulator", "Sport", "Strategy", "Turn-based strategy (TBS)", "Tactical", "Hack and slash/Beat 'em up", "Quiz/Trivia", "Pinball", "Adventure", "Indie", "Arcade", "Visual Novel", "Card & Board Game", "MOBA"];
+const gKey = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+const GENRE_BY_KEY = new Map<string, string>(IGDB_GENRES.map((g) => [gKey(g), g]));
+for (const [alias, genre] of Object.entries({
+  rpg: "Role-playing (RPG)", roleplaying: "Role-playing (RPG)", rts: "Real Time Strategy (RTS)", tbs: "Turn-based strategy (TBS)",
+  sports: "Sport", platformer: "Platform", simulation: "Simulator", hackandslash: "Hack and slash/Beat 'em up", beatemup: "Hack and slash/Beat 'em up",
+})) GENRE_BY_KEY.set(alias, genre);
+
+/** Canonical IGDB genre names; legacy "Action, RPG" strings are split and mapped. */
+const gameGenres = (g: Game): string[] =>
+  [...new Set((g.genres?.length ? g.genres : (g.genre ?? "").split(",")).map((x) => x.trim()).filter(Boolean).map((x) => GENRE_BY_KEY.get(gKey(x)) ?? x))];
+
+function buildTaste(games: Game[]): TasteProfile {
+  const acc = new Map<string, { count: number; rated: number; ratingSum: number; seconds: number }>();
+  for (const g of games) for (const genre of gameGenres(g)) {
+    const a = acc.get(genre) ?? { count: 0, rated: 0, ratingSum: 0, seconds: 0 };
+    a.count++;
+    if (g.rating) { a.rated++; a.ratingSum += g.rating; }
+    a.seconds += g.totalSeconds || 0;
+    acc.set(genre, a);
+  }
+  const all = [...acc.values()];
+  const maxCount = Math.max(1, ...all.map((a) => a.count));
+  const maxSeconds = Math.max(0, ...all.map((a) => a.seconds));
+  const ratedTotal = all.reduce((s, a) => s + a.rated, 0);
+  const libRating = ratedTotal ? all.reduce((s, a) => s + a.ratingSum, 0) / ratedTotal / 10 : 0;
+  // a signal the library doesn't have is dropped and the remaining weights are renormalised
+  const wf = 0.3, wr = ratedTotal ? 0.4 : 0, wp = maxSeconds ? 0.3 : 0, wsum = wf + wr + wp;
+  const weights: Record<string, number> = {};
+  [...acc.entries()]
+    .map(([genre, a]) => [genre, (wf * (a.count / maxCount) + wr * (a.rated ? a.ratingSum / a.rated / 10 : libRating) + wp * (maxSeconds ? a.seconds / maxSeconds : 0)) / wsum] as const)
+    .filter(([, w]) => w >= 0.15)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 12)
+    .forEach(([genre, w]) => { weights[genre] = Math.round(w * 1000) / 1000; });
+  const ownedIds = games.map((g) => g.igdbId).filter((id): id is number => typeof id === "number");
+  return {
+    weights, ownedIds,
+    confidence: Math.min(1, games.length / 15), // small libraries lean less on genre affinity
+    key: JSON.stringify([weights, ownedIds.length, ownedIds.reduce((s, id) => (s + id) % 1_000_003, 0)]),
+  };
+}
+
+const ratingsBadge = (g: IgdbDiscoverGame) => (g.ratingCount ? `${formatCount(g.ratingCount)} ratings` : undefined);
 
 /* ============================ prefetch + instant-open seeds ============================ */
 let prefetchCreds: IgdbCreds | undefined;
@@ -54,7 +99,7 @@ export function DiscoverView({ data }: { data: AppData }) {
   const setSearch = (value: string) => { discoverSession.search = value; setSearchState(value); };
   const setSearchResults = (results: IgdbHit[]) => { discoverSession.results = results; setResultsState(results); };
   const [error, setError] = useState("");
-  const genres = useMemo(() => [...new Set(data.games.flatMap((game) => game.genres ?? [game.genre]).filter(Boolean))], [data.games]);
+  const taste = useMemo(() => buildTaste(data.games), [data.games]);
 
   useEffect(() => { prefetchCreds = credentials; }, [credentials.clientId, credentials.clientSecret]);
 
@@ -68,7 +113,7 @@ export function DiscoverView({ data }: { data: AppData }) {
     const worker = async () => {
       for (let s = queue.shift(); s; s = queue.shift()) {
         try {
-          const games = await igdbDiscoverFeedCached(s.key, genres, 0, 20, credentials);
+          const games = await igdbDiscoverFeedCached(s.key, taste, 0, 20, credentials);
           if (!stale) setFeeds((f) => ({ ...f, [s.key]: games }));
         } catch (reason) {
           if (!stale) {
@@ -80,7 +125,7 @@ export function DiscoverView({ data }: { data: AppData }) {
     };
     void Promise.all([worker(), worker(), worker()]);
     return () => { stale = true; };
-  }, [credentials.clientId, credentials.clientSecret, genres.join("|")]);
+  }, [credentials.clientId, credentials.clientSecret, taste.key]);
 
   const runSearch = async () => {
     if (!search.trim()) return;
@@ -97,7 +142,7 @@ export function DiscoverView({ data }: { data: AppData }) {
       </>
     );
   }
-  if (feed) return <FeedPage feed={feed} credentials={credentials} genres={genres} openGame={openGame} goBack={() => navigate("/discover")} />;
+  if (feed) return <FeedPage key={feed} feed={feed} credentials={credentials} taste={taste} openGame={openGame} goBack={() => navigate("/discover")} />;
 
   return (
     <div className="discover-page">
@@ -153,13 +198,13 @@ function FeedSection({ section, games, openGame, onViewAll }: { section: typeof 
         <span className={`discover-tone ${section.tone}`} />
         <button className="discover-view-all" onClick={onViewAll}>View all</button>
       </div>
-      <SimilarShelf games={games} onOpen={openGame} />
+      <SimilarShelf games={games} onOpen={openGame} badge={section.key === "popular" ? ratingsBadge : undefined} />
     </section>
   );
 }
 
 /* ============================ shelf with smooth horizontal wheel scrolling ============================ */
-function SimilarShelf({ games, onOpen }: { games: IgdbDiscoverGame[]; onOpen: (id: number) => void }) {
+function SimilarShelf({ games, onOpen, badge }: { games: IgdbDiscoverGame[]; onOpen: (id: number) => void; badge?: (g: IgdbDiscoverGame) => string | undefined }) {
   const shelfRef = useRef<HTMLDivElement>(null);
   const targetRef = useRef(0);
   const rafRef = useRef(0);
@@ -184,24 +229,32 @@ function SimilarShelf({ games, onOpen }: { games: IgdbDiscoverGame[]; onOpen: (i
     shelf.addEventListener("scroll", sync, { passive: true });
     return () => { shelf.removeEventListener("wheel", wheel); shelf.removeEventListener("scroll", sync); cancelAnimationFrame(rafRef.current); };
   }, []);
-  return <div className="discover-row" ref={shelfRef}>{games.map((game) => <DiscoverCard game={game} key={game.id} onDoubleClick={() => onOpen(game.id)} />)}</div>;
+  return <div className="discover-row" ref={shelfRef}>{games.map((game) => <DiscoverCard game={game} badge={badge?.(game)} key={game.id} onDoubleClick={() => onOpen(game.id)} />)}</div>;
 }
 
 /* ============================ "View all" page ============================ */
-function FeedPage({ feed, credentials, genres, openGame, goBack }: { feed: IgdbFeed; credentials: IgdbCreds; genres: string[]; openGame: (id: number) => void; goBack: () => void }) {
+function FeedPage({ feed, credentials, taste, openGame, goBack }: { feed: IgdbFeed; credentials: IgdbCreds; taste: TasteProfile; openGame: (id: number) => void; goBack: () => void }) {
   const section = sections.find((item) => item.key === feed) ?? sections[0];
   const [games, setGames] = useState<IgdbDiscoverGame[]>([]);
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
   const sentinel = useRef<HTMLDivElement>(null);
+  const inflight = useRef(false);
+  const offset = useRef(0);
+  const doneRef = useRef(false);
   const loadMore = async () => {
-    if (loading || done) return;
+    if (inflight.current || doneRef.current) return;
+    inflight.current = true;
     setLoading(true);
     try {
-      const next = await igdbDiscoverFeedCached(feed, genres, games.length, 30, credentials);
+      const next = await igdbDiscoverFeedCached(feed, taste, offset.current, 30, credentials);
       setGames((current) => [...current, ...next]);
-      if (next.length < 30 || games.length + next.length >= 100) setDone(true);
-    } finally { setLoading(false); }
+      offset.current += next.length;
+      if (next.length < 30 || offset.current >= 100) { doneRef.current = true; setDone(true); }
+    } finally {
+      inflight.current = false;
+      setLoading(false);
+    }
   };
   useEffect(() => { void loadMore(); }, []);
   useEffect(() => {
@@ -215,14 +268,14 @@ function FeedPage({ feed, credentials, genres, openGame, goBack }: { feed: IgdbF
     <div className="discover-page">
       <button className="back-button" onClick={goBack}><ChevronLeft size={16} /> Back to Discover</button>
       <Header eyebrow="IGDB DISCOVERY" title={section.title} />
-      <div className="discover-grid">{games.map((game) => <DiscoverCard game={game} key={game.id} onDoubleClick={() => openGame(game.id)} />)}</div>
+      <div className="discover-grid">{games.map((game) => <DiscoverCard game={game} key={game.id} badge={feed === "popular" ? ratingsBadge(game) : undefined} onDoubleClick={() => openGame(game.id)} />)}</div>
       <div ref={sentinel} className="discover-loading">{loading ? "Loading more games..." : done ? "You have reached the end of this feed." : ""}</div>
     </div>
   );
 }
 
 /* ============================ card ============================ */
-function DiscoverCard({ game, onDoubleClick }: { game: IgdbDiscoverGame; onDoubleClick: () => void }) {
+function DiscoverCard({ game, badge, onDoubleClick }: { game: IgdbDiscoverGame; badge?: string; onDoubleClick: () => void }) {
   const timer = useRef<number | undefined>(undefined);
   return (
     <button
@@ -241,6 +294,7 @@ function DiscoverCard({ game, onDoubleClick }: { game: IgdbDiscoverGame; onDoubl
           </>
         )}
       </div>
+      {badge && <span className="discover-card-badge">{badge}</span>}
     </button>
   );
 }

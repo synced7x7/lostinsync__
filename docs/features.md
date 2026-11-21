@@ -38,7 +38,7 @@ The Game Journey visualizes your gaming life along an interactive, chronological
 
 IGDB integration runs through Tauri Rust commands on desktop and a stateless Cloudflare Worker in the web build.
 
-- **Curated Feeds**: 10 feeds — Trending, Latest, Upcoming, Top Rated, Anticipated, Hidden Gems, Indie, Story-rich, and personalized "For You" variants. The active loader is `igdb_discover_feed` (paginated); `igdb_discover` is a legacy snapshot still present but unused by the UI.
+- **Curated Feeds**: 9 feeds — Trending, Latest, Upcoming, Top Rated, Anticipated, Indie, Story-rich, and personalized "For You" variants. The active loader is `igdb_discover_feed` (paginated); `igdb_discover` is a legacy snapshot still present but unused by the UI.
 - **Search Capabilities**: Fuzzy search, exact title prefix via `/ <title>`, and ID lookup via `& <id>`.
 - **One-Click Import**: `draftFromIgdb` creates an unsaved game from IGDB results with cover, backdrop, summary, release date, platforms, genres, themes, and Time-To-Beat metadata. Unsaved Discover previews hide library-only fields (status, playtime, Played on, collection/delete actions); the draft starts as `Backlog` with no played platforms.
 - **Exact storefront links**: `igdbExternalGames` reads IGDB `external_games` for the game. The Details hero shows up to two brand-icon store links plus a `+N` hover/focus popover for the rest; `storeLinksFromExternal` drops rows without a URL, deduplicates by source, and orders known storefronts by priority. The web client falls back to nested `games.external_games.*` when the deployed worker has not yet allowed the direct endpoint.

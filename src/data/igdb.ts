@@ -29,10 +29,12 @@ export type IgdbDiscoverGame = {
 export type IgdbDiscover = {
   popular: IgdbDiscoverGame[]; forYou: IgdbDiscoverGame[]; latest: IgdbDiscoverGame[];
   upcoming: IgdbDiscoverGame[]; topRated: IgdbDiscoverGame[]; anticipated: IgdbDiscoverGame[];
-  hiddenGems: IgdbDiscoverGame[]; indie: IgdbDiscoverGame[]; story: IgdbDiscoverGame[]; trending: IgdbDiscoverGame[];
+  indie: IgdbDiscoverGame[]; story: IgdbDiscoverGame[]; trending: IgdbDiscoverGame[];
 };
 
 export type IgdbFeed = keyof IgdbDiscover;
+
+export type TasteProfile = { weights: Record<string, number>; ownedIds: number[]; confidence: number; key: string };
 
 /** Bounded LRU + TTL cache of in-flight/resolved requests. */
 const TTL = 20 * 60_000;
@@ -82,14 +84,16 @@ export async function igdbDiscover(preferredGenres: string[], c: IgdbCreds) {
 }
 export const igdbDiscoverCached = (preferredGenres: string[], c: IgdbCreds) =>
   memo(discoverCache, `${c.clientId}:${preferredGenres.join("|")}`, () => igdbDiscover(preferredGenres, c), 10);
-export async function igdbDiscoverFeed(feed: IgdbFeed, preferredGenres: string[], offset: number, limit: number, c: IgdbCreds) {
+export async function igdbDiscoverFeed(feed: IgdbFeed, taste: TasteProfile, offset: number, limit: number, c: IgdbCreds) {
   const { invoke } = await import("@tauri-apps/api/core");
   return invoke<IgdbDiscoverGame[]>("igdb_discover_feed", {
-    feed, preferredGenres, offset, limit, clientId: c.clientId, clientSecret: c.clientSecret,
+    feed, genreWeights: taste.weights, ownedIds: taste.ownedIds, confidence: taste.confidence,
+    offset, limit, clientId: c.clientId, clientSecret: c.clientSecret,
   });
 }
-export const igdbDiscoverFeedCached = (feed: IgdbFeed, preferredGenres: string[], offset: number, limit: number, c: IgdbCreds) =>
-  memo(discoverFeedCache, `${c.clientId}:${feed}:${preferredGenres.join("|")}:${offset}:${limit}`, () => igdbDiscoverFeed(feed, preferredGenres, offset, limit, c), 60);
+// v2 = ranking algorithm version; For You also keys on the taste profile + owned ids
+export const igdbDiscoverFeedCached = (feed: IgdbFeed, taste: TasteProfile, offset: number, limit: number, c: IgdbCreds) =>
+  memo(discoverFeedCache, `${c.clientId}:${feed}:${feed === "forYou" ? taste.key : ""}:${offset}:${limit}:v2`, () => igdbDiscoverFeed(feed, taste, offset, limit, c), 60);
 
 
 export type SeriesData = {

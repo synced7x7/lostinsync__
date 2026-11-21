@@ -175,7 +175,6 @@ export async function igdbDiscover(preferredGenres: string[], c: IgdbCreds): Pro
     ["upcoming", dq(f, `first_release_date > ${now}`, "first_release_date asc")],
     ["topRated", dq(f, "total_rating != null & total_rating_count > 1500", "total_rating desc")],
     ["anticipated", dq(f, `first_release_date > ${now} & hypes != null`, "hypes desc")],
-    ["hiddenGems", dq(f, "total_rating != null & total_rating_count > 10 & total_rating_count < 500", "total_rating desc")],
     ["indie", dq(f, "involved_companies.company != null & genres != null", "total_rating desc")],
     ["story", dq(f, "storyline != null & themes != null", "total_rating desc")],
   ];
@@ -199,7 +198,6 @@ export async function igdbDiscoverFeed(feed: IgdbFeed, preferredGenres: string[]
     upcoming: [`first_release_date > ${now}`, "first_release_date asc"],
     topRated: ["total_rating != null & total_rating_count > 1500", "total_rating desc"],
     anticipated: [`first_release_date > ${now} & hypes != null`, "hypes desc"],
-    hiddenGems: ["total_rating != null & total_rating_count > 10 & total_rating_count < 500 & game_type = 0", "total_rating desc"],
     indie: ["involved_companies.company != null & genres != null & game_type = 0", "total_rating desc"],
     story: ["storyline != null & themes != null & game_type = 0", "total_rating desc"],
   };

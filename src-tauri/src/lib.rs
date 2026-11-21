@@ -6,7 +6,7 @@ use std::sync::Mutex;
 use std::time::{ Duration, Instant };
 use tauri::Manager;
 use serde_json::{ json, Value };
-use std::collections::HashSet;
+use std::collections::{ HashMap, HashSet };
 use std::hash::{ Hash, Hasher };
 use base64::{ engine::general_purpose::STANDARD, Engine };
 
@@ -788,14 +788,6 @@ async fn igdb_discover(
             ),
         ),
         (
-            "hiddenGems",
-            discover_query(
-                fields,
-                "total_rating != null & total_rating_count > 10 & total_rating_count < 500",
-                "total_rating desc"
-            ),
-        ),
-        (
             "indie",
             discover_query(
                 fields,
@@ -825,11 +817,241 @@ async fn igdb_discover(
     Ok(Value::Object(result))
 }
 
+// ───────── Discover ranking: IGDB retrieves candidates, Rust ranks them ─────────
+const DEFAULT_GLOBAL_AVG: f64 = 72.0;
+const M_FOR_YOU: f64 = 100.0;
+const M_TOP_RATED: f64 = 1500.0;
+const M_INDIE: f64 = 100.0;
+const M_STORY: f64 = 100.0;
+const STORY_MIN_NARRATIVE: f64 = 0.4;
+
+fn num(v: &Value) -> f64 {
+    v.as_f64().unwrap_or(0.0)
+}
+
+/// Bayesian-adjusted rating: games with few ratings are pulled toward the global mean `c`.
+fn bayes(rating: f64, count: f64, m: f64, c: f64) -> f64 {
+    (count * rating + m * c) / (count + m)
+}
+
+fn sort_desc(scored: &mut Vec<(f64, Value)>) {
+    scored.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+}
+
+fn q(s: &str) -> String {
+    s.trim().replace('\\', "\\\\").replace('"', "\\\"")
+}
+
+/// "C" in the Bayesian formula: mean rating of an un-sorted sample of eligible games, cached per session.
+static GLOBAL_AVG: Mutex<Option<f64>> = Mutex::new(None);
+
+fn mean_rating(rows: &Value) -> f64 {
+    let v: Vec<f64> = rows
+        .as_array()
+        .cloned()
+        .unwrap_or_default()
+        .iter()
+        .filter_map(|g| g["total_rating"].as_f64())
+        .collect();
+    if v.is_empty() { DEFAULT_GLOBAL_AVG } else { v.iter().sum::<f64>() / (v.len() as f64) }
+}
+
+async fn global_avg(auth: &IgdbAuth, now: i64, client_id: &str, secret: &str) -> f64 {
+    let cached = *GLOBAL_AVG.lock().unwrap();
+    if let Some(c) = cached {
+        return c;
+    }
+    let body = format!(
+        "fields total_rating; where total_rating != null & total_rating_count >= 10 & game_type = 0 & first_release_date <= {now}; limit 500;"
+    );
+    match igdb_post(auth, "games", body, client_id, secret).await {
+        Ok(rows) => {
+            let c = mean_rating(&rows);
+            *GLOBAL_AVG.lock().unwrap() = Some(c);
+            c
+        }
+        Err(_) => DEFAULT_GLOBAL_AVG,
+    }
+}
+
+async fn fetch_pool(
+    auth: &IgdbAuth,
+    fields: &str,
+    where_clause: &str,
+    sort: &str,
+    limit: i64,
+    client_id: &str,
+    secret: &str
+) -> Result<Vec<Value>, String> {
+    let body = format!("fields {fields}; where {where_clause}; sort {sort}; limit {limit};");
+    let rows = igdb_post(auth, "games", body, client_id, secret).await?;
+    Ok(rows.as_array().cloned().unwrap_or_default())
+}
+
+fn page(rows: Vec<Value>, offset: i64, limit: i64) -> Value {
+    Value::Array(
+        rows
+            .iter()
+            .skip(offset.clamp(0, 90) as usize)
+            .take(limit.clamp(1, 30) as usize)
+            .map(discover_item)
+            .collect()
+    )
+}
+
+/// Soft diversity rule: never place a 3rd game with the same dominant genre in a row if another candidate can go instead.
+fn diversify(mut ranked: Vec<(Value, String)>) -> Vec<Value> {
+    let mut out: Vec<Value> = Vec::with_capacity(ranked.len());
+    let mut tail: Vec<String> = Vec::new();
+    while !ranked.is_empty() {
+        let blocked = |g: &str| tail.len() >= 2 && tail[tail.len() - 1] == g && tail[tail.len() - 2] == g;
+        let pick = ranked.iter().position(|(_, g)| !blocked(g)).unwrap_or(0);
+        let (item, genre) = ranked.remove(pick);
+        tail.push(genre);
+        out.push(item);
+    }
+    out
+}
+
+/// For You: S = 0.65 * quality + 0.35 * confidence * genre affinity; owned games removed; diversity re-rank.
+fn rank_for_you(
+    rows: Vec<Value>,
+    weights: &HashMap<String, f64>,
+    owned: &HashSet<i64>,
+    confidence: f64,
+    c: f64
+) -> Vec<Value> {
+    let mut scored: Vec<(f64, Value)> = rows
+        .into_iter()
+        .filter(|g| !owned.contains(&g["id"].as_i64().unwrap_or(-1)))
+        .map(|g| {
+            let qn = bayes(num(&g["total_rating"]), num(&g["total_rating_count"]), M_FOR_YOU, c) / 100.0;
+            let matched: Vec<f64> = names(&g["genres"]).iter().filter_map(|n| weights.get(n).copied()).collect();
+            let a = if matched.is_empty() { 0.0 } else { matched.iter().sum::<f64>() / (matched.len() as f64) };
+            (0.65 * qn + 0.35 * confidence * a, g)
+        })
+        .collect();
+    sort_desc(&mut scored);
+    let ranked = scored
+        .into_iter()
+        .map(|(_, g)| {
+            let dominant = names(&g["genres"])
+                .into_iter()
+                .max_by(|x, y| {
+                    let (wx, wy) = (weights.get(x).copied().unwrap_or(0.0), weights.get(y).copied().unwrap_or(0.0));
+                    wx.partial_cmp(&wy).unwrap_or(std::cmp::Ordering::Equal)
+                })
+                .unwrap_or_default();
+            (g, dominant)
+        })
+        .collect();
+    diversify(ranked)
+}
+
+/// Top Rated: Bayesian-adjusted rating, m = 1500.
+fn rank_top_rated(rows: Vec<Value>, c: f64) -> Vec<Value> {
+    let mut scored: Vec<(f64, Value)> = rows
+        .into_iter()
+        .map(|g| (bayes(num(&g["total_rating"]), num(&g["total_rating_count"]), M_TOP_RATED, c), g))
+        .collect();
+    sort_desc(&mut scored);
+    scored.into_iter().map(|(_, g)| g).collect()
+}
+
+// Curated overrides (lower-case company names). Extend when IGDB's company data is incomplete.
+const INDIE_DEVELOPERS: &[&str] = &["team cherry", "supergiant games", "concernedape", "re-logic", "motion twin", "mega crit"];
+const NOT_INDIE_DEVELOPERS: &[&str] = &[];
+
+/// Confirmed (override) > Likely (no developer has a parent company + "Indie" genre) > Uncertain (excluded).
+fn is_indie(g: &Value) -> bool {
+    let devs: Vec<&Value> = g["involved_companies"]
+        .as_array()
+        .map(|a| a.iter().filter(|c| c["developer"].as_bool() == Some(true)).collect())
+        .unwrap_or_default();
+    if devs.is_empty() {
+        return false;
+    }
+    let dev_name = |c: &Value| c["company"]["name"].as_str().unwrap_or("").to_lowercase();
+    if devs.iter().any(|c| NOT_INDIE_DEVELOPERS.contains(&dev_name(c).as_str())) {
+        return false;
+    }
+    if devs.iter().any(|c| INDIE_DEVELOPERS.contains(&dev_name(c).as_str())) {
+        return true;
+    }
+    let owned_by_parent = devs.iter().any(|c| !c["company"]["parent"].is_null());
+    let indie_genre = names(&g["genres"]).iter().any(|n| n == "Indie");
+    !owned_by_parent && indie_genre
+}
+
+/// Indie Spotlight: classified indie games ranked by Bayesian-adjusted rating, m = 100.
+fn rank_indie(rows: Vec<Value>, c: f64) -> Vec<Value> {
+    let mut seen = HashSet::new();
+    let mut scored: Vec<(f64, Value)> = rows
+        .into_iter()
+        .filter(|g| seen.insert(g["id"].as_i64().unwrap_or(-1)) && is_indie(g))
+        .map(|g| (bayes(num(&g["total_rating"]), num(&g["total_rating_count"]), M_INDIE, c), g))
+        .collect();
+    sort_desc(&mut scored);
+    scored.into_iter().map(|(_, g)| g).collect()
+}
+
+const NARRATIVE_GENRES: &[&str] = &["Adventure", "Role-playing (RPG)", "Visual Novel", "Point-and-click"];
+const NARRATIVE_GENRES_PARTIAL: &[&str] = &["Shooter", "Hack and slash/Beat 'em up"];
+const NARRATIVE_THEMES: &[&str] = &["Fantasy", "Science fiction", "Horror", "Historical", "Mystery", "Drama", "Thriller", "Romance"];
+const NARRATIVE_KEYWORDS: &[&str] = &[
+    "story rich", "narrative", "choices matter", "multiple endings", "branching story", "cinematic", "interactive fiction",
+    "detective", "mystery", "investigation", "emotional", "dialogue", "plot twist", "character development", "narration",
+];
+
+/// Narrative relevance 0–1: storyline 25 + genre 30 + keywords 20 + theme 15 + single-player 10.
+fn narrative_score(g: &Value) -> f64 {
+    let genres = names(&g["genres"]);
+    let themes = names(&g["themes"]);
+    let keywords: Vec<String> = names(&g["keywords"]).into_iter().map(|s| s.to_lowercase()).collect();
+    let mut s = 0.0;
+    if g["storyline"].as_str().map(|t| !t.trim().is_empty()).unwrap_or(false) {
+        s += 25.0;
+    }
+    if genres.iter().any(|x| NARRATIVE_GENRES.contains(&x.as_str())) {
+        s += 30.0;
+    } else if genres.iter().any(|x| NARRATIVE_GENRES_PARTIAL.contains(&x.as_str())) {
+        s += 12.0;
+    }
+    let hits = keywords.iter().filter(|k| NARRATIVE_KEYWORDS.iter().any(|n| k.contains(n))).count();
+    s += ((hits as f64) * 10.0).min(20.0);
+    if themes.iter().any(|x| NARRATIVE_THEMES.contains(&x.as_str())) {
+        s += 15.0;
+    }
+    if names(&g["game_modes"]).iter().any(|m| m == "Single player") {
+        s += 10.0;
+    }
+    s / 100.0
+}
+
+/// Story-Driven: S = 0.65 * Bayesian quality + 0.35 * narrative relevance. Clearly non-narrative games are dropped.
+fn rank_story(rows: Vec<Value>, c: f64) -> Vec<Value> {
+    let mut scored: Vec<(f64, Value)> = rows
+        .into_iter()
+        .filter_map(|g| {
+            let n = narrative_score(&g);
+            if n < STORY_MIN_NARRATIVE {
+                return None;
+            }
+            let qn = bayes(num(&g["total_rating"]), num(&g["total_rating_count"]), M_STORY, c) / 100.0;
+            Some((0.65 * qn + 0.35 * n, g))
+        })
+        .collect();
+    sort_desc(&mut scored);
+    scored.into_iter().map(|(_, g)| g).collect()
+}
+
 #[tauri::command]
 async fn igdb_discover_feed(
     auth: tauri::State<'_, IgdbAuth>,
     feed: String,
-    preferred_genres: Vec<String>,
+    genre_weights: Option<HashMap<String, f64>>,
+    owned_ids: Option<Vec<i64>>,
+    confidence: Option<f64>,
     offset: i64,
     limit: i64,
     client_id: String,
@@ -840,20 +1062,7 @@ async fn igdb_discover_feed(
         .duration_since(std::time::UNIX_EPOCH)
         .map_err(|error| error.to_string())?
         .as_secs() as i64;
-    let genres = preferred_genres
-        .iter()
-        .take(3)
-        .filter_map(|genre| {
-            let value = genre.trim().replace('\\', "\\\\").replace('"', "\\\"");
-            (!value.is_empty()).then(|| format!("genres.name = \"{value}\""))
-        })
-        .collect::<Vec<_>>()
-        .join(" | ");
-    let for_you = if genres.is_empty() {
-        "total_rating != null".to_string()
-    } else {
-        format!("({genres}) & total_rating != null")
-    };
+
     if feed == "trending" {
         let fields =
             "name,summary,first_release_date,total_rating,total_rating_count,hypes,follows,cover.image_id";
@@ -867,37 +1076,82 @@ async fn igdb_discover_feed(
         ).await?;
         return Ok(Value::Array(rows.iter().map(discover_item).collect()));
     }
-    let (where_clause, sort): (String, &str) = match feed.as_str() {
-        "popular" => ("total_rating_count != null".into(), "total_rating_count desc"),
-        "forYou" => (for_you, "total_rating desc"),
-        "latest" => (format!("first_release_date <= {now}"), "first_release_date desc"),
-        "upcoming" => (format!("first_release_date > {now}"), "first_release_date asc"),
-        "topRated" =>
-            ("total_rating != null & total_rating_count > 1500".into(), "total_rating desc"),
-        "anticipated" => (format!("first_release_date > {now} & hypes != null"), "hypes desc"),
-        "hiddenGems" =>
-            (
-                "total_rating != null & total_rating_count > 10 & total_rating_count < 500 & game_type = 0".into(),
-                "total_rating desc",
-            ),
-        "indie" =>
-            (
-                "involved_companies.company != null & genres != null & game_type = 0".into(),
-                "total_rating desc",
-            ),
-        "story" =>
-            ("storyline != null & themes != null & game_type = 0".into(), "total_rating desc"),
+
+    let base = "name,summary,first_release_date,total_rating,total_rating_count,hypes,follows,cover.image_id";
+    let released = format!("game_type = 0 & first_release_date <= {now}");
+
+    // Sections that IGDB can sort and page by itself.
+    // (IGDB allows only one sort field, so the guide's secondary "total_rating desc" sort for Popular is not possible.)
+    let simple: Option<(String, &str)> = match feed.as_str() {
+        "popular" => Some((format!("total_rating_count > 0 & {released}"), "total_rating_count desc")),
+        "latest" => Some((released.clone(), "first_release_date desc")),
+        "upcoming" => Some((format!("first_release_date > {now}"), "first_release_date asc")),
+        "anticipated" => Some((format!("first_release_date > {now} & hypes != null"), "hypes desc")),
+        _ => None,
+    };
+    if let Some((where_clause, sort)) = simple {
+        let body = format!(
+            "fields {base}; where {where_clause}; sort {sort}; limit {}; offset {};",
+            limit.clamp(1, 30),
+            offset.clamp(0, 90)
+        );
+        let rows = igdb_post(&auth, "games", body, &client_id, &client_secret).await?;
+        return Ok(Value::Array(discover_games(&rows).iter().map(discover_item).collect()));
+    }
+
+    // Sections ranked in Rust: fetch a candidate pool from IGDB, score it, then page the result.
+    let c = global_avg(&auth, now, &client_id, &client_secret).await;
+    let ranked: Vec<Value> = match feed.as_str() {
+        "forYou" => {
+            let weights = genre_weights.unwrap_or_default();
+            let owned: HashSet<i64> = owned_ids.unwrap_or_default().into_iter().collect();
+            let mut by_weight: Vec<(&String, &f64)> = weights.iter().collect();
+            by_weight.sort_by(|a, b| b.1.partial_cmp(a.1).unwrap_or(std::cmp::Ordering::Equal));
+            let genre_filter = by_weight
+                .iter()
+                .take(12)
+                .map(|(g, _)| format!("genres.name = \"{}\"", q(g)))
+                .collect::<Vec<_>>()
+                .join(" | ");
+            let where_clause = if genre_filter.is_empty() {
+                // empty library: popular, highly rated main games
+                format!("total_rating != null & total_rating_count > 500 & {released}")
+            } else {
+                format!("({genre_filter}) & total_rating != null & total_rating_count > 10 & {released}")
+            };
+            let pool = fetch_pool(&auth, &format!("{base},genres.name"), &where_clause, "total_rating desc", 200, &client_id, &client_secret).await?;
+            rank_for_you(pool, &weights, &owned, confidence.unwrap_or(1.0).clamp(0.0, 1.0), c)
+        }
+        "topRated" => {
+            let w = format!("total_rating != null & total_rating_count > 1500 & {released}");
+            rank_top_rated(fetch_pool(&auth, base, &w, "total_rating desc", 100, &client_id, &client_secret).await?, c)
+        }
+        "indie" => {
+            let fields = format!("{base},genres.name,involved_companies.developer,involved_companies.company.name,involved_companies.company.parent");
+            let common = format!("involved_companies != null & total_rating != null & total_rating_count >= 30 & {released}");
+            let mut pool = fetch_pool(&auth, &fields, &format!("genres.name = \"Indie\" & {common}"), "total_rating desc", 200, &client_id, &client_secret).await?;
+            let by_company = INDIE_DEVELOPERS
+                .iter()
+                .map(|n| format!("involved_companies.company.name ~ \"{}\"", q(n)))
+                .collect::<Vec<_>>()
+                .join(" | ");
+            if !by_company.is_empty() {
+                if let Ok(extra) = fetch_pool(&auth, &fields, &format!("({by_company}) & {common}"), "total_rating desc", 100, &client_id, &client_secret).await {
+                    pool.extend(extra);
+                }
+            }
+            rank_indie(pool, c)
+        }
+        "story" => {
+            let fields = format!("{base},storyline,genres.name,themes.name,keywords.name,game_modes.name");
+            let w = format!("storyline != null & total_rating != null & total_rating_count >= 100 & {released}");
+            rank_story(fetch_pool(&auth, &fields, &w, "total_rating desc", 200, &client_id, &client_secret).await?, c)
+        }
         _ => {
             return Err("Unknown discovery feed.".into());
         }
     };
-    let safe_offset = offset.clamp(0, 90);
-    let safe_limit = limit.clamp(1, 30);
-    let body = format!(
-        "fields name,summary,first_release_date,total_rating,total_rating_count,hypes,follows,cover.image_id; where {where_clause}; sort {sort}; limit {safe_limit}; offset {safe_offset};"
-    );
-    let rows = igdb_post(&auth, "games", body, &client_id, &client_secret).await?;
-    Ok(Value::Array(discover_games(&rows).iter().map(discover_item).collect()))
+    Ok(page(ranked, offset, limit))
 }
 
 fn idlist(v: &[i64]) -> String {
