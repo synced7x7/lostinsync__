@@ -1,6 +1,5 @@
 import type { Game } from "./game";
 import type { SeriesData } from "../data/igdb";
-import { matchesGameType } from "./gametype";
 
 type SeriesGame = SeriesData["games"][number];
 
@@ -13,12 +12,6 @@ export type FranchiseRow = {
   seconds: number; fromSeries: boolean; sig: string;
 };
 
-export const FRANCHISE_MIN_SLOTS = 2;
-
-/** Types that count as a mainline entry. Unknown type counts (older saves have none). */
-const COUNTED = ["main_game", "standalone_expansion", "expanded_game", "remake", "remaster"];
-export const countsAsEntry = (gameType?: string) => !gameType || COUNTED.some((t) => matchesGameType(gameType, t));
-
 export const norm = (s?: string) =>
   (s ?? "").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/&/g, " and ").replace(/[^a-z0-9]+/g, " ").trim();
 
@@ -28,26 +21,21 @@ export const baseTitle = (s?: string) => norm((s ?? "").replace(/\([^)]*\)|\[[^\
 
 const ts = (s?: string) => { const t = Date.parse(s ?? ""); return Number.isNaN(t) ? undefined : Math.floor(t / 1000); };
 
-/** Each game goes to exactly one franchise: its most common franchise name in the library. */
+/** List each game under every franchise it belongs to, keeping only franchises with a completed game. */
 export function groupByFranchise(games: Game[]): FranchiseGroup[] {
-  const count = new Map<string, number>();
-  const label = new Map<string, string>();
-  for (const g of games) for (const n of g.franchises ?? []) {
-    const k = norm(n);
-    if (!k) continue;
-    count.set(k, (count.get(k) ?? 0) + 1);
-    if (!label.has(k)) label.set(k, n);
-  }
   const groups = new Map<string, FranchiseGroup>();
   for (const g of games) {
-    const names = (g.franchises ?? []).map(norm).filter(Boolean);
-    if (!names.length) continue;
-    const best = names.reduce((a, b) => ((count.get(b) ?? 0) > (count.get(a) ?? 0) || ((count.get(b) ?? 0) === (count.get(a) ?? 0) && b < a) ? b : a));
-    const grp = groups.get(best) ?? { key: best, name: label.get(best) ?? best, games: [] };
-    grp.games.push(g);
-    groups.set(best, grp);
+    const seen = new Set<string>();
+    for (const n of g.franchises ?? []) {
+      const k = norm(n);
+      if (!k || seen.has(k)) continue;
+      seen.add(k);
+      const grp = groups.get(k) ?? { key: k, name: n, games: [] };
+      grp.games.push(g);
+      groups.set(k, grp);
+    }
   }
-  return [...groups.values()];
+  return [...groups.values()].filter((grp) => grp.games.some((g) => g.status === "Completed"));
 }
 
 /** Direct games of the series collection matching this franchise (spin-off sub-series are not mixed in). */
@@ -61,10 +49,10 @@ export function seriesGamesFor(group: FranchiseGroup, data?: SeriesData): Series
   )[0];
   if (!col || (!named && !(col.games ?? []).some((x) => ids.has(x)))) return [];
   const byId = new Map(data.games.map((g) => [g.id, g]));
-  return (col.games ?? []).flatMap((id) => { const g = byId.get(id); return g && countsAsEntry(g.gameType) ? [g] : []; });
+  return (col.games ?? []).flatMap((id) => { const g = byId.get(id); return g ? [g] : []; });
 }
 
-export function buildFranchise(group: FranchiseGroup, data?: SeriesData): FranchiseRow {
+export function buildFranchise(group: FranchiseGroup, series: SeriesGame[] = []): FranchiseRow {
   type Acc = FranchiseSlot & { ids: Set<number> };
   const slots = new Map<string, Acc>();
   const byId = new Map<number, string>();
@@ -77,11 +65,9 @@ export function buildFranchise(group: FranchiseGroup, data?: SeriesData): Franch
     return s;
   };
 
-  const series = seriesGamesFor(group, data);
   for (const g of series) touch(baseTitle(g.name) || String(g.id), g.name, g.releaseTs, g.cover, g.id);
 
   for (const g of group.games) {
-    if (!countsAsEntry(g.gameType)) continue;
     const key = (g.igdbId && byId.get(g.igdbId)) || baseTitle(g.title);
     const s = touch(key, g.title, ts(g.releaseDate), g.cover, g.igdbId);
     if (!s.game || (g.status === "Completed" && !s.done)) s.game = g;

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Game } from "./game";
 import type { SeriesData } from "../data/igdb";
-import { baseTitle, buildFranchise, groupByFranchise } from "./franchise";
+import { baseTitle, buildFranchise, groupByFranchise, seriesGamesFor } from "./franchise";
 
 const g = (o: Partial<Game> & { id: string; title: string }): Game => ({
   platform: "PC", genre: "", tags: [], status: "Backlog", notes: "", favorite: false, totalSeconds: 0, createdAt: "2020-01-01",
@@ -20,18 +20,20 @@ const series: SeriesData = {
 };
 
 describe("franchise completion", () => {
-  it("collapses remakes/editions and drops DLC from the total", () => {
-    const row = buildFranchise({ key: "resident evil", name: "Resident Evil", games: [g({ id: "a", title: "Resident Evil 2", igdbId: 11, status: "Completed" })] }, series);
-    expect(row.total).toBe(3);
+  it("counts every game type", () => {
+    const group = { key: "resident evil", name: "Resident Evil", games: [g({ id: "a", title: "Resident Evil 2", igdbId: 11, status: "Completed" })] };
+    const row = buildFranchise(group, seriesGamesFor(group, series));
+    expect(row.total).toBe(4);
     expect(row.done).toBe(1);
-    expect(row.slots.map((s) => s.title)).toEqual(["Resident Evil", "Resident Evil 2", "Resident Evil 3"]);
+    expect(row.slots.map((s) => s.title)).toEqual(["Resident Evil", "Resident Evil 2", "Resident Evil 3", "Resident Evil 2: Extra DLC"]);
   });
   it("matches by igdbId first and by name second, and a completed copy wins", () => {
     const games = [
       g({ id: "a", title: "RE2 remake copy", igdbId: 12, status: "Backlog" }),
       g({ id: "b", title: "Resident Evil 3", status: "Completed" }),
     ];
-    const row = buildFranchise({ key: "resident evil", name: "Resident Evil", games }, series);
+    const group = { key: "resident evil", name: "Resident Evil", games };
+    const row = buildFranchise(group, seriesGamesFor(group, series));
     expect(row.slots.find((s) => s.key === "resident evil 3")?.done).toBe(true);
     expect(row.slots.find((s) => s.key === "resident evil 2")?.game?.id).toBe("a");
     expect(row.done).toBe(1);
@@ -41,9 +43,14 @@ describe("franchise completion", () => {
     expect(row.fromSeries).toBe(false);
     expect(row.slots.map((s) => s.title)).toEqual(["Alpha", "Zeta"]);
   });
-  it("assigns each game to one franchise and strips edition words", () => {
-    const groups = groupByFranchise([g({ id: "1", title: "A", franchises: ["Zelda", "Hyrule"] }), g({ id: "2", title: "B", franchises: ["Zelda"] })]);
-    expect(groups).toHaveLength(1);
+  it("lists a game under every franchise it belongs to, only for franchises with a completed game", () => {
+    const groups = groupByFranchise([
+      g({ id: "1", title: "A", franchises: ["Zelda", "Hyrule"], status: "Completed" }),
+      g({ id: "2", title: "B", franchises: ["Zelda"] }),
+      g({ id: "3", title: "C", franchises: ["Mario"] }),
+    ]);
+    expect(groups.map((x) => x.key).sort()).toEqual(["hyrule", "zelda"]);
+    expect(groups.find((x) => x.key === "zelda")?.games).toHaveLength(2);
     expect(baseTitle("Resident Evil 4 (2023)")).toBe("resident evil 4");
     expect(baseTitle("Final Fantasy X HD Remaster")).toBe("final fantasy x");
   });

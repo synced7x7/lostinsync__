@@ -1,39 +1,97 @@
 .fr-sub { margin: -6px 0 22px; color: var(--muted); font-size: 13px }
-.fr-list { display: flex; flex-direction: column }
+.fr-list { position: relative }
+.fr-slotwrap { position: absolute; left: 0; right: 0; height: 200px }
 
+/* each franchise is its own card */
 .fr-row {
+    box-sizing: border-box;
+    position: relative;
     display: grid;
-    grid-template-columns: 250px minmax(0, 1fr);
-    align-items: center;
-    border-top: 1px solid var(--line-soft);
-    content-visibility: auto;
-    contain-intrinsic-size: auto 200px;
-    background: radial-gradient(ellipse at 20% 50%, color-mix(in srgb, var(--c) 7%, transparent), transparent 60%)
+    grid-template-columns: 176px minmax(0, 1fr);
+    height: 200px;
+    overflow: hidden;
+    border-radius: 18px;
+    border: 1px solid rgba(255, 255, 255, .08);
+    background: linear-gradient(135deg, color-mix(in srgb, var(--c) 13%, #17152f) 0%, #121129 58%);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, .35), inset 0 1px 0 rgba(255, 255, 255, .06)
 }
-
-.fr-info { position: relative; padding: 0 18px 0 22px }
-.fr-info::before {
+.fr-row::before {
     content: "";
     position: absolute;
     left: 0;
-    top: 50%;
+    top: 14px;
+    bottom: 14px;
     width: 3px;
-    height: 64px;
-    transform: translateY(-50%);
-    border-radius: 3px;
-    background: linear-gradient(var(--c), transparent);
+    border-radius: 0 3px 3px 0;
+    background: var(--c);
     box-shadow: 0 0 14px var(--c)
 }
-.fr-info h2 { margin: 0 0 6px; font: 600 22px Georgia, "Times New Roman", serif; color: var(--text) }
-.fr-count { margin: 0 0 8px; font-size: 14px; color: var(--muted) }
-.fr-count b { color: var(--accent-strong, #b9a8ff); font-weight: 600 }
-.fr-bar { height: 4px; border-radius: 4px; background: rgba(255, 255, 255, .08); overflow: hidden }
-.fr-bar i { display: block; height: 100%; border-radius: 4px; background: var(--c); box-shadow: 0 0 10px var(--c) }
-.fr-info small { display: block; margin-top: 7px; font-size: 11px; color: var(--dim, var(--muted)) }
 
-.fr-scroll { overflow-x: auto; overflow-y: hidden; scrollbar-width: thin }
+/* compact title panel */
+.fr-info {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 8px;
+    min-width: 0;
+    padding: 0 16px 0 20px;
+    border-right: 1px solid rgba(255, 255, 255, .06);
+    background: linear-gradient(90deg, color-mix(in srgb, var(--c) 12%, transparent), transparent)
+}
+.fr-info h2 {
+    margin: 0;
+    font: 600 17px/1.2 Georgia, "Times New Roman", serif;
+    color: var(--text);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden
+}
+.fr-stat { display: flex; align-items: baseline; gap: 4px }
+.fr-stat b { font-size: 26px; line-height: 1; font-weight: 700; color: #fff }
+.fr-stat span { font-size: 13px; color: var(--muted) }
+.fr-stat em {
+    margin-left: auto;
+    padding: 2px 8px;
+    border-radius: 99px;
+    font: 600 11px/1.4 inherit;
+    font-style: normal;
+    color: var(--text);
+    background: color-mix(in srgb, var(--c) 24%, transparent)
+}
+.fr-bar { height: 5px; border-radius: 5px; background: rgba(255, 255, 255, .09); overflow: hidden }
+.fr-bar i { display: block; height: 100%; border-radius: 5px; background: var(--c); box-shadow: 0 0 10px var(--c) }
+.fr-info small { font-size: 11px; color: var(--dim, var(--muted)) }
+
+/* horizontal scroller: scrollbar permanently hidden */
+.fr-view { position: relative; min-width: 0; height: 100% }
+.fr-scroll { height: 100%; overflow-x: auto; overflow-y: hidden; scrollbar-width: none }
+.fr-scroll::-webkit-scrollbar { display: none }
 .fr-track { position: relative }
-.fr-ribbon { position: absolute; left: 0; top: 0; pointer-events: none }
+.fr-ribbon { position: absolute; top: 0; pointer-events: none }
+
+/* glass arrows (no backdrop blur) - disappear at the ends */
+.fr-arrow {
+    position: absolute;
+    top: 50%;
+    z-index: 3;
+    width: 40px;
+    height: 40px;
+    margin-top: -20px;
+    padding: 0;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    color: #fff;
+    cursor: pointer;
+    border: 1px solid rgba(255, 255, 255, .22);
+    background: linear-gradient(145deg, rgba(255, 255, 255, .18), rgba(255, 255, 255, .04));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .28), 0 6px 16px rgba(0, 0, 0, .4);
+    transition: transform .15s, background .15s
+}
+.fr-arrow.left { left: 10px }
+.fr-arrow.right { right: 10px }
+.fr-arrow:hover { transform: scale(1.1); background: linear-gradient(145deg, rgba(255, 255, 255, .28), rgba(255, 255, 255, .08)) }
 
 .fr-slot { position: absolute; top: 0; height: 100% }
 .fr-name {
@@ -104,6 +162,7 @@
 .fr-slot.done .fr-pip { background: var(--c); box-shadow: 0 0 10px var(--c) }
 
 @media (max-width: 900px) {
-    .fr-row { grid-template-columns: 1fr; padding-top: 14px }
-    .fr-info { padding-bottom: 4px }
+    .fr-row { grid-template-columns: 120px minmax(0, 1fr) }
+    .fr-info { padding: 0 10px 0 16px }
+    .fr-stat em, .fr-info small { display: none }
 }
