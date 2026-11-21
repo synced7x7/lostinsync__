@@ -1,4 +1,3 @@
-import { Check, Sparkles } from "lucide-react";
 import type { AppData } from "../domain/game";
 import { THEMES, normalizeTheme, type ThemeId } from "../domain/theme";
 import { Header } from "../components/shared";
@@ -10,6 +9,7 @@ export function SettingsView({ data, update }: { data: AppData; update: (data: A
     update({ ...data, settings: { ...data.settings, ...partial } });
   };
   const activeTheme = normalizeTheme(data.settings.theme);
+  const activeMeta = THEMES.find((t) => t.id === activeTheme) ?? THEMES[0];
 
   return (
     <>
@@ -17,31 +17,20 @@ export function SettingsView({ data, update }: { data: AppData; update: (data: A
       <div className="settings-grid">
         <section className="glass settings-panel">
           <p className="eyebrow">PREFERENCES & APPEARANCE</p><h2>Preferences</h2>
-          <div className="setting-row theme-setting-row">
-            <div><strong>Theme</strong><span>Choose the app's visual atmosphere.</span></div>
-          </div>
-          <div className="theme-picker" role="radiogroup" aria-label="Theme">
-            {THEMES.map((theme) => {
-              const active = theme.id === activeTheme;
-              return (
-                <button
-                  key={theme.id}
-                  type="button"
-                  role="radio"
-                  aria-checked={active}
-                  className={`theme-option ${active ? "active" : ""}`}
-                  data-theme-preview={theme.id}
-                  onClick={() => updateSettings({ theme: theme.id as ThemeId })}
-                >
-                  <span className="theme-swatch" style={{ "--swatch": theme.color } as Record<string, string>} />
-                  <span className="theme-copy">
-                    <strong>{theme.label}</strong>
-                    <span>{theme.description}</span>
-                  </span>
-                  <span className="theme-state">{active ? <Check size={14} /> : <Sparkles size={14} />}</span>
-                </button>
-              );
-            })}
+          <div className="setting-row">
+            <div><strong>Theme</strong><span>{activeMeta.description}</span></div>
+            <div className="theme-select-wrap">
+              <span className="theme-swatch" style={{ "--swatch": activeMeta.color } as Record<string, string>} aria-hidden="true" />
+              <select
+                aria-label="Theme"
+                value={activeTheme}
+                onChange={(e) => updateSettings({ theme: e.target.value as ThemeId })}
+              >
+                {THEMES.map((theme) => (
+                  <option key={theme.id} value={theme.id}>{theme.label}</option>
+                ))}
+              </select>
+            </div>
           </div>
         </section>
         <section className="glass settings-panel">

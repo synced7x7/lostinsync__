@@ -125,3 +125,6 @@
 .theme-copy span { font-size: 10px; color: var(--muted); margin-top: 3px; }
 .theme-state { color: var(--muted); display: grid; place-items: center; }
 .theme-option.active .theme-state { color: var(--accent); }
+
+.theme-select-wrap { display: flex; align-items: center; gap: 10px; }
+.theme-select-wrap select { min-width: 160px; }
