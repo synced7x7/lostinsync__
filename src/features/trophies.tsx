@@ -81,13 +81,14 @@ function Art({ tier }: { tier: Tier }) {
   return src ? <img src={src} alt="" draggable={false} /> : <TrophyIcon className="tr-ph" size={44} />;
 }
 
-function BadgeSlot({ s, pos, onClick }: { s?: TrophyState; pos: Pos; onClick: () => void }) {
+function BadgeSlot({ s, pos, onClick, active = true }: { s?: TrophyState; pos: Pos; onClick: () => void; active?: boolean }) {
   if (!s) return null;
   return (
     <button
       className={`tr-slot ${s.top ? `on glow-${s.top.rarity}` : "off"}`}
       style={{ left: `${pos.x}%`, top: `${pos.y}%`, width: `${pos.w}%`, aspectRatio: pos.ar ?? 1, "--z": pos.z } as CSSProperties} onClick={onClick}
       aria-label={s.top ? s.top.name : "Locked trophy"}
+      disabled={!active}
     >
       {s.top && <Art tier={s.top} />}
     </button>
@@ -155,13 +156,14 @@ export function TrophiesView({ data }: { data: AppData }) {
   const [dev, setDev] = useState(false);
   const [sel, setSel] = useState<string>();
   const [page, setPage] = useState(0);
+  const [dir, setDir] = useState(1);
 
   useEffect(() => { try { localStorage.setItem(CHEAT_KEY, JSON.stringify(cheat)); } catch { /* ignore */ } }, [cheat]);
   useEffect(() => {
     let buf = "";
     const on = (e: KeyboardEvent) => {
-      if (e.key === "ArrowRight") go(1);
-      if (e.key === "ArrowLeft") go(-1);
+      if (e.key === "ArrowRight") { e.preventDefault(); go(1); }
+      if (e.key === "ArrowLeft") { e.preventDefault(); go(-1); }
       buf = (buf + e.key).slice(-5).toLowerCase();
       if (buf === "iddqd") { setDev((d) => !d); buf = ""; }
     };
@@ -169,26 +171,46 @@ export function TrophiesView({ data }: { data: AppData }) {
     return () => window.removeEventListener("keydown", on);
   }, []);
 
-  const go = (d: number) => { setSel(undefined); setPage((p) => Math.min(PAGES - 1, Math.max(0, p + d))); };
+  const go = (d: number) => {
+    setSel(undefined);
+    setDir(d < 0 ? -1 : 1);
+    setPage((p) => Math.min(PAGES - 1, Math.max(0, p + d)));
+  };
+  const goto = (i: number) => {
+    setSel(undefined);
+    setDir(i >= page ? 1 : -1);
+    setPage(i);
+  };
 
   const states = useMemo(() => evaluate(data.games, cheat), [data.games, cheat]);
-  const items = states.filter((s) => PLACE[s.trophy.id]?.page === page);
+  const byPage = useMemo(
+    () => Array.from({ length: PAGES }, (_, p) => states.filter((s) => PLACE[s.trophy.id]?.page === p)),
+    [states],
+  );
   const selected = states.find((s) => s.trophy.id === sel);
 
   return createPortal(
     <div className="tr-stage">
-      <div className="tr-canvas">
-        <img className="tr-bg" src={BGS[page] ?? BGS[page % BGS.length]} alt="" draggable={false} />
-        {items.map((s) => <BadgeSlot key={s.trophy.id} s={s} pos={PLACE[s.trophy.id]} onClick={() => setSel(s.trophy.id)} />)}
+      <div className="tr-viewport">
+        <div className="tr-track" style={{ transform: `translate3d(-${page * 100}vw, 0, 0)` }}>
+          {byPage.map((items, p) => (
+            <div className="tr-slide" key={p} aria-hidden={p !== page}>
+              <div className="tr-canvas">
+                <img className="tr-bg" src={BGS[p] ?? BGS[p % BGS.length]} alt="" draggable={false} />
+                {items.map((s) => <BadgeSlot key={s.trophy.id} s={s} pos={PLACE[s.trophy.id]} active={p === page} onClick={() => setSel(s.trophy.id)} />)}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
-      <header className="tr-title" key={page} style={{ "--t": TITLES[page].c, "--tg": TITLES[page].g } as CSSProperties}>
+      <header className={`tr-title tr-title--${dir > 0 ? "next" : "prev"}`} key={page} style={{ "--t": TITLES[page].c, "--tg": TITLES[page].g } as CSSProperties}>
         <small>TROPHIES · {page + 1} / {PAGES}</small>
         <h1>{TITLES[page].name}</h1>
       </header>
       <div className="tr-nav">
         <button className="icon-btn" disabled={page === 0} onClick={() => go(-1)}><ChevronLeft size={18} /></button>
         {Array.from({ length: PAGES }, (_, i) => (
-          <i key={i} className={i === page ? "on" : ""} onClick={() => { setSel(undefined); setPage(i); }} style={{ "--i": i } as CSSProperties} />
+          <i key={i} className={i === page ? "on" : ""} onClick={() => goto(i)} style={{ "--i": i } as CSSProperties} />
         ))}
         <button className="icon-btn" disabled={page === PAGES - 1} onClick={() => go(1)}><ChevronRight size={18} /></button>
       </div>

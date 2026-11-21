@@ -13,14 +13,15 @@ export function Header({
   action,
 }: {
   eyebrow: string;
-  title: string;
+  title?: string;
   action?: React.ReactNode;
 }) {
+  const compact = title === undefined;
   return (
-    <div className="page-heading">
-      <div>
+    <div className={`page-heading${compact ? " page-heading--compact" : ""}`}>
+      <div className={compact ? "eyebrow-heading" : undefined}>
         <p className="eyebrow">{eyebrow}</p>
-        <h1>{title}</h1>
+        {title !== undefined && <h1>{title}</h1>}
       </div>
       {action}
     </div>

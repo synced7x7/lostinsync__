@@ -420,6 +420,27 @@ nav {
     font-weight: 800
 }
 
+/* eyebrow used as the page title, with small inline metadata */
+.page-heading--compact {
+    justify-content: flex-start;
+    align-items: baseline;
+    gap: 14px
+}
+
+.eyebrow-heading {
+    display: flex;
+    align-items: baseline
+}
+
+.page-heading--compact .eyebrow {
+    font-family: sans-serif;
+    font-size: 34px;
+    letter-spacing: -.5px;
+    font-weight: 700;
+    margin: 0;
+    line-height: 1
+}
+
 .button {
     display: inline-flex;
     align-items: center;
@@ -433,12 +454,25 @@ nav {
 }
 
 .button:hover {
-    transform: translateY(-1px)
+    transform: translateY(-1px);
+   
+    background: linear-gradient(
+    135deg,
+    rgba(156, 139, 255, 0),
+    rgba(130, 108, 228, 0.34)
+  )!important;
 }
 
 .button.primary {
-    background: linear-gradient(135deg, #9c8bff, #826ce4);
-    box-shadow: 0 10px 24px rgba(132, 109, 244, .22)
+  /* Translucent purple tint instead of opaque hex */
+  
+   background: transparent;
+
+  /* Crisp glass edge + subtle top specular highlight */
+  border: 0.03px solid rgba(188, 174, 255, 0.35);
+
+  color: #f4f1ff;
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
 }
 
 .button.soft {
@@ -631,7 +665,7 @@ nav {
 }
 
 .detail-panel {
-    background:rgba(0, 0, 0, 0.2);
+    background: rgba(0, 0, 0, 0.2);
     padding: 22px;
     border-radius: 15px
 }
@@ -1122,6 +1156,10 @@ nav {
         font-size: 28px
     }
 
+    .page-heading--compact .eyebrow {
+        font-size: 24px
+    }
+
     .library-heading {
         align-items: flex-start;
         gap: 15px
@@ -1293,7 +1331,7 @@ nav {
 }
 
 .ps4-title--long {
-     font-size: clamp(28px, 4.5vw, 60px) !important;
+    font-size: clamp(28px, 4.5vw, 60px) !important;
 }
 
 
@@ -2750,7 +2788,7 @@ nav {
     transform: translate(-50%, 0)
 }
 
-.hero-store-row + .goty-badge {
+.hero-store-row+.goty-badge {
     margin-top: 16px
 }
 
@@ -3064,12 +3102,16 @@ textarea::-webkit-scrollbar-thumb:hover {
 
     /* ── Scroll performance: no live blur on large/scrolling surfaces ── */
 
-/* skip rendering off-screen detail panels until scrolled near */
-.detail-panel, .detail-grid > * {
-    content-visibility: auto;
-    contain-intrinsic-size: auto 420px;
-}
-.detail-hero { contain: layout paint }
+    /* skip rendering off-screen detail panels until scrolled near */
+    .detail-panel,
+    .detail-grid>* {
+        content-visibility: auto;
+        contain-intrinsic-size: auto 420px;
+    }
+
+    .detail-hero {
+        contain: layout paint
+    }
 
 
 }

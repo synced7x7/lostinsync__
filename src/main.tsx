@@ -436,7 +436,7 @@ function LibraryView({
     <>
       {!fullscreen && <div className="library-heading">
         <div><p className="eyebrow">YOUR COLLECTION · {data.games.length} GAMES</p><h1>Library</h1></div>
-        <button className="button primary" onClick={() => setShowAdd(true)}><Plus size={17} /> Add game</button>
+        <button className="button primary" onClick={() => setShowAdd(true)}><Plus size={16} /> ADD GAME</button>
       </div>}
       {!fullscreen && <div className="toolbar library-toolbar glass">
         <div className="search-field">

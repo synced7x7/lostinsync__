@@ -101,7 +101,7 @@ export function DiscoverView({ data }: { data: AppData }) {
 
   return (
     <div className="discover-page">
-      <Header eyebrow="IGDB DISCOVERY" title="Discover" />
+      <div />
       {error && <div className="discover-error">{error}</div>}
       <section className="discover-search glass">
         <div><p className="eyebrow">SEARCH THE DATABASE</p></div>

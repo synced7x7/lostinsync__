@@ -7,6 +7,7 @@ import { CanvasRenderer } from "echarts/renderers";
 import type { AppData } from "../domain/game";
 import { build, CATEGORIES, index, touchedIn, yearsOf, type CategoryId, type ChartSpec, type Opt } from "../domain/stats";
 import "./stats.css";
+import { Header } from "../components/shared";
 
 echarts.use([BarChart, LineChart, PieChart, RadarChart, ScatterChart, HeatmapChart, GridComponent, TooltipComponent, LegendComponent, DataZoomComponent, VisualMapComponent, CalendarComponent, MarkPointComponent, RadarComponent, CanvasRenderer]);
 
@@ -62,7 +63,8 @@ export function StatsView({ data }: { data: AppData }) {
     if (!cat || !meta || !section) {
         return (
             <div className="st-landing">
-                <header className="st-head"><h1>Stats</h1></header>
+                <Header
+                        title="STATS" eyebrow=""/>
                 <div className="st-grid">
                     {CATEGORIES.map((c, i) => {
                         const Icon = ICONS[c.id];

@@ -1,5 +1,9 @@
 /* full-screen layer; z-index must stay BELOW your .sidebar z-index */
 .tr-stage { position: fixed; inset: 0; z-index: 1; overflow: hidden; background: #06040f }
+/* carousel: one viewport-width slide per trophy page, translated smoothly on arrow input */
+.tr-viewport { position: absolute; inset: 0; overflow: hidden }
+.tr-track { position: absolute; inset: 0; display: flex; transition: transform .6s cubic-bezier(.22, .61, .36, 1); will-change: transform }
+.tr-slide { position: relative; flex: 0 0 100vw; width: 100vw; height: 100%; overflow: hidden }
 /* 16:9 canvas that always covers the screen, so % positions stay glued to the artwork */
 .tr-canvas { position: absolute; left: 50%; top: 50%; width: max(100vw, calc(100vh * 16 / 9)); aspect-ratio: 16 / 9; transform: translate(-50%, -50%) }
 .tr-bg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; user-select: none }
@@ -46,7 +50,8 @@
 .tr-dev-row em { font-style: normal; opacity: .8 }
 
 /* ===================== PAGE TITLE (move with top / left) ===================== */
-.tr-title { position: absolute; top: 26px; left: clamp(76px, 6vw, 130px); z-index: 3; pointer-events: none; animation: trTitleIn .6s ease both }
+.tr-title { position: absolute; top: 26px; left: clamp(76px, 6vw, 130px); z-index: 3; pointer-events: none; animation: trTitleInNext .6s ease both }
+.tr-title--prev { animation-name: trTitleInPrev }
 .tr-title small { display: block; font-size: 10px; letter-spacing: .32em; color: rgba(var(--tg), .85); text-shadow: 0 0 10px rgba(var(--tg), .7) }
 .tr-title h1 {
     margin: 6px 0 0;
@@ -59,6 +64,12 @@
     text-shadow: 0 0 14px rgba(var(--tg), .85), 0 0 34px rgba(var(--tg), .5), 0 2px 4px #000
 }
 .tr-title h1::after { content: ""; display: block; height: 1px; margin-top: 10px; background: linear-gradient(90deg, rgba(var(--tg), .9), transparent) }
-@keyframes trTitleIn { from { opacity: 0; transform: translateY(-8px) } to { opacity: 1; transform: none } }
+@keyframes trTitleInNext { from { opacity: 0; transform: translateX(26px) } to { opacity: 1; transform: none } }
+@keyframes trTitleInPrev { from { opacity: 0; transform: translateX(-26px) } to { opacity: 1; transform: none } }
+
+@media (prefers-reduced-motion: reduce) {
+    .tr-track { transition: none }
+    .tr-title { animation: none }
+}
 
 @media (max-width: 750px) { .tr-panel { left: 10px; right: 10px; width: auto; bottom: 56px } }

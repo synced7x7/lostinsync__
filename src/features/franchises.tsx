@@ -297,24 +297,23 @@ export function FranchiseView({ games, creds, openGame }: { games: Game[]; creds
   return (
     <>
       <Header
-  title="Franchise Completion"
-  eyebrow="FRANCHISE"
-  right={
-    <div className="fr-header-meta">
-      <span className="fr-chip">
-        <strong>{groups.length}</strong> franchises
-      </span>
-      <span className="fr-chip">
-        <strong>{completedGames}</strong> completed
-      </span>
-      {!canLoad && (
-        <span className="fr-chip fr-chip--warn">
-          Connect IGDB in Settings for full totals
-        </span>
-      )}
-    </div>
-  }
-/>
+        title="FRANCHISE" eyebrow=""
+        action={
+          <div className="fr-heading-meta">
+            <span className="fr-chip">
+              <small>{groups.length}</small> franchises
+            </span>
+            <span className="fr-chip">
+              <strong>{completedGames}</strong> completed
+            </span>
+            {!canLoad && (
+              <span className="fr-chip fr-chip--warn">
+                Connect IGDB in Settings for full totals
+              </span>
+            )}
+          </div>
+        }
+      />
       {groups.length === 0 && <Empty icon={<Layers size={30} />} title="No franchises yet" text="Complete a game that belongs to a franchise." />}
       <div className="fr-list" ref={listRef} style={{ height: groups.length * ROWH }}>
         {visible.map((g, k) => {

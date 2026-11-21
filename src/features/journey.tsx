@@ -822,9 +822,7 @@ export function JourneyView({
       {menu && <div className="jn-dd-bg" onClick={() => setMenu(false)} />}
 
       <header className="jn-top">
-        <div className="jn-title">
-          <span className="jn-mark"><Route size={18} /></span>
-          <div><h1>Game Journey</h1><p>Your gaming timeline, visualized</p></div>
+        <div className="jn-title">  
         </div>
         <div className="jn-tools">
           <div className="jn-pills">
