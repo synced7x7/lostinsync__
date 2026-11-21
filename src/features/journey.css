@@ -1,5 +1,5 @@
 .jn-screen {
-    --jn-left: 270px;
+    --jn-left: 0px;
     position: fixed;
     inset: 0;
     z-index: 40;
@@ -7,8 +7,6 @@
     background: var(--bg) center / cover no-repeat;
     overflow: hidden
 }
-
-body:has(.sidebar.closed) .jn-screen { --jn-left: 92px }
 
 .jn-shade {
     position: absolute;
@@ -699,7 +697,7 @@ body:has(.sidebar.closed) .jn-screen { --jn-left: 92px }
 }
 
 @media (max-width: 750px) {
-    .jn-screen { --jn-left: 80px }
+    .jn-screen { --jn-left: 0px }
     .jn-top { flex-direction: column; align-items: flex-start; gap: 12px }
     .jn-detail { width: auto; left: 12px; right: 12px; bottom: 96px }
 }
