@@ -1,6 +1,6 @@
 # Architecture
 
-> **Verified against source on 2026-11-21.** Cross-cutting details and exact line references live in `agent/PROJECT_CONTEXT.md`; this document is the concise architecture overview.
+> **Verified against source on 2026-11-22** (refreshed for generic CSV import and dashboard motion). Cross-cutting details and exact line references live in `agent/PROJECT_CONTEXT.md`; this document is the concise architecture overview.
 
 ## Overview
 
@@ -53,7 +53,7 @@ web/index.html ──> web/src/entry.tsx ──> init() Drive sync ──> impor
 | `franchiseCache.ts` | Key-scoped adapter for `franchise_cache_load` / `franchise_cache_save`; no-ops in the web build, leaving the in-memory session cache as the only store |
 | `sync.ts` | `syncWithIgdb`: refresh only IGDB-owned fields from an explicit `FIELDS` allow-list; chunked import with patch reports |
 | `backloggd.ts` | Backloggd CSV importer: `mapEntry`, `withRetry`, `importBackloggd`, dedupe by `igdbId`, abort/report helpers |
-| `stores/` | Desktop store IPC wrappers, connector catalog, Steam parsers, shared IGDB matcher and one-way import pipeline with reports |
+| `stores/` | Desktop store IPC wrappers, connector catalog, Steam parsers, shared IGDB matcher, one-way import pipeline, and the generic CSV importer (`import.ts`: `parseCsv`, `parsePlaytimeSeconds`, `importCsv`, report helpers) |
 | `platform.ts` | `ALL_PLATFORMS`, `PC`, aliases, `emulatedOn()` |
 
 ### `src/components/`
@@ -72,7 +72,7 @@ Self-contained view components with co-located CSS:
 
 | Feature | Description |
 |---|---|
-| `dashboard.tsx` | Overview feed, recents, wishlist, "pick up where you left" |
+| `dashboard.tsx` | Overview feed, recents, wishlist, "pick up where you left"; `useReveal` IntersectionObserver hook, `Odometer` digit reels, `BigStat`, favorites mouse-spotlight and `--d` slot stagger |
 | `library-components.tsx` | `AddGame` portal modal — also used for editing games |
 | `journey.tsx` | Interactive timeline: SVG strands, lanes, LOD, zoom/pan, Fit All |
 | `franchises.tsx` / `franchises.css` | Franchise completion ribbons, 30-day SQLite cache for visible rows, 100-game chunk loader, per-row progress, Retry/Refresh controls, virtualized rows/slots and smooth wheel/arrow scrolling |
@@ -83,7 +83,7 @@ Self-contained view components with co-located CSS:
 | `media.tsx` | Screenshot carousel + YouTube embeds |
 | `series.tsx` / `bundle.tsx` | Franchise tree browser / bundle contents |
 | `stores-settings.tsx` | Desktop-only store connector UI: credentials/sign-in, fetch, progress, one-way import and copyable reports |
-| `settings.tsx` / `settings-data.tsx` | Settings view, appearance defaults / JSON + CSV export, JSON import, Backloggd import, IGDB sync |
+| `settings.tsx` / `settings-data.tsx` | Settings view, appearance defaults / JSON + CSV export, JSON import, Backloggd import, generic CSV import (`CsvImportSection`), IGDB sync |
 
 **Note:** `Details`, `LibraryView`, `PS4ShelfView`, and `GridLibraryView` are defined in **`src/main.tsx`**, not in `library-components.tsx`.
 

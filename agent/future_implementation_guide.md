@@ -1,12 +1,12 @@
 # future_implementation_guide.md — feature-specific navigation for AI agents
 
-> **Documentation only.** This file tells future agents where to work; it does not implement anything. Existing paths were verified on 2026-11-19 and refreshed for store import on 2026-11-21. Paths marked **[proposed]** do not exist yet. Line numbers are starting points and may drift — verify before editing.
+> **Documentation only.** This file tells future agents where to work; it does not implement anything. Existing paths were verified on 2026-11-19, refreshed for store import on 2026-11-21 and for generic CSV import on 2026-11-22. Paths marked **[proposed]** do not exist yet. Line numbers are starting points and may drift — verify before editing.
 >
 > Reading order: `PROJECT_CONTEXT.md` → `PROJECT_STATUS.md` → the relevant feature entry here → only the listed files and their immediate dependencies.
 
 **Feature index:** A. Improvements — 1 Played/completed inline, 2 Fit All sort, 3 Gameplay time stats, 4 Discover algorithm, 5 Theme system, 6 WebApp, 7 Android, 8 Add Game search bug, 9 Steam sync, 10 Backlog priority / play next. B. Wishlist — 11 Wishlist extras, 12 Platform ownership, 13 Franchise completion (done). C. Import/export — 14 More import sources, 15 Shareable card. D. PWA — 16 Installation & offline caching.
 
-**Completed:** features 1 (Add Game IGDB dropdown closes on outside click / Escape), 2 (Fit All ascending/descending toggle), 3 (dedicated Playtime stats category from recorded `totalSeconds`) and 9 (desktop one-way store import/Steam sync, 2026-11-21). All are verified in source; see their entries below. Feature 1's heading is legacy — its tracked request was re-scoped to the dropdown issue, and inline Played/Completed editing was not implemented.
+**Completed:** features 1 (Add Game IGDB dropdown closes on outside click / Escape), 2 (Fit All ascending/descending toggle), 3 (dedicated Playtime stats category from recorded `totalSeconds`), 9 (desktop one-way store import/Steam sync, 2026-11-21) and the CSV half of 14 (generic CSV importer, 2026-11-22). All are verified in source; see their entries below. Feature 1's heading is legacy — its tracked request was re-scoped to the dropdown issue, and inline Played/Completed editing was not implemented. Feature 14 is only partially complete: pasted-title import is still pending.
 
 ---
 
@@ -519,7 +519,15 @@ Verify that the original Game Journey remains fully functional after implementat
 
 **Objective:** Add CSV import, Steam library import, and paste-a-list-of-titles import, ideally through a reusable pipeline.
 
-**Current Implementation:**
+**Status (2026-11-22):** Steam library import (feature 9) and generic CSV import are implemented and verified in source. Only the pasted-title adapter remains pending. The notes below describe the remaining work; this section also records the shipped CSV implementation.
+
+**CSV import (implemented, 2026-11-22):**
+- `src/data/stores/import.ts:336-558` — `parseCsv` (BOM, quoted cells, CRLF, `,`/`;` auto-detected from the header), `headerKey` snake_case normalization, `parsePlaytimeSeconds` (`12h 30m`, `12:30`, bare minutes or hours), `importCsv`, and report helpers `csvReportSections` / `csvReportToText`. Types: `CsvImportProgress` (`matching | details | done`), `CsvImportReport` (`byIgdbId`, `strict`, `loose`, `duplicates`, `needsReview`, `warnings`, `failures`).
+- Matching order: a row with a valid `igdb_id` is fetched by id and the CSV title is ignored (it may be empty or wrong); otherwise `resolveTitle` tries strict `/ <title>` then generic search. Details are fetched in `igdbImportBatch` chunks with `withRetry`; the UI can cancel between batches; duplicates are checked against the live library and earlier rows by id or normalized title.
+- Columns: `title`, `igdb_id` (one required per row), `status`, `playtime`, `starting_date`, `completed_date`, `rating`, `mastery`/`mastered`, `favorites`/`favorite`, `played_on`. Dates accept `YYYY-MM-DD` or parseable text; booleans accept 1/0, true/false, yes/y/t; `played_on` splits on `;` or `,` and maps common aliases to canonical platform names.
+- `src/features/settings-data.tsx:359-477` — `CsvImportSection` in `DataSection`: file picker with header validation (`title` or `igdb_id`), confirm step, progress bar, cancel-after-batch, grouped report and clipboard copy. Gated by `hasTauri && creds`; because `web/src/igdb.web.ts:9` sets `hasTauri = true`, the panel also renders in web builds with IGDB credentials. No new data fields, SQL migration or web proxy code; games are built with `buildStoreGame` but `storeLinks` is cleared.
+
+**Remaining work (pasted-title import) — Current Implementation:**
 
 - Settings data UI: `DataSection` (`src/features/settings-data.tsx:52-62`), `NoticeBar` (`:15-24`), `saveOrDownload` (`:39-50`), CSV export helpers `stamp`/`csvCell`/`toCsv` (`:26-37`), `StorageSection` JSON export/import (`:64-121`).
 - Existing import state machine: `Phase` union (`:227-231`), `BackloggdSection` (`:233-343`) with file parsing (`:242-254`), `run()` with `AbortController` (`:256-273`), progress bar (`:307-315`), report chips/copy (`:317-339`), duplicate warning (`:281-286`).
@@ -539,9 +547,9 @@ Verify that the original Game Journey remains fully functional after implementat
 
 **Potential New Files (proposed):**
 
-- **[proposed]** `src/data/csv.ts`, `src/data/import.test.ts`, `src/features/import-sources.tsx` (paste-a-list UI). The generic parse → resolve IGDB → map → dedupe → report pipeline already exists as `src/data/stores/import.ts`; the Steam source adapter is `src/data/stores/steam.ts` from feature 9.
+- `src/data/csv.ts` is **not needed** — the CSV adapter shipped inside `src/data/stores/import.ts` (2026-11-22). For the remaining pasted-title source: **[proposed]** `src/data/stores/paste.ts`, `src/data/stores/paste.test.ts`, and optionally a `PasteImportSection` in `src/features/settings-data.tsx`. The generic parse → resolve IGDB → map → dedupe → report pipeline is `src/data/stores/import.ts`; the Steam source adapter is `src/data/stores/steam.ts` from feature 9.
 
-**Implementation Approach:** Reuse the shared pipeline already shipped in `src/data/stores/import.ts` (IGDB matching, dedupe, cancellation, progress/report); add thin CSV and pasted-title adapters rather than another importer engine. Round-trip compatibility with `toCsv()` in `settings-data.tsx` is a sensible CSV target format. Show one consistent progress/report UI.
+**Implementation Approach:** Reuse the shared pipeline in `src/data/stores/import.ts` (IGDB matching, dedupe, cancellation, progress/report). The CSV adapter is already shipped there and round-trips with `toCsv()` in `settings-data.tsx`; add only a thin pasted-title adapter that produces the same `CsvEntry[]`-style input rather than another importer engine. Show one consistent progress/report UI.
 
 **Dependencies and Integrations:** Settings UI, IGDB search/batch, Backloggd engine, sync/report helpers, CSV export, `src/data/stores/import.ts` from feature 9, web proxy only if web support is needed (store import itself is desktop-only).
 
@@ -578,7 +586,7 @@ No dates are assigned. Ordering is by dependency, complexity, and risk to existi
 
 **Phase 4 — Higher-risk import/sync (network, rate limits, duplicates)**
 9. ~~**9** Steam sync~~ — completed (2026-11-21): `src/data/stores/`, `src/features/stores-settings.tsx`, `src-tauri/src/stores.rs`; only live re-fetch QA remains.
-10. **14** reusable import pipeline + CSV/paste adapters (the pipeline now exists in `src/data/stores/import.ts`; add CSV/paste adapters).
+10. ~~**14** CSV import~~ — completed (2026-11-22): `src/data/stores/import.ts` (`importCsv`, `parseCsv`) and `CsvImportSection` in `src/features/settings-data.tsx`. Only the pasted-title adapter remains from feature 14.
 
 **Phase 5 — Presentation**
 11. **15** shareable card (after stats/badge data is stable and theme direction is known).

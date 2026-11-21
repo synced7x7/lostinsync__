@@ -11,7 +11,7 @@
   <br />
   Track your collection, explore new games, follow franchise completion, and visualize your gaming history.
   <br />
-  On desktop, import your Steam and Epic Games libraries, wishlist, playtime and achievements directly into your collection.
+  On desktop, import your Steam and Epic Games libraries, wishlist, playtime and achievements directly into your collection, or bring in games from a generic CSV.
 </p>
 
 > [!IMPORTANT]
@@ -57,6 +57,7 @@
 | Persistence | SQLite via `rusqlite` (Tauri managed state); browser localStorage in web dev mode |
 | Images | Stored as files in the app data folder and referenced by name |
 | External data | IGDB API (Twitch OAuth2 client credentials); Steam Web API on desktop |
+| CSV import | Generic, IGDB-enriched CSV importer in Settings with dedupe, cancellation and reports |
 | Desktop store import | One-way Steam and Epic Games connectors; all store HTTP and token storage stays in Rust |
 | Styling | Custom CSS variables, Aurora Glass dark theme |
 
@@ -166,7 +167,7 @@ lostinsync__/
 │   │   ├── repository.ts       # AppRepository: Tauri and localStorage adapters
 │   │   ├── igdb.ts             # IGDB command wrappers with bounded caches
 │   │   ├── franchiseCache.ts   # Visible-row franchise cache adapter (Tauri SQLite / web memory)
-│   │   └── stores/             # Desktop store connectors, IGDB matching, import pipeline, IPC and tests
+│   │   └── stores/             # Desktop store connectors, IGDB matching, import pipeline (incl. generic CSV), IPC and tests
 │   ├── components/
 │   │   ├── layout.tsx          # App layout and collapsible sidebar
 │   │   ├── navigation.ts       # Sidebar navigation items
@@ -186,7 +187,7 @@ lostinsync__/
 │       ├── series.tsx          # Franchise and collection browser
 │       ├── bundle.tsx          # Bundle contents (DLC and editions)
 │       ├── stores-settings.tsx # Desktop-only store import UI, progress and reports
-│       └── settings-data.tsx   # Settings, Library defaults, credentials, export/import
+│       └── settings-data.tsx   # Settings, Library defaults, credentials, export/import, generic CSV import
 │
 ├── src-tauri/                  # Rust / Tauri backend
 │   ├── src/lib.rs              # Tauri commands (SQLite, franchise cache, IGDB and store IPC)

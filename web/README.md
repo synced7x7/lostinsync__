@@ -43,4 +43,4 @@ Add the Pages URL to the worker's `ALLOWED_ORIGINS` and to the Google client's a
 - **IGDB keys**: encrypted (AES-GCM, non-extractable key) in IndexedDB. Never in the library record, the Drive snapshot or exported JSON.
 - **Library**: IndexedDB is the working copy. Images are stored as blobs by hash, so saves stay small.
 - **Drive**: a gzip snapshot + image files in the hidden app-only folder of the user's own Drive. Auto-sync only when something changed, at most once per chosen interval; never overwrites a newer remote silently.
-- **Import / export**: identical JSON format to the offline app (images inline as data URIs), so a file moves both ways.
+- **Import / export**: identical JSON format to the offline app (images inline as data URIs), so a file moves both ways. The generic CSV importer from `src/features/settings-data.tsx` is inherited via the web wrapper and also works here with IGDB credentials configured; the Steam/Epic store connector panel remains desktop-only.

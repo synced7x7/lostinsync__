@@ -1,6 +1,6 @@
 # PROJECT_CONTEXT.md — Lost in Sync (technical reference)
 
-> Generated from direct source inspection on 2026-11-19 and refreshed for desktop store import on 2026-11-21. **The code is the source of truth.** The `docs/` folder and root `README.md` were refreshed for store import; `web/README.md` is still partially stale. This document is the permanent technical reference for AI agents; `PROJECT_STATUS.md` tracks changing progress and `future_implementation_guide.md` tracks planned features.
+> Generated from direct source inspection on 2026-11-19, refreshed for desktop store import on 2026-11-21 and for generic CSV import + dashboard motion on 2026-11-22. **The code is the source of truth.** The `docs/` folder and root `README.md` were refreshed for these features; `web/README.md` is still partially stale. This document is the permanent technical reference for AI agents; `PROJECT_STATUS.md` tracks changing progress and `future_implementation_guide.md` tracks planned features.
 
 ---
 
@@ -22,7 +22,8 @@
 - Discover: 10 IGDB feeds, search with `/ ` exact-name and `& ` ID syntax, one-click import of metadata/images (`src/features/discover.tsx`, `src-tauri/src/lib.rs`).
 - Trophies/badge gallery with six rarity tiers including `lostinsync` (`src/domain/trophies.ts`).
 - Statistics: 13 visible categories built from `src/domain/stats.ts` (including a Playtime category aggregated from recorded `totalSeconds` by `src/domain/playtime.ts`) and rendered with Apache ECharts (`src/features/stats.tsx`).
-- Settings: defaults, IGDB credentials, JSON/CSV export, JSON import, Backloggd import, IGDB metadata sync; web build adds encrypted credential vault and Google Drive backup.
+- Settings: defaults, IGDB credentials, JSON/CSV export, JSON import, Backloggd import, generic CSV import (`title`/`igdb_id` keyed, IGDB-enriched), IGDB metadata sync; web build adds encrypted credential vault and Google Drive backup.
+- Dashboard presentation: animated favorites stage (flowing wave, mouse spotlight, staggered rising/floating cards, cover sheen, pulsing stem dots) and a stats strip whose numbers spin as odometer reels when scrolled into view, with `prefers-reduced-motion` fallbacks.
 - Desktop-only one-way store import (`src/data/stores/`, `src/features/stores-settings.tsx`, `src-tauri/src/stores.rs`): Steam owned/free games, public wishlist, playtime and achievements map into the existing library; Epic ownership uses the same pipeline and catalog-id IGDB matching. Credentials never enter exports or web snapshots. User guide: `docs/store-import-guide.md`.
 - Media gallery (screenshots, YouTube embeds), franchise/series tree, dedicated `/franchises` completion view, bundle contents, profile banner editor.
 
@@ -138,26 +139,26 @@ Meaningful paths only (no build artifacts, no `node_modules`, no individual badg
 | `src/data/franchiseCache.ts` | Key-scoped `franchise_cache_load` / `franchise_cache_save` adapter; no-op when `hasTauri` is false | `src/features/franchises.tsx` | Franchise cache/TTL changes |
 | `src/data/sync.ts` | `syncWithIgdb`, `FIELDS` allow-list, `buildPatch`, `applyPatches`, sync reports | Settings sync section | IGDB refresh behavior |
 | `src/data/backloggd.ts` | `importBackloggd`, `withRetry`, `mapEntry`, import reports | Settings Backloggd section | Import pipeline work |
-| `src/data/stores/` | `ipc.ts`, `types.ts`, `steam.ts`, `epic.ts`, `match.ts`, `import.ts` plus 4 Vitest files; desktop-only Steam/Epic connector catalog, parsers, IGDB matching and one-way import | `src/features/stores-settings.tsx`, Rust store commands | Store import/status/mapping work |
+| `src/data/stores/` | `ipc.ts`, `types.ts`, `steam.ts`, `epic.ts`, `match.ts`, `import.ts` plus 4 Vitest files; desktop-only Steam/Epic connector catalog, parsers, IGDB matching, one-way import, **and the generic CSV importer** (`parseCsv`, `parsePlaytimeSeconds`, `importCsv`, `CsvImportProgress`/`CsvImportReport`, `csvReportSections`, `csvReportToText`) | `src/features/stores-settings.tsx`, `src/features/settings-data.tsx`, Rust store commands | Store import/status/mapping and generic CSV import work |
 | `src/data/platform.ts` | `ALL_PLATFORMS`, `PC`, `emulatedOn` | Stats, AddGame, importers | Platform lists/derivation |
 | `src/components/shared.tsx` | `Header`, `Empty`, `StarRating`, `TrophyToggle`, `formatDate`, `parseDate`, `DateField`, `PlatformPicker` | All features | Reusable form/display controls |
 | `src/components/layout.tsx` | `AppLayout`, collapsible `Sidebar`, error toast | `src/main.tsx` | Navigation/layout changes |
 | `src/components/navigation.ts` | `navigation` array (7 items) | Sidebar | Adding a route to the sidebar |
 | `src/components/rarity-badge.tsx` | `RarityBadge` | Sidebar, profile banner, trophies | Badge display |
 | `src/components/store-icons.tsx` | `StoreIcon` — transparent brand-logo SVGs keyed by IGDB `external_game_source` / `category` ID | Details store chips | Store icon/logo changes |
-| `src/features/dashboard.tsx` | Overview feed, recents, wishlist, "pick up where you left" | Route `/` | Dashboard changes |
+| `src/features/dashboard.tsx` | Overview feed, recents, wishlist, "pick up where you left"; `useReveal` (IntersectionObserver), `Odometer` digit reels, `BigStat`, favorites `onMouseMove` spotlight vars, `favflow` SVG gradient and `--d` slot stagger | Route `/`, `overview.css` | Dashboard changes and motion |
 | `src/features/library-components.tsx` | `AddGame` modal (also used for editing) — only export | `src/main.tsx` | Add/edit form or IGDB search bug |
 | `src/features/journey.tsx` + `journey.css` | Timeline, `FitView`, LOD, zoom/pan, session prefs | Route `/journey` | Timeline and Fit All work |
 | `src/features/franchises.tsx` + `franchises.css` | `FranchiseView`, ribbon rows, 30-day visible-row SQLite cache, 100-game chunk loader, per-row progress and Retry/Refresh, virtual rows/slots, smooth wheel/arrow scrolling, `useSmoothX` | Route `/franchises` | Franchise completion UI/performance |
 | `src/features/discover.tsx` + `discover.css` | Feeds, search, cards, details bridge, `draftFromIgdb` | Route `/discover`, Details | Recommendation work |
 | `src/features/stats.tsx` + `stats.css` | Category landing, tiles, `Chart` (ECharts canvas) | Route `/stats` | Analytics UI |
 | `src/features/trophies.tsx` + `trophies.css` | Badge gallery, backgrounds from `src/images/trophy-bg/` | Route `/trophies` | Trophy UI/assets |
-| `src/features/overview.tsx` + `overview.css` | `ProfileSection`, collection actions, canvas crop helpers | Dashboard profile slot | Profile/banner work |
+| `src/features/overview.tsx` + `overview.css` | `ProfileSection`, collection actions, canvas crop helpers; favorites + stats-strip motion (`beam-spin` border, `wave-reveal`, `fav-rise`/`fav-float`/`center-glow`, `card-sheen`, `stem-grow`, `dot-pop`/`dot-ping`, `strip-sweep`, `stat-in`/`stat-glow`, odometer styles, reduced-motion overrides) | Dashboard profile slot and stats strip | Profile/banner and dashboard animation work |
 | `src/features/media.tsx` | Screenshot carousel, YouTube embeds | Details | Media work |
 | `src/features/series.tsx`, `bundle.tsx` | `SeriesModal`/`SeriesButton`, `BundleContents` | Details | Franchise/bundle work |
 | `src/features/settings.tsx` | `SettingsView`, appearance defaults, static theme pill | Route `/settings` | Settings UI |
 | `src/features/stores-settings.tsx` | Desktop-only store connector UI: Steam fields, Epic status-driven sign-in, fetch/import phases, progress and copyable report | Settings; hidden when `isDesktop` is false | Store import UI/report work |
-| `src/features/settings-data.tsx` | `DataSection`, JSON/CSV export/import, Backloggd import, IGDB sync | Settings; wrapped by web | Import/export/sync |
+| `src/features/settings-data.tsx` | `DataSection`, JSON/CSV export/import, Backloggd import, `CsvImportSection` (generic CSV), IGDB sync | Settings; wrapped by web | Import/export/sync |
 | `src/images/{badges,trophy-bg,logo}/` | PNG artwork loaded with `import.meta.glob` | Trophy views, sidebar logo | Asset optimization |
 | `src-tauri/src/lib.rs` | All 27 Tauri commands (incl. franchise cache, `igdb_franchise` / `igdb_games_by_ids`, `igdb_external_games`, `stores_*`), SQLite migration, IGDB proxy, image storage, app setup | Desktop backend | Any native feature |
 | `src-tauri/src/stores.rs` | Steam/Epic endpoint constants, Rust HTTP/auth, Steam owned/wishlist/achievement parsing, Epic library/catalog title resolution, `store-credentials.json`, 4 Rust unit tests | `lib.rs` store commands | Store connector/API changes |
@@ -237,7 +238,7 @@ Utilities: `compareGames` (`src/main.tsx:300-314`), `formatSpan` (`:316-333`), `
 - **Journey**: lane allocation, LOD (cull below 40% zoom), zoom 10–240%, range presets, Fit All virtualized list with an ascending (oldest first) / descending (newest first) toggle that reorders only the overview rows.
 - **Discover**: 10 feeds loaded with 3 concurrent workers, 20 items each; "View all" pages of 30 up to 100; hover prefetch.
 - **Stats**: category tabs, year filter, tile grid, tabbed chart cards; the "Playtime" category shows logged hours with a note that the year filter selects games by date rather than splitting hours.
-- **Settings/Data**: export JSON (strips IGDB/Steam credentials and store tokens), export CSV, import JSON (destructive replace), Backloggd import with progress/report, desktop-only store import with progress/report, IGDB sync with report, library defaults, wipe library.
+- **Settings/Data**: export JSON (strips IGDB/Steam credentials and store tokens), export CSV, import JSON (destructive replace), Backloggd import with progress/report, generic CSV import with progress/report (title or `igdb_id` per row), desktop-only store import with progress/report, IGDB sync with report, library defaults, wipe library.
 - **Web additions**: Drive connect/back up/restore/overwrite panel with conflict handling.
 
 ---
@@ -377,6 +378,7 @@ All filtering/sorting/aggregation happens in TypeScript.
 | Import JSON | `StorageSection.importJson` replaces library, keeps current credentials | Implemented, destructive |
 | Export JSON/CSV | `exportJson`, `exportCsv`, `saveOrDownload` (`settings-data.tsx`) | Implemented |
 | Import Backloggd | `importBackloggd` with dedupe by `igdbId`, retry, abort, report | Implemented; Tauri + credentials only |
+| Import generic CSV | `CsvImportSection` → `parseCsv` → `importCsv`; `igdb_id` first (title ignored), else strict then generic title search; dedupe by id/title, batch details, abort, report | Implemented; requires IGDB credentials, also available in web build |
 | Desktop store import | `StoresSection` → `fetchStoreRecords`/`importFromStore` → Rust `stores_*`; dedupe by store id, IGDB match, status/date/mastery mapping, reports | Implemented; live Steam re-fetch QA pending |
 | IGDB search/details/import | `igdb.ts` wrappers + Rust proxy; `draftFromIgdb` creates unsaved game | Implemented |
 | IGDB metadata sync | `syncWithIgdb` → `igdbSyncCheck` → `igdbImportBatch` in chunks of 100 → `buildPatch`/`applyPatches`; writes `lastIgdbSyncAt` | Implemented; only IGDB-owned fields |
@@ -501,6 +503,8 @@ cd web/worker && npx wrangler deploy                 # IGDB proxy
 - **Exact storefront links:** `igdb_external_games` / `igdbExternalGames` read IGDB `external_games`; `storeLinksFromExternal` drops invalid URLs, deduplicates by source and orders known storefronts. Details shows two icon-only chips plus a `+N` hover/focus popover; `StoreIcon` supplies transparent brand SVGs. The web client falls back to nested `games.external_games.*` when the deployed worker returns 404 for the direct endpoint.
 - **Web build swap caveat:** `swapModules()` matches resolved module IDs globally; a web file may import the offline original it wraps (guarded at `web/vite.config.ts:30`), but any new shared import of those three paths will be swapped.
 - **Debug instrumentation:** `flushSave` logs payload size and a `console.table` of field sizes on every save (`src/main.tsx:173-188`); the former catch-block error reporting is commented out (`:169-171`).
+- **Generic CSV import:** `parseCsv` (`src/data/stores/import.ts:355-374`) handles BOM, quoted cells, CRLF and auto-detects `,` vs `;` from the header; `headerKey` normalizes headers to snake_case, so `igdb id`/`IGDB_ID` both work. `importCsv` requires a `title` or `igdb_id` header; a row with a valid `igdb_id` is fetched by id and the CSV title is never compared (it can be empty or wrong), while a missing/not-found id falls back to `resolveTitle` (strict `/ ` then generic search). Details are fetched in `igdbImportBatch` chunks (shared `CHUNK`), cancellation is checked between chunks and rows, and duplicates are checked against the live library and earlier rows. `playtime` accepts `12h 30m`, `12:30`/`12:30:00` or a bare number of minutes; `playtime_hours`/`total_hours` treat a bare number as hours. `mastery`/`favorites` accept 1/0, true/false, yes/y/t. `played_on` splits on `;` or `,`. Games are built with `buildStoreGame` but `storeLinks` is cleared, so they are ordinary local games. The UI (`CsvImportSection`, `src/features/settings-data.tsx:365-477`) uses `hasTauri && creds` gating — web sets `hasTauri = true`, so the panel is available there too — and offers confirm, progress, cancel-after-batch, a grouped report and clipboard copy.
+- **Dashboard motion:** `useReveal` (`src/features/dashboard.tsx:38-49`) is a local `IntersectionObserver` hook (threshold `0.35`, disconnect after first intersection). `Odometer` (`:51-71`) renders each zero-padded digit as a 20-cell `0-9-0-9` reel translated by `-(digit + 10) * 5%` when revealed, with per-digit delay/duration; the readable value stays in `aria-label` on `<strong>`. `fav-slot` exposes `--d = |i - 2|` for center-out staggering. In `overview.css`, `.fav-section` (not `.fav-stage`) carries `banner-in` and `.fav-scroll` has `overflow-y: hidden` to avoid a transient scrollbar; `.big-stat > span` targets only the direct-child label so the digit reels keep their `1em` window. All new animations are disabled under `prefers-reduced-motion`, which also hides `.fav-wave-flow`.
 - **Auto fullscreen:** `src/main.tsx:95-127` requests fullscreen on first interaction; web overrides `Element.prototype.requestFullscreen` to require F11.
 - **Stale worker frontend:** `web/worker/src/{entry.tsx,login-gate.tsx,sync.ts,cloud.css}` are dead copies importing non-existent modules; `wrangler.toml` builds only `src/index.ts`.
 - **Backloggd importer and IGDB sync exist** (`src/data/backloggd.ts`, `src/data/sync.ts`); `docs/roadmap.md` now lists both under completed milestones.

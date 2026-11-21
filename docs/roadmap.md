@@ -1,6 +1,6 @@
 # Project Roadmap
 
-> **Verified against source on 2026-11-21.** Items are marked complete only when implemented in code. The detailed, file-specific plans for every pending item are in `agent/future_implementation_guide.md`.
+> **Verified against source on 2026-11-22** (refreshed for generic CSV import and dashboard motion). Items are marked complete only when implemented in code. The detailed, file-specific plans for every pending item are in `agent/future_implementation_guide.md`.
 
 This document outlines completed milestones and future enhancements for **Lost in Sync**.
 
@@ -34,6 +34,7 @@ This document outlines completed milestones and future enhancements for **Lost i
 - [x] Bounded LRU + TTL caches on all IGDB client calls.
 - [x] IGDB metadata sync with a field allow-list and progress reports.
 - [x] Backloggd CSV importer with dedupe, retries, cancellation, and reports.
+- [x] Generic CSV importer in Settings: `title` or `igdb_id` per row, IGDB id first then strict/generic title search, dedupe, batched detail fetch, cancellation, progress and a copyable report (`src/data/stores/import.ts`, `CsvImportSection`).
 
 ### Store Import (Desktop Only)
 - [x] One-way store connector framework with Steam and Epic Games adapters; all store HTTP and OAuth/token storage remains in Rust.
@@ -49,6 +50,9 @@ This document outlines completed milestones and future enhancements for **Lost i
 - [x] Zoom, pan, range presets, and virtualized Fit All overview.
 - [x] LOD node culling below 40% zoom.
 - [x] Ascending/descending sort in Fit All (oldest/newest first; session-only, timeline stays chronological).
+
+### UI Presentation
+- [x] Animated favorites stage and odometer stats strip on the dashboard: flowing wave, mouse spotlight, staggered card rise/float, cover sheen, pulsing dots, travelling light borders, and scroll-triggered number reels with `prefers-reduced-motion` fallbacks.
 
 ### Web Application
 - [x] Web build reusing shared `src/` via three Vite module swaps.
@@ -82,7 +86,7 @@ The items below are **planned, not implemented**. See `agent/future_implementati
 
 ### Phase 4 — Imports & synchronization
 - [x] Steam library sync (owned/free games, wishlist, playtime and achievements) is implemented; re-fetch QA is pending after the free-game fix.
-- [ ] Remaining import sources: CSV and pasted title lists through the shared import pipeline.
+- [x] Generic CSV import through the shared import pipeline (`src/data/stores/import.ts`); pasted title lists remain pending.
 - [ ] Live QA for the unofficial Epic launcher endpoints.
 - [ ] Automated playtime tracking and multi-session logs.
 - [ ] Game launcher integration (Steam/local executables).

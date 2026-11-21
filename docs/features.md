@@ -1,6 +1,6 @@
 # Feature Documentation
 
-> **Verified against source on 2026-11-21.** This describes what is implemented today, not planned functionality. The full status breakdown is in `agent/PROJECT_STATUS.md`.
+> **Verified against source on 2026-11-22** (refreshed for generic CSV import and dashboard motion). This describes what is implemented today, not planned functionality. The full status breakdown is in `agent/PROJECT_STATUS.md`.
 
 Lost in Sync is a personal game library OS built with desktop-first principles. It provides a cohesive interface to catalogue, discover, analyze, and reminisce about your gaming journey.
 
@@ -82,7 +82,8 @@ Important nuance: the older length charts use IGDB `timeAvgSeconds` (Time-To-Bea
 
 - **API Configuration**: Twitch Client ID/Secret for IGDB (plain fields on desktop; AES-GCM encrypted in the web vault). Desktop also accepts a Steam Web API key and SteamID64; both are saved with settings and stripped from backups.
 - **Appearance & Defaults**: Initial view, library layout, sort/filter defaults, grid size, and fullscreen preference. There is no theme selector or animation-level setting.
-- **Data Portability**: JSON export/import, CSV export, Backloggd CSV import, desktop store import, and IGDB metadata sync with progress reports. JSON round-trips preserve optional store ids and never include store credentials.
+- **Data Portability**: JSON export/import, CSV export, Backloggd CSV import, generic CSV import, desktop store import, and IGDB metadata sync with progress reports. JSON round-trips preserve optional store ids and never include store credentials.
+- **Generic CSV import**: A Settings panel imports a CSV where each row has a `title` or an `igdb_id`. When `igdb_id` is present it wins and the title is ignored (it can be empty or wrong); otherwise the title is searched strictly (`/ <title>`) then generically. Optional columns cover `status`, `playtime`, `starting_date`, `completed_date`, `rating`, `mastery`, `favorites` and `played_on`. Imports dedupe against the library and within the file, fetch IGDB details in batches, support cancel-after-batch, and end with a grouped, copyable report. Requires IGDB credentials; the panel also appears in the web build.
 - **Web only**: Google Drive backup with connect/back up/restore/overwrite controls and conflict detection. The store settings panel is desktop-only and never renders in the web build.
 
 ---
@@ -102,3 +103,13 @@ One-way store import is implemented in `src/features/stores-settings.tsx`, `src/
 - **Matching and art**: Games match by store id → strict `/ ` IGDB search → unique normalized title. Ambiguous titles go to a “needs review” report. Imported metadata and images come from IGDB remote URLs; no store artwork is saved to the desktop `images/` folder.
 - **Reports**: Fetch/import phases show progress and a report with imported, linked, refreshed, duplicate, needs-review, warning and failure sections. The report can be copied to the clipboard.
 - **Credential safety**: Steam keys live with app settings like IGDB credentials; Epic tokens live in a Rust-managed app-data credentials file. All store HTTP and token handling stays in Rust; credentials are stripped from JSON exports and web Drive snapshots.
+
+---
+
+## 9. ✨ Dashboard Motion & Presentation
+
+The Overview dashboard (`src/features/dashboard.tsx`, `src/features/overview.css`) adds layered, CSS-driven motion to its two top panels:
+
+- **Favorites stage**: a travelling conic-gradient light border, a flowing wave highlight, a soft radial spotlight that follows the mouse, cards that rise center-out then float on staggered phases, a sheen sweep across each cover, and pulsing stem dots. A `--d` CSS variable (distance from the center slot) staggers the outer cards. The entrance animation runs on the outer `.fav-section` and `.fav-scroll` locks vertical overflow, so no transient scrollbar flashes during the slide-in.
+- **Stats strip**: when the strip scrolls into view (`IntersectionObserver`, 35% threshold), each zero-padded number spins as an odometer reel — a 0–9–0–9 strip that makes one extra turn before landing on the final digit. The real value remains available to assistive tech via `aria-label`. Labels are targeted with `.big-stat > span` so the reel spans keep their clipped `1em` windows. Cards fade in with a staggered lift, gain a hover glow, and the panel has a slow sweeping sheen.
+- **Accessibility**: all of these animations, including the flowing wave, are disabled under `prefers-reduced-motion: reduce`.
