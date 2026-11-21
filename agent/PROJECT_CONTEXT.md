@@ -128,13 +128,14 @@ Meaningful paths only (no build artifacts, no `node_modules`, no individual badg
 | `src/domain/library-session.ts` | `LibraryPrefs`, `libraryDefaults`, `prefsToSettings`, `SORT_OPTIONS`, `librarySession` | `src/main.tsx` LibraryView | Library sort/filter changes |
 | `src/domain/journey-sort.ts` | `sortJourneyRows` — chronological comparator with `id` tie-break, reversible for Fit All | `src/features/journey.tsx` | Journey Fit All sort changes |
 | `src/domain/playtime.ts` | `playtimeHours`, `summarizePlaytime`, `playtimeBuckets` — pure aggregation of recorded `totalSeconds` | `src/domain/stats.ts` | Playtime stats changes |
-| `src/domain/franchise.ts`, `src/domain/franchise.test.ts` | `groupByFranchise`, `seriesGamesFor`, `buildFranchise`, `baseTitle`, `norm` — franchise grouping, IGDB series matching, slot dedupe and completion metrics | `src/features/franchises.tsx` | Franchise totals/grouping changes |
+| `src/domain/franchise.ts`, `src/domain/franchise.test.ts` | `ALL_TYPES`, `WANTED_TYPES`, `wantedType`, `libWanted`, `groupByFranchise`, `buildFranchise`, `baseTitle`, `norm` — franchise grouping, game-type switch, slot dedupe and completion metrics | `src/features/franchises.tsx` | Franchise totals/grouping changes |
 | `src/domain/store-links.ts` | `storeLinksFromExternal`, `storeLabel` — validate, deduplicate and priority-order IGDB `external_games` storefronts | `src/main.tsx` Details hero | Store-link filtering/order changes |
 | `src/domain/stats.ts` | Row index (`index`), `yearsOf`, `CATEGORIES`, 14 section builders (incl. `playtime()`), ECharts option builders, `build` | `src/features/stats.tsx`, `src/domain/playtime.ts` | Any analytics change |
 | `src/domain/trophies.ts` | Rarity tiers, `TROPHIES`, `DEV_FAVORITES`, `GOTY`, `evaluate`, `topBadge`, `RARITY_COLOR` | Trophy UI, sidebar badge, stats milestones | Badge/rarity work |
-| `src/domain/*.test.ts`, `src/data/stores/*.test.ts` | 9 Vitest files / 67 tests: game 2, journey-sort 4, playtime 8, store-links 5, Epic parser 2, Steam parser 9, matcher 12, import pipeline 21, franchise 4 | `pnpm test` | Adding pure-function tests |
+| `src/domain/*.test.ts`, `src/data/stores/*.test.ts` | 9 Vitest files / 67 tests: game 2, journey-sort 4, playtime 8, store-links 5, Epic parser 2, Steam parser 9, matcher 12, import pipeline 21, franchise 4; 66 pass while `ALL_TYPES = true` (expected filter-test failure) | `pnpm test` | Adding pure-function tests |
 | `src/data/repository.ts` | `AppRepository`, `LocalAppRepository`, `TauriAppRepository`, `createAppRepository()`, image externalization | `src/main.tsx`; swapped in web | Persistence changes |
-| `src/data/igdb.ts` | Typed wrappers for 11 IGDB commands (including `igdbExternalGames`), bounded LRU cached variants, `hasTauri`, `saveTextFile` | Discover, sync, importers, Details store links | Adding IGDB calls (mirror in web!) |
+| `src/data/igdb.ts` | Typed wrappers for 13 IGDB commands (including `igdbFranchise` / `igdbGamesByIds` and `igdbExternalGames`), bounded LRU cached variants, `hasTauri`, `saveTextFile` | Discover, sync, importers, Details store links, Franchise completion | Adding IGDB calls (mirror in web!) |
+| `src/data/franchiseCache.ts` | Key-scoped `franchise_cache_load` / `franchise_cache_save` adapter; no-op when `hasTauri` is false | `src/features/franchises.tsx` | Franchise cache/TTL changes |
 | `src/data/sync.ts` | `syncWithIgdb`, `FIELDS` allow-list, `buildPatch`, `applyPatches`, sync reports | Settings sync section | IGDB refresh behavior |
 | `src/data/backloggd.ts` | `importBackloggd`, `withRetry`, `mapEntry`, import reports | Settings Backloggd section | Import pipeline work |
 | `src/data/stores/` | `ipc.ts`, `types.ts`, `steam.ts`, `epic.ts`, `match.ts`, `import.ts` plus 4 Vitest files; desktop-only Steam/Epic connector catalog, parsers, IGDB matching and one-way import | `src/features/stores-settings.tsx`, Rust store commands | Store import/status/mapping work |
@@ -147,7 +148,7 @@ Meaningful paths only (no build artifacts, no `node_modules`, no individual badg
 | `src/features/dashboard.tsx` | Overview feed, recents, wishlist, "pick up where you left" | Route `/` | Dashboard changes |
 | `src/features/library-components.tsx` | `AddGame` modal (also used for editing) — only export | `src/main.tsx` | Add/edit form or IGDB search bug |
 | `src/features/journey.tsx` + `journey.css` | Timeline, `FitView`, LOD, zoom/pan, session prefs | Route `/journey` | Timeline and Fit All work |
-| `src/features/franchises.tsx` + `franchises.css` | `FranchiseView`, ribbon rows, session-only series cache, virtual rows/slots, smooth wheel/arrow scrolling, `useSmoothX` | Route `/franchises` | Franchise completion UI/performance |
+| `src/features/franchises.tsx` + `franchises.css` | `FranchiseView`, ribbon rows, 30-day visible-row SQLite cache, 100-game chunk loader, per-row progress and Retry/Refresh, virtual rows/slots, smooth wheel/arrow scrolling, `useSmoothX` | Route `/franchises` | Franchise completion UI/performance |
 | `src/features/discover.tsx` + `discover.css` | Feeds, search, cards, details bridge, `draftFromIgdb` | Route `/discover`, Details | Recommendation work |
 | `src/features/stats.tsx` + `stats.css` | Category landing, tiles, `Chart` (ECharts canvas) | Route `/stats` | Analytics UI |
 | `src/features/trophies.tsx` + `trophies.css` | Badge gallery, backgrounds from `src/images/trophy-bg/` | Route `/trophies` | Trophy UI/assets |
@@ -158,7 +159,7 @@ Meaningful paths only (no build artifacts, no `node_modules`, no individual badg
 | `src/features/stores-settings.tsx` | Desktop-only store connector UI: Steam fields, Epic status-driven sign-in, fetch/import phases, progress and copyable report | Settings; hidden when `isDesktop` is false | Store import UI/report work |
 | `src/features/settings-data.tsx` | `DataSection`, JSON/CSV export/import, Backloggd import, IGDB sync | Settings; wrapped by web | Import/export/sync |
 | `src/images/{badges,trophy-bg,logo}/` | PNG artwork loaded with `import.meta.glob` | Trophy views, sidebar logo | Asset optimization |
-| `src-tauri/src/lib.rs` | All 23 Tauri commands (incl. `igdb_external_games`, `stores_*`), SQLite migration, IGDB proxy, image storage, app setup | Desktop backend | Any native feature |
+| `src-tauri/src/lib.rs` | All 27 Tauri commands (incl. franchise cache, `igdb_franchise` / `igdb_games_by_ids`, `igdb_external_games`, `stores_*`), SQLite migration, IGDB proxy, image storage, app setup | Desktop backend | Any native feature |
 | `src-tauri/src/stores.rs` | Steam/Epic endpoint constants, Rust HTTP/auth, Steam owned/wishlist/achievement parsing, Epic library/catalog title resolution, `store-credentials.json`, 4 Rust unit tests | `lib.rs` store commands | Store connector/API changes |
 | `src-tauri/src/main.rs` | 5-line binary entry calling `app_lib::run()` | Rust build | Rarely |
 | `src-tauri/tauri.conf.json` | productName, identifier, window, CSP, asset protocol, bundle targets, Android suffix | Tauri build/runtime | Config/security changes |
@@ -253,6 +254,8 @@ All are `async fn` returning `Result<T, String>`; `State<Database>` and `AppHand
 |---|---|---|---|
 | `load_app_data` | none | `Option<JsonValue>` | Read the single `app_state` row |
 | `save_app_data` | `data: AppData` JSON | `()` | UPSERT whole document |
+| `franchise_cache_load` | `keys: string[]` | `CachedFranchise[]` | Read only the requested franchise cache rows |
+| `franchise_cache_save` | `key, sig, games` | `()` | UPSERT resolved franchise games with signature/timestamp |
 | `images_path` | none | `String` | Path to app-data `images/` dir |
 | `store_image` | `dataUri: string` | `String` (filename) | Decode data URI, write hash-named file |
 | `igdb_search` | `query, clientId, clientSecret` | `IgdbHit[]` | Fuzzy `/ ` exact, `& ` ID search |
@@ -260,7 +263,9 @@ All are `async fn` returning `Result<T, String>`; `State<Database>` and `AppHand
 | `igdb_images` | `id, clientId, clientSecret` | JSON | Covers/artworks/screenshots gallery |
 | `igdb_discover` | `preferredGenres, clientId, clientSecret` | `IgdbDiscover` | Legacy 10-feed snapshot (unused by current UI) |
 | `igdb_discover_feed` | `feed, preferredGenres, offset, limit, ...` | `IgdbDiscoverGame[]` | Active paginated feed loader (offset 0–90, limit 1–30) |
-| `igdb_series` | `id, clientId, clientSecret` | JSON `{collections, relations, games}` | Traverse `collection_relations` 4 levels up/down |
+| `igdb_series` | `id, clientId, clientSecret` | JSON `{collections, relations, games}` | Traverse `collection_relations` 4 levels up/down (Details) |
+| `igdb_franchise` | `name, gameIds, clientId, clientSecret` | `{gameIds, franchises}` | Match franchise by name, fall back through library game IDs |
+| `igdb_games_by_ids` | `ids, types?, clientId, clientSecret` | `FranchiseGame[]` | Paged details for up to 500 IDs with optional `game_type` filter |
 | `igdb_platforms` | `clientId, clientSecret` | `[id, name][]` | Full platform list in 500-row pages |
 | `igdb_sync_check` | `ids, clientId, clientSecret` | `[id, updated_at][]` | Bulk staleness check (500 IDs/request) |
 | `igdb_import_batch` | `ids, clientId, clientSecret` | JSON[] | ~3 requests for details + image metadata + TTB |
@@ -276,7 +281,7 @@ All are `async fn` returning `Result<T, String>`; `State<Database>` and `AppHand
 
 ### IGDB authentication
 
-`IgdbAuth` (`src-tauri/src/lib.rs:166`) holds `Option<(token, Instant)>` behind an async mutex. `igdb_token()` (`:349-376`) POSTs to `https://id.twitch.tv/oauth2/token` with `grant_type=client_credentials`, caches with a 300-second safety margin, and clears the token on 401 (`igdb_post`, `:394-397`) **without retrying**. Credentials are passed per call from frontend settings; Rust does not store them. No HTTP timeout, no 429 handling, and a new `reqwest::Client` is created per request.
+`IgdbAuth` (`src-tauri/src/lib.rs:166`) holds `Option<(token, Instant)>` behind an async mutex. `igdb_token()` (`:349-376`) POSTs to `https://id.twitch.tv/oauth2/token` with `grant_type=client_credentials`, caches with a 300-second safety margin, and clears the token on 401 (`igdb_post`, `:394-397`) **without retrying**. Credentials are passed per call from frontend settings; Rust does not store them. No HTTP timeout, no 429 handling, and a new `reqwest::Client` is created per request. Franchise calls use `igdb_post_paced` (300 ms spacing); the frontend adds backoff retries and limits concurrency to two franchises.
 
 ### Business logic in Rust
 
@@ -476,7 +481,7 @@ cd web/worker && npx wrangler deploy                 # IGDB proxy
 - **State:** Explicit updater functions with debounced persistence; module-level mutable session objects for non-persisted prefs; `useRef` for timers/DOM/RAF state.
 - **Async/errors:** `void promise.then().catch()`; per-feature `Notice`/`error` strings with `instanceof Error ? e.message : String(e)`; `withRetry` for network operations; `AbortController` for long imports/sync; global `window.error` / `unhandledrejection` banner and `GlobalErrorBoundary` (`src/main.tsx:1061-1095`).
 - **Formatting:** 2-space indent, double quotes, semicolons in most files; `data/*` and `stats.ts` use denser one-line style with fewer semicolons. No ESLint/Prettier config or script.
-- **Tests:** 9 Vitest files / 67 pure-function tests — `game` 2, `journey-sort` 4, `playtime` 8, `store-links` 5, `stores/sources` 2, `stores/steam` 9, `stores/match` 12, `stores/import` 21, `franchise` 4 — plus Rust unit tests in `src-tauri/src/{stores.rs,lib.rs}`. `jsdom` is installed but no `test.environment` is configured in `vite.config.ts`; DOM tests need `// @vitest-environment jsdom` or config.
+- **Tests:** 9 Vitest files / 67 pure-function tests — `game` 2, `journey-sort` 4, `playtime` 8, `store-links` 5, `stores/sources` 2, `stores/steam` 9, `stores/match` 12, `stores/import` 21, `franchise` 4 — plus Rust unit tests in `src-tauri/src/{stores.rs,lib.rs}`. With `ALL_TYPES = true`, 66/67 pass because the franchise filter test expects `false`; all pass when it is restored. `jsdom` is installed but no `test.environment` is configured in `vite.config.ts`; DOM tests need `// @vitest-environment jsdom` or config.
 - **Architecture rule:** Prefer extending existing components/utilities over new abstractions; keep web changes under `web/`; keep new native commands in `lib.rs` and registered in `generate_handler!`.
 
 ---
@@ -489,7 +494,7 @@ cd web/worker && npx wrangler deploy                 # IGDB proxy
 - **Library/Journey prefs:** `librarySession` (`domain/library-session.ts:36`) and Journey `session` (`features/journey.tsx:135`) are memory-only; `queuePrefs` at `journey.tsx:409-414` explicitly says prefs are "never saved to the database". `AppSettings.journeyRange/zoom/fit` and `defaultView`, `libraryGenre` are declared but unused.
 - **Journey ordering:** `base.sorted` uses `sortJourneyRows(items, "asc")` (`src/domain/journey-sort.ts`, start + `id` tie-break); Fit All gets a separate `fitRows` array reversed by direction while timeline geometry, lane colours and palette stay chronological (`journey.tsx`).
 - **Journey LOD:** culling below `LOD_Z = 0.4`; Fit All uses a positional virtual window and resets `scrollTop` when `base` changes (`journey.tsx:298`).
-- **Franchise completion:** `groupByFranchise` assigns each game to every named franchise and keeps only groups with a completed game; `seriesGamesFor` returns the IGDB collection games, and `buildFranchise` merges them with library games by `igdbId` then normalized title, collapsing remakes/editions into one slot. All game types count. `FranchiseView` caches resolved series per franchise for the session, virtualizes rows/slots/ribbons, and drives horizontal scrolling with the local `useSmoothX` hook.
+- **Franchise completion:** `groupByFranchise` assigns each game to every named franchise and keeps only groups with a completed game; `buildFranchise` merges IGDB results with library games by `igdbId` then normalized title, collapsing remakes/editions into one slot. `ALL_TYPES = true` is an active diagnostic that counts every game type; `false` restores `WANTED_TYPES`. `FranchiseView` loads one `franchises` lookup plus 100-ID game chunks, caches resolved rows in SQLite `franchise_cache` for 30 days on desktop (memory only on web), probes only visible keys, retries with backoff, refreshes stale rows, and shows per-row progress instead of a header bar. It virtualizes rows/slots/ribbons and drives horizontal scrolling with the local `useSmoothX` hook.
 - **Stats:** `CATEGORIES` has 13 visible entries; the new `"playtime"` category aggregates `Game.totalSeconds` via `src/domain/playtime.ts` (`playtimeHours`/`summarizePlaytime`/`playtimeBuckets`) and is backed by `play` in the `index()` row. IGDB `timeAvgSeconds` still feeds `len` and appears only as a separate, muted "IGDB average (estimate)" series in the Playtime comparison chart. The older `"length"` category remains implemented (`length()`, registered in `BUILD`) but commented out of `CATEGORIES` — left intentionally untouched.
 - **Web `hasTauri = true`** (`web/src/igdb.web.ts:9`) deliberately enables desktop-looking IGDB UI in the browser; capability checks like `hasTauri && creds` gate import/sync in settings.
 - **Exact storefront links:** `igdb_external_games` / `igdbExternalGames` read IGDB `external_games`; `storeLinksFromExternal` drops invalid URLs, deduplicates by source and orders known storefronts. Details shows two icon-only chips plus a `+N` hover/focus popover; `StoreIcon` supplies transparent brand SVGs. The web client falls back to nested `games.external_games.*` when the deployed worker returns 404 for the direct endpoint.

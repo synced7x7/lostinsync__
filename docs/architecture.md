@@ -39,17 +39,18 @@ web/index.html ──> web/src/entry.tsx ──> init() Drive sync ──> impor
 | `library-session.ts` | `LibraryPrefs`, `libraryDefaults`, `SORT_OPTIONS`, module-level `librarySession` (memory only) |
 | `stats.ts` | `index()` row model, `CATEGORIES`, 14 section builders (incl. `playtime()`), ECharts option builders, `build()` |
 | `playtime.ts` | `playtimeHours`, `summarizePlaytime`, `playtimeBuckets` — pure aggregation of recorded `totalSeconds` for the Stats Playtime category |
-| `franchise.ts` | `groupByFranchise`, `seriesGamesFor`, `buildFranchise`, `baseTitle`, `norm` — franchise grouping, IGDB series matching, slot dedupe and completion metrics |
+| `franchise.ts` | `ALL_TYPES`, `WANTED_TYPES`, `wantedType`, `libWanted`, `groupByFranchise`, `buildFranchise`, `baseTitle`, `norm` — franchise grouping, game-type switch, slot dedupe and completion metrics |
 | `store-links.ts` | `storeLinksFromExternal`, `storeLabel` — de-duplicate IGDB `external_games` rows, validate URLs, order known storefronts, map source IDs to names |
 | `trophies.ts` | Six rarity tiers (`RARITY_RANK`, `RARITY_LABEL`), `TROPHIES`, `DEV_FAVORITES`, `GOTY`, `evaluate`, `topBadge`, `RARITY_COLOR` |
-| `game.test.ts`, `journey-sort.test.ts`, `playtime.test.ts`, `franchise.test.ts`, `store-links.test.ts`, `stores/*.test.ts` | 9 Vitest files / 67 tests covering game rules, Journey sorting, playtime, franchise grouping/completion, IGDB store links and store parsers/matching/import mapping; Rust unit tests are unchanged |
+| `game.test.ts`, `journey-sort.test.ts`, `playtime.test.ts`, `franchise.test.ts`, `store-links.test.ts`, `stores/*.test.ts` | 9 Vitest files / 67 tests covering game rules, Journey sorting, playtime, franchise grouping/completion, IGDB store links and store parsers/matching/import mapping; 66 pass while `ALL_TYPES = true` (expected franchise filter-test failure), Rust unit tests are unchanged |
 
 ### `src/data/`
 
 | File | Purpose |
 |---|---|
 | `repository.ts` | `AppRepository` interface, `LocalAppRepository` (localStorage), `TauriAppRepository` (IPC), `createAppRepository()`, image externalization, `normalizeStatuses` |
-| `igdb.ts` | Typed wrappers for all 11 IGDB commands plus `hasTauri`; `memo()` provides a **bounded LRU + 20-minute TTL** cache (`igdbDetailsCached`, `igdbImagesCached`, `igdbDiscoverCached`, `igdbDiscoverFeedCached`, `igdbSeriesCached`, bundle cache, `igdbExternalGamesCached`) |
+| `igdb.ts` | Typed wrappers for 13 IGDB commands plus `hasTauri`, including `igdbFranchise` / `igdbGamesByIds`; `memo()` provides a **bounded LRU + 20-minute TTL** cache (`igdbDetailsCached`, `igdbImagesCached`, `igdbDiscoverCached`, `igdbDiscoverFeedCached`, `igdbSeriesCached`, bundle cache, `igdbExternalGamesCached`) |
+| `franchiseCache.ts` | Key-scoped adapter for `franchise_cache_load` / `franchise_cache_save`; no-ops in the web build, leaving the in-memory session cache as the only store |
 | `sync.ts` | `syncWithIgdb`: refresh only IGDB-owned fields from an explicit `FIELDS` allow-list; chunked import with patch reports |
 | `backloggd.ts` | Backloggd CSV importer: `mapEntry`, `withRetry`, `importBackloggd`, dedupe by `igdbId`, abort/report helpers |
 | `stores/` | Desktop store IPC wrappers, connector catalog, Steam parsers, shared IGDB matcher and one-way import pipeline with reports |
@@ -74,7 +75,7 @@ Self-contained view components with co-located CSS:
 | `dashboard.tsx` | Overview feed, recents, wishlist, "pick up where you left" |
 | `library-components.tsx` | `AddGame` portal modal — also used for editing games |
 | `journey.tsx` | Interactive timeline: SVG strands, lanes, LOD, zoom/pan, Fit All |
-| `franchises.tsx` / `franchises.css` | Franchise completion ribbons, session-cached series, virtualized rows/slots, smooth wheel/arrow scrolling |
+| `franchises.tsx` / `franchises.css` | Franchise completion ribbons, 30-day SQLite cache for visible rows, 100-game chunk loader, per-row progress, Retry/Refresh controls, virtualized rows/slots and smooth wheel/arrow scrolling |
 | `discover.tsx` | IGDB feeds, search, feed pages, `DiscoverGameDetails`, `draftFromIgdb` |
 | `stats.tsx` | Lazy-loaded Apache ECharts analytics view; `ChartCard`/`Chart` |
 | `trophies.tsx` | Badge gallery and trophy backgrounds |
@@ -101,7 +102,7 @@ The application root. Responsibilities:
 
 ## Backend (Tauri Commands)
 
-All commands are declared in `src-tauri/src/lib.rs`; store implementations live in `src-tauri/src/stores.rs`. The binary entry is `src-tauri/src/main.rs`. There are no controllers, services, middleware, or background processes. All 23 commands are registered in `generate_handler!` at the end of `lib.rs`.
+All commands are declared in `src-tauri/src/lib.rs`; store implementations live in `src-tauri/src/stores.rs`. The binary entry is `src-tauri/src/main.rs`. There are no controllers, services, middleware, or background processes. All 27 commands are registered in `generate_handler!` at the end of `lib.rs`.
 
 ### Persistence / file commands
 
@@ -109,13 +110,15 @@ All commands are declared in `src-tauri/src/lib.rs`; store implementations live 
 |---|---|---|
 | `load_app_data` | `() → Option<JsonValue>` | Reads the single `app_state` row |
 | `save_app_data` | `(data: JsonValue) → ()` | UPSERT the full `AppData` document |
+| `franchise_cache_load` | `(keys: string[]) → CachedFranchise[]` | Reads only the requested franchise cache keys |
+| `franchise_cache_save` | `(key, sig, games) → ()` | UPSERT one franchise result with its signature and fetch time |
 | `images_path` | `() → String` | Path to `<app_data>/images/` |
 | `store_image` | `(dataUri: String) → String` | Writes a hash-named image file, returns filename |
 | `save_text_file` | `(defaultName, contents, filterName, ext) → Option<String>` | Native save dialog (text only) |
 
 ### IGDB proxy commands
 
-`IgdbAuth` holds a token behind an async mutex; `igdb_token()` refreshes it 300 seconds before expiry. On HTTP 401 the token is cleared and the call fails **without retry**; there is no HTTP timeout, no 429 handling, and a fresh `reqwest::Client` per request.
+`IgdbAuth` holds a token behind an async mutex; `igdb_token()` refreshes it 300 seconds before expiry. On HTTP 401 the token is cleared and the call fails **without retry**; there is no HTTP timeout, no 429 handling, and a fresh `reqwest::Client` per request. Franchise loading uses `igdb_post_paced` (300 ms between IGDB calls) and the frontend retries with backoff; at most two franchises load concurrently.
 
 | Command | Description |
 |---|---|
@@ -124,7 +127,9 @@ All commands are declared in `src-tauri/src/lib.rs`; store implementations live 
 | `igdb_images` | Covers/artworks/screenshots gallery → `IgdbDebugImage[]` |
 | `igdb_discover` | Legacy 10-feed snapshot (unused by current UI) |
 | `igdb_discover_feed` | **Active** paginated feed loader (`offset` 0–90, `limit` 1–30) |
-| `igdb_series` | Franchise tree traversal (4 levels up/down) → collections + games |
+| `igdb_series` | Details-view series tree traversal (4 levels up/down) → collections + games |
+| `igdb_franchise` | Franchise lookup by name, with library-game ID fallback → deduplicated `gameIds` + matched franchises |
+| `igdb_games_by_ids` | Paged game details for up to 500 IDs, optionally filtered by `game_type` (null types kept) |
 | `igdb_bundle_contents` | Games in a bundle/edition (limit 50) |
 | `igdb_platforms` | Full IGDB platform list in 500-row pages |
 | `igdb_external_games` | Exact storefront entries for a game from `external_games` (source, URL, name, platform, year) |

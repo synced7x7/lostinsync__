@@ -42,7 +42,8 @@ IGDB integration runs through Tauri Rust commands on desktop and a stateless Clo
 - **Search Capabilities**: Fuzzy search, exact title prefix via `/ <title>`, and ID lookup via `& <id>`.
 - **One-Click Import**: `draftFromIgdb` creates an unsaved game from IGDB results with cover, backdrop, summary, release date, platforms, genres, themes, and Time-To-Beat metadata.
 - **Exact storefront links**: `igdbExternalGames` reads IGDB `external_games` for the game. The Details hero shows up to two brand-icon store links plus a `+N` hover/focus popover for the rest; `storeLinksFromExternal` drops rows without a URL, deduplicates by source, and orders known storefronts by priority. The web client falls back to nested `games.external_games.*` when the deployed worker has not yet allowed the direct endpoint.
-- **Franchise Explorer**: Series tree traversal up to 4 levels up/down via `igdb_series`.
+- **Franchise Explorer**: Series tree traversal up to 4 levels up/down via `igdb_series` (Details view).
+- **Franchise completion data**: `igdb_franchise` resolves a franchise by name, with a fallback through library game IDs, and `igdb_games_by_ids` fetches the franchise's games 100 IDs at a time. Both are paced and retried.
 - **Caching**: Bounded LRU caches with a 20-minute TTL; feed cards are prefetched on hover.
 
 ---
@@ -72,7 +73,7 @@ Important nuance: the older length charts use IGDB `timeAvgSeconds` (Time-To-Bea
 ## 6. 🗂️ Series & Custom Collections
 
 - **Series Detection**: Franchise/tree exploration from IGDB `collection_relations` and `collections`, fetched on demand and cached in memory (not persisted).
-- **Franchise Completion** (`/franchises`): One neon-ribbon row per franchise, built from the stored `franchises` names plus the IGDB collection games cached in memory. Every game type counts; remakes and editions collapse into one slot; games may appear under several franchises, but only franchises with a completed game are shown. Completed games use their cover art, unplayed entries show dark `?` placeholders, and each card has a progress bar, completion count, percentage and logged playtime. Rows, slots and ribbon segments are virtualized, and wheel or glass-arrow input scrolls each row smoothly with the scrollbar hidden. Nothing is persisted beyond the current session.
+- **Franchise Completion** (`/franchises`): One neon-ribbon row per franchise, built from the stored `franchises` names plus IGDB franchise games merged with the library. Remakes and editions collapse into one slot; games may appear under several franchises, but only franchises with a completed game are shown. The count is controlled by `ALL_TYPES` / `WANTED_TYPES` in `src/domain/franchise.ts`: the current diagnostic setting `ALL_TYPES = true` counts every game type while the Mario total is being investigated; setting it back to `false` restores main/standalone/remake/remaster only. Completed games use their cover art, unplayed entries show dark `?` placeholders, and each card has a progress bar, completion count, percentage and logged playtime. Rows, slots and ribbon segments are virtualized, and wheel or glass-arrow input scrolls each row smoothly with the scrollbar hidden. Desktop persists resolved rows in SQLite `franchise_cache` for 30 days (web uses memory only), reading only visible keys; Refresh, Refresh all and Retry are available, and a failed load never stores a partial total. Loading progress is per row: `Queued`, `Loading franchise · 100/412 games loaded`, or `Refreshing 100/412…`. There is no header progress bar.
 - **Custom Collections**: `Collection` records hold `items` referencing games by `gameId` or `igdbId`, with optional name/cover/image.
 
 ---

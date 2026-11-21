@@ -1,9 +1,9 @@
 // Web replacement for src/data/igdb.ts. Same exports, but instead of Tauri commands it talks to the
 // IGDB proxy (web/worker). The query building / parsing below is a port of the Rust commands in lib.rs.
 import type {
-  IgdbCreds, IgdbDebugImage, IgdbDiscover, IgdbDiscoverGame, IgdbExternalGame, IgdbFeed, IgdbGame, IgdbHit, IgdbImport, IgdbMedia, SeriesData,
+  IgdbCreds, IgdbDebugImage, IgdbDiscover, IgdbDiscoverGame, IgdbExternalGame, IgdbFeed, IgdbGame, IgdbHit, IgdbImport, IgdbMedia, FranchiseGame, SeriesData,
 } from "../../src/data/igdb";
-export type { IgdbCreds, IgdbDebugImage, IgdbDiscover, IgdbDiscoverGame, IgdbExternalGame, IgdbFeed, IgdbGame, IgdbHit, IgdbImport, IgdbMedia, SeriesData };
+export type { IgdbCreds, IgdbDebugImage, IgdbDiscover, IgdbDiscoverGame, IgdbExternalGame, IgdbFeed, IgdbGame, IgdbHit, IgdbImport, IgdbMedia, FranchiseGame, SeriesData };
 
 /** The offline UI enables import/sync/save-dialog features when this is true. The web build supports all of them. */
 export const hasTauri = true;
@@ -251,6 +251,30 @@ export async function igdbSeries(id: number, c: IgdbCreds, types?: number[]): Pr
     }
   }
   return { collections: cols, relations, games };
+}
+
+export async function igdbFranchise(name: string, gameIds: number[], c: IgdbCreds): Promise<{ gameIds: number[]; franchises: { id: number; name: string }[] }> {
+  let fr = rows(await post("franchises", `fields name,games; where name ~ "${esc(name)}"; limit 50;`, c));
+  if (!fr.length && gameIds.length) {
+    const gs = rows(await post("games", `fields franchises; where id = (${idlist(gameIds.slice(0, 50))}); limit 50;`, c));
+    const fids: number[] = [];
+    for (const g of gs) for (const f of rows(g.franchises)) if (Number.isInteger(f) && !fids.includes(f)) fids.push(f);
+    if (fids.length) fr = rows(await post("franchises", `fields name,games; where id = (${idlist(fids)}); limit 50;`, c));
+  }
+  const ids: number[] = [];
+  for (const f of fr) for (const x of rows(f.games)) if (Number.isInteger(x) && !ids.includes(x)) ids.push(x);
+  return { gameIds: ids, franchises: fr.map((f) => ({ id: f.id, name: f.name })) };
+}
+
+export async function igdbGamesByIds(ids: number[], types: number[] | undefined, c: IgdbCreds): Promise<FranchiseGame[]> {
+  if (!ids.length) return [];
+  const filt = types?.length ? ` & (game_type = (${idlist(types)}) | game_type = null)` : "";
+  return rows(await post("games", `fields name,first_release_date,cover.image_id,game_type; where id = (${idlist(ids)})${filt}; limit 500;`, c))
+    .map((r) => ({
+      id: r.id, name: r.name, releaseTs: r.first_release_date,
+      cover: r.cover?.image_id ? img(r.cover.image_id, "cover_big_2x") : undefined,
+      gameType: r.game_type,
+    }));
 }
 
 export async function igdbPlatforms(c: IgdbCreds): Promise<Map<number, string>> {

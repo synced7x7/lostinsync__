@@ -101,6 +101,9 @@ pnpm tauri:dev    # Builds the Rust backend and opens a native window with SQLit
 pnpm typecheck    # TypeScript type check
 pnpm test         # Unit tests
 pnpm build        # Vite production build
+
+cd src-tauri
+cargo check       # Rust/backend type check
 ```
 
 ---
@@ -134,6 +137,7 @@ Notes:
 - Large images (screenshots and background art) are written to an `images` folder next to the database. The saved data holds only short file references, which keeps saves small and fast.
 - Existing libraries that contain embedded images are migrated automatically on first launch. Back up your database before upgrading.
 - Store-imported games use IGDB remote image URLs; store art is never written to the local `images` folder.
+- Franchise completion totals are fetched from IGDB’s `franchises` endpoint in 100-game chunks and cached in a dedicated SQLite `franchise_cache` table for 30 days. Only rows on screen are read from the cache; the web build keeps this cache in memory only. It is not part of JSON/Drive backups and is safe to discard.
 - Steam API keys/SteamID64 are saved with app settings like the IGDB keys and are stripped from JSON backups. Epic OAuth tokens stay in a Rust-managed credentials file and never enter exports or Drive snapshots.
 - Use **Settings, Export** to create a JSON backup at any time. Store ids survive export/import so repeat imports link to the same games.
 - See `docs/store-import-guide.md` for Steam/Epic setup and the exact status, date, playtime and mastery mapping.
@@ -149,7 +153,7 @@ lostinsync__/
 │   ├── style.css               # Aurora Glass theme tokens and core layouts
 │   ├── domain/
 │   │   ├── game.ts             # Game type, Status, AppData, optional store fields/helpers
-│   │   ├── franchise.ts        # Franchise grouping, IGDB series matching and completion slots
+│   │   ├── franchise.ts        # Franchise grouping, game-type switch and completion slots
 │   │   ├── franchise.test.ts   # Franchise completion unit tests
 │   │   ├── gametype.ts         # IGDB game-type filtering
 │   │   ├── library-session.ts  # Session-only Library filters and saved defaults
@@ -161,6 +165,7 @@ lostinsync__/
 │   ├── data/
 │   │   ├── repository.ts       # AppRepository: Tauri and localStorage adapters
 │   │   ├── igdb.ts             # IGDB command wrappers with bounded caches
+│   │   ├── franchiseCache.ts   # Visible-row franchise cache adapter (Tauri SQLite / web memory)
 │   │   └── stores/             # Desktop store connectors, IGDB matching, import pipeline, IPC and tests
 │   ├── components/
 │   │   ├── layout.tsx          # App layout and collapsible sidebar
@@ -172,7 +177,7 @@ lostinsync__/
 │       ├── overview.tsx        # Profile banner and collection actions
 │       ├── library-components.tsx # Add game form and detail views
 │       ├── journey.tsx         # Interactive SVG and DOM timeline
-│       ├── franchises.tsx      # Franchise completion ribbons, virtualized rows and smooth scrolling
+│       ├── franchises.tsx      # Franchise ribbons, per-row load progress and virtualized rows
 │       ├── franchises.css      # Franchise card, ribbon and arrow styling
 │       ├── discover.tsx        # Discover feeds and search
 │       ├── trophies.tsx        # Trophy and badge gallery
@@ -184,7 +189,7 @@ lostinsync__/
 │       └── settings-data.tsx   # Settings, Library defaults, credentials, export/import
 │
 ├── src-tauri/                  # Rust / Tauri backend
-│   ├── src/lib.rs              # Tauri commands (SQLite, images, IGDB and store IPC)
+│   ├── src/lib.rs              # Tauri commands (SQLite, franchise cache, IGDB and store IPC)
 │   ├── src/stores.rs           # Store HTTP, Steam achievements/wishlist, Epic token file
 │   ├── Cargo.toml
 │   └── tauri.conf.json

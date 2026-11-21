@@ -21,12 +21,12 @@ Built installer artifacts exist in `src-tauri/target/release/bundle/` (NSIS `.ex
 
 | Area | What exists | Evidence |
 |---|---|---|
-| Persistence | SQLite `app_state` JSON blob, localStorage dev adapter, image externalization, JSON export/import, migration v1 | `src-tauri/src/lib.rs:73-126`, `src/data/repository.ts`, `src/features/settings-data.tsx:52-121` |
+| Persistence | SQLite `app_state` JSON blob plus separate `franchise_cache` lookup table, localStorage dev adapter, image externalization, JSON export/import, migration v1 | `src-tauri/src/lib.rs:75-192`, `src/data/repository.ts`, `src/data/franchiseCache.ts`, `src/features/settings-data.tsx:52-121` |
 | Library | 7 statuses, PS4 shelf + fullscreen shelf + catalog grid, title search, status/game-type/favorites filters, 10-key sort with direction | `src/domain/game.ts:3`, `src/main.tsx:300-461,513-812`, `src/domain/library-session.ts:22-33` |
 | Add Game IGDB dropdown (feature 1) | Suggestion dropdown closes on outside click or Escape so custom titles can be typed freely | `src/features/library-components.tsx:1,39-44,196-203` (commit `c864403`) |
 | Journey Fit All sort (feature 2) | Ascending (oldest first) / descending (newest first) toolbar toggle; deterministic comparator with Vitest coverage; timeline layout stays chronological | `src/features/journey.tsx`, `src/features/journey.css`, `src/domain/journey-sort.ts`, `src/domain/journey-sort.test.ts` |
 | Playtime stats (feature 3) | Dedicated "Playtime" Stats category aggregating recorded `totalSeconds`: total/mean/median, longest/shortest game, distribution, hours by status/genre, plus a separate labelled IGDB-estimate comparison | `src/domain/playtime.ts`, `src/domain/playtime.test.ts`, `src/domain/stats.ts`, `src/features/stats.tsx` |
-| Franchise completion (feature 13) | Dedicated `/franchises` view with one ribbon row per franchise; every game type counts, games appear under every franchise they list, only franchises with a completed game are shown, series data is session-cached, and rows/slots are virtualized with smooth wheel/arrow scrolling | `src/domain/franchise.ts`, `src/domain/franchise.test.ts`, `src/features/franchises.tsx`, `src/features/franchises.css`, `src/components/navigation.ts`, `src/main.tsx` |
+| Franchise completion (feature 13) | Dedicated `/franchises` view with one ribbon row per franchise; games appear under every franchise they list, only franchises with a completed game are shown, totals come from IGDB `franchises` + 100-ID game chunks, visible rows are cached in SQLite for 30 days, each row shows its own load progress/Retry/Refresh, and rows/slots are virtualized with smooth wheel/arrow scrolling | `src/domain/franchise.ts`, `src/domain/franchise.test.ts`, `src/features/franchises.tsx`, `src/features/franchises.css`, `src/data/franchiseCache.ts`, `src/data/igdb.ts`, `src-tauri/src/lib.rs`, `web/src/igdb.web.ts` |
 | Game details | Cover/backdrop hero, rating, dedicated TTB panel above Journey, exact IGDB storefront icon links with `+N` popover, IGDB ID pill, played-on platforms, notes, series/bundle links, media, read-only journey panel | `src/main.tsx:848-1110`, `src/components/store-icons.tsx`, `src/domain/store-links.ts`, `src/features/{media,series,bundle}.tsx` |
 | Journey timeline | SVG strands, lane allocation, LOD culling, zoom/pan, range presets, virtualized Fit All | `src/features/journey.tsx`, `journey.css` |
 | Discover / IGDB | 10 feeds, paginated feed loader, fuzzy/exact/ID search, one-click draft import, exact `external_games` storefronts, bounded LRU caches | `src/features/discover.tsx`, `src/data/igdb.ts`, `src-tauri/src/lib.rs`, `web/src/igdb.web.ts` |
@@ -60,8 +60,9 @@ Note: feature 1 was originally titled "Played On and Completed Status Without En
 
 ## 4. In-Progress Features (verification limited)
 
-No feature can be confirmed as actively in progress from source alone. Clues worth verifying with git history before assuming:
+One diagnostic is intentionally active in source; no other feature can be confirmed as actively in progress from source alone. Clues worth verifying with git history before assuming:
 
+- **Franchise game-type diagnostic:** `ALL_TYPES = true` in `src/domain/franchise.ts` currently counts every game type and logs `[franchise] { igdbIds, loaded }` after each load. This is pending a Mario total check; one franchise test (`counts only main/standalone/remake/remaster...`) intentionally fails until the switch is set back to `false`.
 - **Steam free-game fix QA:** source-level tests prove the request flags and mapping, but a real `pnpm tauri:dev` re-fetch and confirmation that *Game of Thrones Kingsroad* appears as `Backlog` is still unverified.
 - Debug instrumentation in `flushSave` (`src/main.tsx:173-188`) suggests recent work on full-save payload size.
 - Web cloud sync code is more advanced than `web/README.md` describes (e.g. conflict handling, `uploaded[]`, `clearHistory` in `web/src/sync.ts` vs stale versions in `web/worker/src/sync.ts`) — likely a recently developed area, but **unverified**.
@@ -112,7 +113,7 @@ All of the above are documented individually in `future_implementation_guide.md`
 - **Dead Rust domain structs** (`src-tauri/src/lib.rs:13-69`) plus file-level `#![allow(dead_code)]`; unused `tauri-plugin-log` and `log` crates.
 - **~21 MB / 67 PNG assets** loaded eagerly in `src/features/trophies.tsx` (re-measured 2026-11-19; `docs/performance-optimization-report.md` was updated with current numbers and now marks the IGDB cache issue as resolved).
 - **Documentation drift remains mainly in `web/README.md`** (deploy target, Drive scopes, missing `.env.example`); root `README.md` and `docs/` were refreshed for store import on 2026-11-21.
-- **Testing coverage:** nine Vitest files (67 tests: game 2, journey-sort 4, playtime 8, store-links 5, Epic parser 2, Steam parser 9, matcher 12, import pipeline 21, franchise 4) plus 9 Rust unit tests (`src-tauri/src/stores.rs` 4, IGDB/store helpers in `lib.rs` 5); still no React tests, lint/format config, or configured jsdom environment.
+- **Testing coverage:** nine Vitest files (67 tests: game 2, journey-sort 4, playtime 8, store-links 5, Epic parser 2, Steam parser 9, matcher 12, import pipeline 21, franchise 4); 66 pass while `ALL_TYPES = true` because the franchise filter test expects `false`, and all 67 pass when the switch is restored. Plus 9 Rust unit tests (`src-tauri/src/stores.rs` 4, IGDB/store helpers in `lib.rs` 5); still no React tests, lint/format config, or configured jsdom environment.
 - **Hard-coded colors** in feature CSS and ECharts options; partial-variable theming only.
 - **Web dead code** in `web/worker/src/`; `hasTauri = true` workaround couples web UI to desktop semantics.
 - **React 18 runtime / React 19 types** mismatch (`package.json:21-22,29-30`).
@@ -141,7 +142,7 @@ All of the above are documented individually in `future_implementation_guide.md`
 18. **Steam mapping guardrails** — wishlist → `Wishlist`; no real play/last-played date → `Backlog`; recent play → `Playing`; played but not recent → `Completed` with `rtime_last_played` as completion date. Start date is the earliest achievement unlock (safe fallback/clamped), mastery requires a non-zero total, `success: false` means zero achievements, and re-sync never overwrites user status edits.
 19. **Free-to-play imports must include unlaunched licenses** — `GetOwnedGames` sends `include_all_free_games=1`, `include_free_sub=1`, `skip_unvetted_apps=0` and keeps `include_played_free_games=1`; zero playtime is never treated as a private-profile error. Wishlist uses `IWishlistService/GetWishlist/v1` with app-id title resolution.
 20. **OAuth controls follow connection status** — Epic's sign-in page/code/complete controls render only when the connector is not connected; switching tabs or a failed fetch refreshes status so a removed token brings them back.
-21. **Franchise totals come from IGDB collection games merged with the library** — every game type counts, a game may appear under several franchises, only franchises with a completed game are shown, and remakes/editions collapse into one slot. Resolved series data and virtualized row state live in a session-only cache; nothing is persisted.
+21. **Franchise totals come from IGDB `franchises` games merged with the library** — a game may appear under several franchises, only franchises with a completed game are shown, and remakes/editions collapse into one slot. `ALL_TYPES = true` is an active diagnostic that counts every game type; setting it to `false` restores main/standalone/remake/remaster filtering. Resolved rows live in SQLite `franchise_cache` on desktop (30-day TTL, key-scoped visible reads, signature invalidates old series-tree rows) and only in memory on web. Loading progresses per row; there is no header progress bar.
 
 ---
 
@@ -154,6 +155,7 @@ All of the above are documented individually in `future_implementation_guide.md`
 5. **Presentation:** shareable profile/stats card after stats/badge data is stable.
 6. **Packaging/platform:** harden WebApp config/docs, then PWA (depends on web), and Android in an isolated directory (can run in parallel with PWA).
 7. **Housekeeping throughout:** keep `docs/` and this knowledge base in sync as code changes, add tests for new pure logic, verify desktop + web builds after each change.
+8. **Close the franchise diagnostic:** compare the `[franchise]` console counts for Mario, decide which game types to count, set `ALL_TYPES = false`, accept one cache reload from the changed signature, and rerun `npm test`.
 
 See `future_implementation_guide.md` for per-feature details and the full dependency/order analysis.
 

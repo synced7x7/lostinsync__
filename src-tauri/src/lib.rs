@@ -1049,6 +1049,128 @@ async fn igdb_series(
     Ok(json!({ "collections": cols, "relations": relations, "games": games }))
 }
 
+fn qstr(s: &str) -> String {
+    s.replace('\\', "\\\\").replace('"', "\\\"")
+}
+
+/// IGDB `franchises` endpoint: the game ids of a franchise. Looks it up by name; if that finds nothing,
+/// falls back to the franchises of the given library games.
+#[tauri::command]
+async fn igdb_franchise(
+    auth: tauri::State<'_, IgdbAuth>,
+    name: String,
+    game_ids: Vec<i64>,
+    client_id: String,
+    client_secret: String
+) -> Result<Value, String> {
+    let mut rows = igdb_post_paced(
+        &auth,
+        true,
+        "franchises",
+        format!("fields name,games; where name ~ \"{}\"; limit 50;", qstr(&name)),
+        &client_id,
+        &client_secret
+    ).await?
+        .as_array()
+        .cloned()
+        .unwrap_or_default();
+    if rows.is_empty() && !game_ids.is_empty() {
+        let gs = igdb_post_paced(
+            &auth,
+            true,
+            "games",
+            format!("fields franchises; where id = ({}); limit 50;", idlist(&game_ids)),
+            &client_id,
+            &client_secret
+        ).await?;
+        let mut fids: Vec<i64> = vec![];
+        for g in gs.as_array().cloned().unwrap_or_default() {
+            for f in g["franchises"].as_array().cloned().unwrap_or_default() {
+                if let Some(i) = f.as_i64() {
+                    if !fids.contains(&i) {
+                        fids.push(i);
+                    }
+                }
+            }
+        }
+        if !fids.is_empty() {
+            rows = igdb_post_paced(
+                &auth,
+                true,
+                "franchises",
+                format!("fields name,games; where id = ({}); limit 50;", idlist(&fids)),
+                &client_id,
+                &client_secret
+            ).await?
+                .as_array()
+                .cloned()
+                .unwrap_or_default();
+        }
+    }
+    let mut ids: Vec<i64> = vec![];
+    let mut seen: HashSet<i64> = HashSet::new();
+    for f in &rows {
+        for x in f["games"].as_array().cloned().unwrap_or_default() {
+            if let Some(i) = x.as_i64() {
+                if seen.insert(i) {
+                    ids.push(i);
+                }
+            }
+        }
+    }
+    let franchises: Vec<Value> = rows
+        .iter()
+        .map(|f| json!({ "id": f["id"], "name": f["name"] }))
+        .collect();
+    Ok(json!({ "gameIds": ids, "franchises": franchises }))
+}
+
+/// Game details for a chunk of ids, optionally limited to certain game_type ids (games with no type are kept).
+#[tauri::command]
+async fn igdb_games_by_ids(
+    auth: tauri::State<'_, IgdbAuth>,
+    ids: Vec<i64>,
+    types: Option<Vec<i64>>,
+    client_id: String,
+    client_secret: String
+) -> Result<Value, String> {
+    if ids.is_empty() {
+        return Ok(json!([]));
+    }
+    let filt = match &types {
+        Some(t) if !t.is_empty() => format!(" & (game_type = ({}) | game_type = null)", idlist(t)),
+        _ => String::new(),
+    };
+    let rows = igdb_post_paced(
+        &auth,
+        true,
+        "games",
+        format!(
+            "fields name,first_release_date,cover.image_id,game_type; where id = ({}){}; limit 500;",
+            idlist(&ids),
+            filt
+        ),
+        &client_id,
+        &client_secret
+    ).await?;
+    let out: Vec<Value> = rows
+        .as_array()
+        .cloned()
+        .unwrap_or_default()
+        .into_iter()
+        .map(|r|
+            json!({
+                "id": r["id"],
+                "name": r["name"],
+                "releaseTs": r["first_release_date"],
+                "cover": r["cover"]["image_id"].as_str().map(|i| img(i, "cover_big_2x")),
+                "gameType": r["game_type"],
+            })
+        )
+        .collect();
+    Ok(json!(out))
+}
+
 #[tauri::command]
 async fn igdb_platforms(
     auth: tauri::State<'_, IgdbAuth>,
@@ -1562,6 +1684,8 @@ pub fn run() {
                 igdb_details,
                 igdb_images,
                 igdb_series,
+                igdb_franchise,
+                igdb_games_by_ids,
                 igdb_bundle_contents,
                 igdb_discover,
                 igdb_discover_feed,

@@ -54,7 +54,7 @@ The `stats` lazy chunk is **~698 KB minified** (previously 714.97 kB). It bundle
 
 The original five unbounded `Map` caches were replaced by `memo()` in `src/data/igdb.ts:36-52`: a bounded LRU with a **20-minute TTL**, failed-promise eviction, and per-cache caps (details 150, images 60, feeds 60, legacy discover 10, bundle 40). The web client mirrors this in `web/src/igdb.web.ts:328-352`. Hover prefetch remains at 250 ms, but results are now bounded and expire.
 
-No further action required unless profiling shows the caps are too generous.
+No further action required unless profiling shows the caps are too generous. Franchise completion adds a separate 30-day SQLite `franchise_cache` on desktop: only visible franchise keys are read, and results are fetched with one `franchises` lookup plus 100-ID game chunks instead of walking several series trees. Web builds use the in-memory session map only.
 
 ### 5. Full-state serialization on every mutation
 

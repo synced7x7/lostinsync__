@@ -106,6 +106,20 @@ const seriesCache = new Map<string, Entry<SeriesData>>();
 export const igdbSeriesCached = (id: number, c: IgdbCreds, types?: number[]) =>
   memo(seriesCache, `${c.clientId}:${id}:${types?.join(",") ?? ""}`, () => igdbSeries(id, c, types), 40);
 
+export type FranchiseGame = { id: number; name: string; releaseTs?: number; cover?: string; gameType?: number };
+
+export async function igdbFranchise(name: string, gameIds: number[], c: IgdbCreds) {
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<{ gameIds: number[]; franchises: { id: number; name: string }[] }>("igdb_franchise", {
+    name, gameIds, clientId: c.clientId, clientSecret: c.clientSecret,
+  });
+}
+
+export async function igdbGamesByIds(ids: number[], types: number[] | undefined, c: IgdbCreds) {
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<FranchiseGame[]>("igdb_games_by_ids", { ids, types, clientId: c.clientId, clientSecret: c.clientSecret });
+}
+
 
 export type IgdbImport = { game: IgdbGame; images: IgdbDebugImage[] };
 

@@ -178,8 +178,7 @@
 .fr-refresh:hover { color: var(--text); background: rgba(255, 255, 255, .1) }
 .fr-refresh-all { margin-left: 12px; vertical-align: middle }
 
-.fr-prog { height: 3px; margin: -10px 0 18px; border-radius: 3px; background: rgba(255, 255, 255, .08); overflow: hidden }
-.fr-prog i { display: block; height: 100%; background: var(--accent, #8b7bff); transition: width .3s }
 .fr-load { height: 3px; border-radius: 3px; background: rgba(255, 255, 255, .08); overflow: hidden }
 .fr-load i { display: block; width: 40%; height: 100%; border-radius: 3px; background: var(--c); animation: fr-slide 1.1s ease-in-out infinite }
+.fr-load i.det { animation: none; transition: width .25s }
 @keyframes fr-slide { 0% { transform: translateX(-100%) } 100% { transform: translateX(260%) } }

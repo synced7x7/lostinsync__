@@ -4,11 +4,13 @@ import { matchesGameType } from "./gametype";
 
 export type SeriesGame = SeriesData["games"][number];
 
+/** true = count every game type (no filtering). Set back to false to count only main/standalone/remake/remaster. */
+export const ALL_TYPES = true;
 /** IGDB game_type ids we count: 0 main_game, 4 standalone_expansion, 8 remake, 9 remaster. Everything else is ignored. */
 export const WANTED_TYPES = [0, 4, 8, 9];
-export const wantedType = (t?: number | null) => t == null || WANTED_TYPES.includes(t);
+export const wantedType = (t?: number | null) => ALL_TYPES || t == null || WANTED_TYPES.includes(t);
 const WANTED_NAMES = ["main_game", "standalone_expansion", "remake", "remaster"];
-export const libWanted = (t?: string) => !t || WANTED_NAMES.some((n) => matchesGameType(t, n));
+export const libWanted = (t?: string) => ALL_TYPES || !t || WANTED_NAMES.some((n) => matchesGameType(t, n));
 
 export type FranchiseGroup = { key: string; name: string; games: Game[] };
 export type FranchiseSlot = {

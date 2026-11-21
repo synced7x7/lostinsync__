@@ -71,7 +71,8 @@ Used by `igdb_details` and `igdb_import_batch` to populate `timeMainSeconds`, `t
 ### Other endpoints
 
 - `popularity_primitives` — used by the Trending feed (desktop).
-- `collection_relations`, `collections` — franchise/series tree (`igdb_series`).
+- `collection_relations`, `collections` — Details series tree (`igdb_series`).
+- `franchises`, `games` — franchise completion totals (`igdb_franchise`, `igdb_games_by_ids`).
 - `platforms` — full platform list for importers.
 
 ## Image URL format

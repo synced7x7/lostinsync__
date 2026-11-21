@@ -1,12 +1,12 @@
 # Database Schema & Data Model
 
-> **Verified against source on 2026-11-21.** The persisted "database" is a single JSON document (`AppData`) stored in one SQLite row on desktop, in `localStorage` in browser dev mode, and in IndexedDB in the web build. There are **no per-game tables, no foreign keys, and no relations**. Additive TypeScript fields therefore need no SQL migration.
+> **Verified against source on 2026-11-21.** App state is a single JSON document (`AppData`) stored in one SQLite row on desktop, in `localStorage` in browser dev mode, and in IndexedDB in the web build. Desktop also has a separate `franchise_cache` lookup table; browser/web keep franchise results in memory only. There are **no per-game tables, no foreign keys, and no application relations**. Additive TypeScript fields therefore need no SQL migration.
 
 Lost in Sync uses an offline-first storage model. On desktop (Tauri v2), data is persisted to a local SQLite database file named `lost-in-sync.sqlite` in the application data directory (`%APPDATA%/com.lostinsync.desktop/` on Windows).
 
 ## Storage Architecture
 
-State is serialized as one JSON document into the `app_state` table. Migrations are tracked in `schema_migrations`. The exact DDL from `src-tauri/src/lib.rs:73-97` is:
+App state is serialized as one JSON document into the `app_state` table. Franchise completion results are stored separately in `franchise_cache`. Migrations are tracked in `schema_migrations`. The DDL from `src-tauri/src/lib.rs:75-92` is:
 
 ```sql
 PRAGMA foreign_keys = ON;
@@ -20,14 +20,33 @@ CREATE TABLE IF NOT EXISTS app_state (
   id INTEGER PRIMARY KEY CHECK (id = 1),
   data_json TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS franchise_cache (
+  key TEXT PRIMARY KEY NOT NULL,
+  sig TEXT NOT NULL,
+  fetched_at INTEGER NOT NULL,
+  games_json TEXT NOT NULL
+);
 ```
 
 Notes:
 
 - There is **no `updated_at` column** on `app_state` and **no SQL default** on `applied_at`; the migration writes an ISO-8601 timestamp with `strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`.
 - Only migration version **1** is checked/inserted. There is no generic migration runner; the typed Rust structs `Game`, `Profile`, `Settings`, `AppData` near the top of `lib.rs` are unused dead code — the commands accept `serde_json::Value`.
-- The only queries are the DDL above, `SELECT data_json FROM app_state WHERE id = 1` (`lib.rs:104-105`), the version check (`lib.rs:85-89`), and the UPSERT `INSERT INTO app_state (id, data_json) VALUES (1, ?1) ON CONFLICT(id) DO UPDATE SET data_json = excluded.data_json` (`lib.rs:118-123`).
+- App-state queries are the DDL above, `SELECT data_json FROM app_state WHERE id = 1` (`lib.rs:107-117`), the version check (`lib.rs:93-103`), and the UPSERT `INSERT INTO app_state (id, data_json) VALUES (1, ?1) ON CONFLICT(id) DO UPDATE SET data_json = excluded.data_json` (`lib.rs:119-134`).
+- Franchise queries are `SELECT key, sig, fetched_at, games_json FROM franchise_cache WHERE key IN (...)` (`franchise_cache_load`, `lib.rs:136-168`) and the keyed UPSERT (`franchise_cache_save`, `lib.rs:170-192`). `fetched_at` is Unix milliseconds supplied by Rust.
 - All filtering, sorting, and aggregation happens in TypeScript, not SQL.
+
+### Franchise completion cache
+
+`franchise_cache` is a disposable lookup table, not part of `AppData`:
+
+- `key` is the normalized franchise name from `groupByFranchise`.
+- `sig` is `franchise-api|all` while `ALL_TYPES = true`, or `franchise-api|0,4,8,9` when filtering is restored. Rows with a different signature are ignored, so old series-tree results and results from the other type setting are never reused.
+- `fetched_at` is written when a load succeeds; `src/features/franchises.tsx` treats rows older than 30 days as stale and refreshes them in the background.
+- `games_json` is the array of IGDB games returned for that franchise. A failed load never writes a partial array; an old row is kept if a background refresh fails, and Retry is shown when no row exists.
+- The UI probes only visible row keys, not the whole table. Manual **Refresh** / **Refresh all** forces a refetch regardless of age.
+- This table is not included in JSON export/import or Drive snapshots and needs no migration when TypeScript-only fields change. Web/browser builds have no SQLite path here; `src/data/franchiseCache.ts` no-ops and the session map is the only cache.
 
 ### Persistence per platform
 
@@ -160,7 +179,7 @@ There are no SQL relationships. Application-level links are:
 
 - `Collection.items[]` references games by `gameId` or `igdbId` (plus a denormalized `name`/`cover`).
 - `Game.bundleGames[]` embeds IGDB bundle/edition contents.
-- `Game.franchises[]` holds IGDB franchise names; the series tree is fetched on demand via `igdb_series`, not stored.
+- `Game.franchises[]` holds IGDB franchise names. Details uses `igdb_series` for the series tree; Franchise Completion resolves totals through `igdb_franchise` + `igdb_games_by_ids` and stores only the resolved rows in `franchise_cache`.
 - Image files are referenced through `img:<filename>` strings and resolved to `asset://` URLs on load (`src/data/repository.ts`).
 
 ---
