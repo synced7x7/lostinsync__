@@ -892,12 +892,16 @@
 .next-game-because { color: var(--text); font-size: 14px; }
 .next-game-meta { display: flex; flex-wrap: wrap; gap: 8px; }
 .next-game-alts { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
-.next-game-alt { display: flex; gap: 12px; align-items: center; padding: 10px; border-radius: 14px; text-align: left; color: inherit; border: 1px solid var(--line-soft); cursor: pointer; background: rgba(255,255,255,.03); }
+.next-game-alt { position: relative; display: flex; gap: 12px; align-items: center; padding: 10px; border-radius: 14px; text-align: left; color: inherit; border: 1px solid var(--line-soft); cursor: pointer; background: rgba(255,255,255,.03); }
 .next-game-alt:hover { border-color: rgba(164,149,255,.4); background: rgba(164,149,255,.08); }
 .next-game-alt-art { width: 52px; height: 70px; border-radius: 8px; background: linear-gradient(145deg, #33275c, #163846) center/cover; display: grid; place-items: center; flex: none; color: #c9c0ff; }
 .next-game-alt-copy { display: grid; gap: 4px; min-width: 0; }
 .next-game-alt-copy strong { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .next-game-alt-copy small { color: var(--muted); font-size: 12px; }
+.next-game-alt-because { position: absolute; left: 10px; right: 10px; bottom: calc(100% + 8px); padding: 10px 12px; border-radius: 10px; background: var(--panel-strong); border: 1px solid var(--line); box-shadow: var(--shadow); font-size: 12px; line-height: 1.45; color: var(--muted); opacity: 0; transform: translateY(4px); pointer-events: none; transition: opacity .18s ease, transform .18s ease; z-index: 20; }
+.next-game-alt-because span { display: block; font-size: 10px; letter-spacing: .04em; text-transform: uppercase; color: var(--dim); margin-bottom: 4px; }
+.next-game-alt-because strong { display: block; color: var(--text); font-size: 12px; font-weight: 600; }
+.next-game-alt:hover .next-game-alt-because, .next-game-alt:focus-visible .next-game-alt-because { opacity: 1; transform: translateY(0); }
 @media (max-width: 900px) { .next-game-hero { grid-template-columns: 1fr; } .next-game-cover { min-height: 220px; } }
 
 @media (prefers-reduced-motion: reduce) {

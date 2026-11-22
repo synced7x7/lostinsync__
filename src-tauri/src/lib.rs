@@ -1998,7 +1998,6 @@ async fn get_backlog_recommendations(
         let status = g["status"].as_str().unwrap_or("");
         matches!(status, "Completed" | "Playing" | "Abandoned" | "On hold")
             || g["rating"].as_f64().is_some()
-            || g["totalSeconds"].as_f64().unwrap_or(0.0) > 0.0
             || g["startedAt"].as_str().is_some()
             || g["finishedAt"].as_str().is_some()
             || g["lastPlayedAt"].as_str().is_some()
@@ -2010,13 +2009,10 @@ async fn get_backlog_recommendations(
         if !is_history(g) { continue; }
         let rating = g["rating"].as_f64().filter(|r| *r > 0.0);
         let r = rating.map(|v| (v / 10.0).clamp(0.0, 1.0)).unwrap_or(0.5);
-        let hours = (g["totalSeconds"].as_f64().unwrap_or(0.0) / 3600.0).max(0.0);
-        let p = if hours > 0.0 { ((1.0 + hours).ln() / (1.0_f64 + 100.0_f64).ln()).min(1.0) } else { 0.0 };
-        let engagement = if hours > 0.0 { 0.4 + 0.6 * p } else { 0.4 };
         let days = ((now - last_touched_ts(g)).max(0) as f64) / 86_400.0;
         let t = 2.0_f64.powf(-days / 60.0);
-        let w_long = r * engagement;
-        let w_recent = r * engagement * t;
+        let w_long = r;
+        let w_recent = r * t;
         for f in game_features(g) {
             *long_raw.entry(f.clone()).or_insert(0.0) += w_long;
             *recent_raw.entry(f).or_insert(0.0) += w_recent;
@@ -2075,7 +2071,7 @@ async fn get_backlog_recommendations(
             }
         }
         if reasons.is_empty() && has_profile { reasons.push("A good quality pick to explore from your backlog".to_string()); }
-        if !has_profile { reasons.push("Ranked by game quality (add ratings/playtime for personalized picks)".to_string()); }
+        if !has_profile { reasons.push("Ranked by game quality (add ratings for personalized picks)".to_string()); }
 
         // Find similar played games that contributed most.
         let mut contrib: Vec<(f64, String)> = Vec::new();

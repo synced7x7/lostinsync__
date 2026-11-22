@@ -19,7 +19,7 @@ const sections: { key: IgdbFeed; title: string; tone: string }[] = [
 
 ];
 
-/* ---------- For You: taste profile (30% frequency, 40% rating, 30% completion span) ---------- */
+/* ---------- For You: taste profile (frequency + rating) ---------- */
 const IGDB_GENRES = ["Point-and-click", "Fighting", "Shooter", "Music", "Platform", "Puzzle", "Racing", "Real Time Strategy (RTS)", "Role-playing (RPG)", "Simulator", "Sport", "Strategy", "Turn-based strategy (TBS)", "Tactical", "Hack and slash/Beat 'em up", "Quiz/Trivia", "Pinball", "Adventure", "Indie", "Arcade", "Visual Novel", "Card & Board Game", "MOBA"];
 const gKey = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
 const GENRE_BY_KEY = new Map<string, string>(IGDB_GENRES.map((g) => [gKey(g), g]));
@@ -33,26 +33,22 @@ const gameGenres = (g: Game): string[] =>
   [...new Set((g.genres?.length ? g.genres : (g.genre ?? "").split(",")).map((x) => x.trim()).filter(Boolean).map((x) => GENRE_BY_KEY.get(gKey(x)) ?? x))];
 
 function buildTaste(games: Game[]): TasteProfile {
-  const acc = new Map<string, { count: number; rated: number; ratingSum: number; completionMs: number }>();
+  const acc = new Map<string, { count: number; rated: number; ratingSum: number }>();
   for (const g of games) for (const genre of gameGenres(g)) {
-    const a = acc.get(genre) ?? { count: 0, rated: 0, ratingSum: 0, completionMs: 0 };
+    const a = acc.get(genre) ?? { count: 0, rated: 0, ratingSum: 0 };
     a.count++;
     if (g.rating) { a.rated++; a.ratingSum += g.rating; }
-    const start = g.startedAt ? Date.parse(g.startedAt) : NaN;
-    const end = g.finishedAt ? Date.parse(g.finishedAt) : NaN;
-    if (Number.isFinite(start) && Number.isFinite(end) && end >= start) a.completionMs += end - start;
     acc.set(genre, a);
   }
   const all = [...acc.values()];
   const maxCount = Math.max(1, ...all.map((a) => a.count));
-  const maxCompletionMs = Math.max(0, ...all.map((a) => a.completionMs));
   const ratedTotal = all.reduce((s, a) => s + a.rated, 0);
   const libRating = ratedTotal ? all.reduce((s, a) => s + a.ratingSum, 0) / ratedTotal / 10 : 0;
   // a signal the library doesn't have is dropped and the remaining weights are renormalised
-  const wf = 0.3, wr = ratedTotal ? 0.4 : 0, wc = maxCompletionMs ? 0.3 : 0, wsum = wf + wr + wc;
+  const wf = 0.3, wr = ratedTotal ? 0.4 : 0, wsum = wf + wr;
   const weights: Record<string, number> = {};
   [...acc.entries()]
-    .map(([genre, a]) => [genre, (wf * (a.count / maxCount) + wr * (a.rated ? a.ratingSum / a.rated / 10 : libRating) + wc * (maxCompletionMs ? a.completionMs / maxCompletionMs : 0)) / wsum] as const)
+    .map(([genre, a]) => [genre, (wf * (a.count / maxCount) + wr * (a.rated ? a.ratingSum / a.rated / 10 : libRating)) / wsum] as const)
     .filter(([, w]) => w >= 0.15)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 12)

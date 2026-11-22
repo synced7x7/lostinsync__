@@ -278,6 +278,7 @@ export function Dashboard({
                     {alts.map((r) => {
                       const g = byId.get(r.gameId);
                       if (!g) return null;
+                      const because = r.similarPlayedGames.map((id) => byId.get(id)?.title).filter(Boolean) as string[];
                       return (
                         <button key={r.gameId} className="next-game-alt glass" onClick={() => openGame(g.id)}>
                           <div className="next-game-alt-art" style={g.cover ? { backgroundImage: `url(${g.cover})` } : undefined}>{!g.cover && <Gamepad2 size={18} />}</div>
@@ -285,6 +286,12 @@ export function Dashboard({
                             <strong>{g.title}</strong>
                             <small>{Math.round(r.score * 100)}% taste match</small>
                           </div>
+                          {because.length > 0 && (
+                            <div className="next-game-alt-because" role="tooltip">
+                              <span>Because you enjoyed</span>
+                              <strong>{because.join(", ")}</strong>
+                            </div>
+                          )}
                         </button>
                       );
                     })}

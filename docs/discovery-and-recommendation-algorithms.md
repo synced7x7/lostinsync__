@@ -74,15 +74,12 @@ The frontend builds a genre weight map from local games (`src/features/discover.
 For each game g and canonical genre f in g:
   count_f += 1
   if g.rating exists: rated_f += 1; ratingSum_f += g.rating
-  if startedAt and finishedAt are valid and finishedAt >= startedAt:
-    completionMs_f += finishedAt - startedAt
 ```
 
 Normalization:
 
 ```text
 maxCount = max(1, max(count_f))
-maxCompletionMs = max(0, max(completionMs_f))
 libRating = (sum(ratingSum_f) / sum(rated_f)) / 10   if any rated games else 0
 ```
 
@@ -91,8 +88,7 @@ Signal weights (dropped and renormalized if unavailable):
 ```text
 wf = 0.30  (frequency)
 wr = 0.40  (rating, only if library has ratings)
-wc = 0.30  (completion span, only if any completion span exists)
-wsum = wf + wr + wc
+wsum = wf + wr
 ```
 
 Genre score:
@@ -101,7 +97,6 @@ Genre score:
 W_f = (
   wf * (count_f / maxCount)
   + wr * (rated_f ? (ratingSum_f / rated_f / 10) : libRating)
-  + wc * (maxCompletionMs ? completionMs_f / maxCompletionMs : 0)
 ) / wsum
 ```
 
@@ -264,7 +259,6 @@ A game contributes to taste profiles if:
 ```text
 status in {Completed, Playing, Abandoned, On hold}
 OR rating exists
-OR totalSeconds > 0
 OR startedAt/finishedAt/lastPlayedAt exists
 ```
 
@@ -301,9 +295,6 @@ Two profiles are built from history games.
 
 ```text
 Rg = clamp(rating / 10, 0, 1) if rating > 0 else 0.5
-hours = max(totalSeconds / 3600, 0)
-Pg = clamp(ln(1 + hours) / ln(1 + 100), 0, 1) if hours > 0 else 0
-engagement = 0.4 + 0.6 * Pg if hours > 0 else 0.4
 days = max(now - lastTouched(game), 0) / 86400
 Tg = 2^(-days / 60)
 ```
@@ -313,8 +304,8 @@ Tg = 2^(-days / 60)
 #### Long-term and recent weights
 
 ```text
-W_long(g) = Rg * engagement
-W_recent(g) = Rg * engagement * Tg
+W_long(g) = Rg
+W_recent(g) = Rg * Tg
 ```
 
 For every feature `f` in game `g`:
@@ -421,7 +412,7 @@ The UI maps similar played game IDs to titles.
 ## 3. Known limitations / tuning points
 
 - **Metadata coverage**: local games may not have full themes/perspectives/game modes/keywords; scoring quality improves as metadata becomes richer.
-- **Taste signal**: Discover For You uses completion span as a 30% signal (not playtime). Find My Next Game uses playtime engagement and recency.
+- **Taste signal**: Discover For You uses genre frequency and rating signals. Find My Next Game uses rating and recency signals.
 - **Starting weights**: all coefficients (`0.70/0.30`, `0.65/0.35`, `0.70/0.20/0.10`, decay half-life 60 days, etc.) are initial tuning values.
 - **IGDB constraints**: IGDB query sort has one sort field; some feeds use candidate pools then local ranking.
 - **Cold start**: both systems fall back to quality/popular signals when user history is sparse.
