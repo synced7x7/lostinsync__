@@ -32,4 +32,4 @@ The visual language uses translucent panels, backdrop blur, thin borders, soft g
 
 Some literal colors remain in feature stylesheets and canvas/SVG code; overriding tokens covers most of the UI, but full theme fidelity requires migrating remaining hard-coded colors to CSS variables or theme-aware JS.
 
-Web-specific styling lives in `web/src/cloud.css`. The copy at `web/worker/src/cloud.css` is stale, unused dead code.
+Web-specific styling lives in `web/src/cloud.css`.

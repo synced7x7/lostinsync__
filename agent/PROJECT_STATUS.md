@@ -67,8 +67,7 @@ One diagnostic is intentionally active in source; no other feature can be confir
 
 - **Franchise game-type diagnostic:** `ALL_TYPES = true` in `src/domain/franchise.ts` currently counts every game type and logs `[franchise] { igdbIds, loaded }` after each load. This is pending a Mario total check; one franchise test (`counts only main/standalone/remake/remaster...`) intentionally fails until the switch is set back to `false`.
 - **Steam free-game fix QA:** source-level tests prove the request flags and mapping, but a real `pnpm tauri:dev` re-fetch and confirmation that *Game of Thrones Kingsroad* appears as `Backlog` is still unverified.
-- Debug instrumentation in `flushSave` (`src/main.tsx:173-188`) suggests recent work on full-save payload size.
-- Web cloud sync code is more advanced than `web/README.md` describes (e.g. conflict handling, `uploaded[]`, `clearHistory` in `web/src/sync.ts` vs stale versions in `web/worker/src/sync.ts`) — likely a recently developed area, but **unverified**.
+- Web cloud sync code is more advanced than `web/README.md` describes (e.g. conflict handling, `uploaded[]`, `clearHistory` in `web/src/sync.ts`) — likely a recently developed area, but **unverified**.
 
 ---
 
@@ -98,9 +97,7 @@ All of the above are documented individually in `future_implementation_guide.md`
 | Tauri `load()` swallows all errors and returns `defaultData` | `src/data/repository.ts:103-105` | Corrupt/unreadable DB looks like an empty library |
 | Unknown route renders empty page | `src/main.tsx:83,244-285` | No 404 fallback |
 | `Empty` action button always says "Open library", even when the action adds a game | `src/components/shared.tsx:47-49` | Misleading CTA |
-| `LibraryView` declares `deleteGame` prop but never uses it | `src/main.tsx:336,342` | Dead prop type |
 | `web/README.md:14` references missing `web/.env.example` | `web/` directory listing | Setup confusion; `.env.local` exists but is gitignored |
-| Stale dead worker frontend imports nonexistent modules | `web/worker/src/{entry.tsx,login-gate.tsx,sync.ts,cloud.css}` | Typechecking `web/worker/tsconfig.json` would fail; deployment unaffected (`wrangler.toml` builds only `src/index.ts`) |
 | `new URL(VITE_IGDB_PROXY_URL)` unguarded | `web/vite.config.ts:58` | Malformed env value crashes config evaluation |
 | `igdb_discover` uses `rating`/`rating_count` while the active feed path uses `total_rating`/`total_rating_count` | `src-tauri/src/lib.rs:642,652-656` vs `:757-761` | Legacy feed may return inconsistent data (runtime behavior not verified) |
 | Orphaned image files after game deletion | No delete command; `src-tauri/src/lib.rs` | Disk usage grows |

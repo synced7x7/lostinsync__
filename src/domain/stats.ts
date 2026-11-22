@@ -20,7 +20,6 @@ export const CATEGORIES: { id: CategoryId; title: string; blurb: string; tone: T
   { id: "franchises", title: "Franchises", blurb: "The series you keep coming back to", tone: "green" },
   { id: "developers", title: "Developers", blurb: "The studios behind your library", tone: "violet" },
   { id: "ratings", title: "Ratings", blurb: "What your scores say about your taste", tone: "gold" },
-  // { id: "length", title: "Game Length", blurb: "Short, long and everything in between", tone: "cyan" },
   { id: "exploration", title: "Exploration", blurb: "How widely you roam across genres, studios and eras", tone: "green" },
   { id: "milestones", title: "Milestones", blurb: "Badges unlocked across every rarity", tone: "rose" },
   { id: "records", title: "Personal Records", blurb: "Your best years, months, weeks and streaks", tone: "blue" },
@@ -275,7 +274,7 @@ const stackedCollection = (a: Agg[], n = 12) => { const t = [...a].sort((x, y) =
 /* ============================ categories ============================ */
 function overview(r: R[]): Section {
   const done = r.filter((x) => x.done).length, started = r.filter((x) => x.played).length, rate = started ? (done / started) * 100 : 0;
-  const st = r.map((x) => x.s ?? x.f).filter(isNum), en = r.map((x) => x.f ?? x.s).filter(isNum), rated = r.filter((x) => x.rating);
+  const st = r.map((x) => x.s ?? x.f).filter(isNum), en = r.map((x) => x.f ?? x.s).filter(isNum);
   const added = [...count(r, (x) => { const t = Date.parse(x.g.createdAt); return Number.isNaN(t) ? undefined : mo(t); })].sort((a, b) => a[0] - b[0]);
   const ks = added.length ? range(added[0][0], added[added.length - 1][0]) : [], m = new Map(added); let run = 0;
   return {

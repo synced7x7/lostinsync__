@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use rusqlite::{ Connection, OptionalExtension, params };
-use serde::{ Deserialize, Serialize };
+use serde::Serialize;
 use std::sync::Mutex;
 use std::time::{ Duration, Instant };
 use tauri::Manager;
@@ -11,64 +11,6 @@ use std::hash::{ Hash, Hasher };
 use base64::{ engine::general_purpose::STANDARD, Engine };
 
 mod stores;
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-struct Game {
-    id: String,
-    title: String,
-    platform: String,
-    genre: String,
-    tags: Vec<String>,
-    status: String,
-    notes: String,
-    rating: Option<i64>,
-    mastery: Option<i64>,
-    favorite: bool,
-    cover: Option<String>,
-    #[serde(default)]
-    background_cover: Option<String>,
-    total_seconds: i64,
-    active_since: Option<String>,
-    created_at: String,
-    started_at: Option<String>,
-    finished_at: Option<String>,
-
-    #[serde(default)]
-    videos: Vec<Video>,
-    #[serde(default)]
-    screenshots: Vec<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-struct Video {
-    id: String,
-    name: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-struct Profile {
-    display_name: String,
-    bio: String,
-    accent: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-struct Settings {
-    theme: String,
-    default_view: String,
-    timer_sound: bool,
-    automatic_tracking: bool,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-struct AppData {
-    games: Vec<Game>,
-    profile: Profile,
-    settings: Settings,
-}
 
 struct Database(Mutex<Connection>);
 

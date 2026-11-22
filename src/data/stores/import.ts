@@ -1,7 +1,7 @@
 import { STATUSES, type AppData, type Game, type Status, type StoreId } from "../../domain/game";
 import { ALL_PLATFORMS, emulatedOn } from "../platform";
 import { withRetry } from "../backloggd";
-import { igdbImportBatch, igdbPlatforms, igdbSearch, type IgdbCreds, type IgdbGame, type IgdbImport } from "../igdb";
+import { igdbImportBatch, igdbSearch, type IgdbCreds, type IgdbGame, type IgdbImport } from "../igdb";
 import { storesFetch, storesFetchAchievements, type SteamCreds } from "./ipc";
 import { chooseLoose, chooseStrict, matchRecord } from "./match";
 import {
@@ -102,11 +102,7 @@ export function storePatch(g: Game, r: StoreRecord): Partial<Game> {
 }
 
 /** Build a new game from a store record, using remote IGDB URLs only — never store art. */
-export function buildStoreGame(
-  r: StoreRecord,
-  hit: IgdbImport | undefined,
-  platformNames: Map<number, string>,
-): Game {
+export function buildStoreGame(r: StoreRecord, hit: IgdbImport | undefined): Game {
   const ig: IgdbGame | undefined = hit?.game;
   const played = ig?.platforms ?? [];
   const seconds = minutesToSeconds(r.playtimeMinutes);
@@ -285,10 +281,8 @@ export async function importFromStore(opts: StoreImportOptions): Promise<StoreIm
     ...enrichments.map((e) => e.igdbId),
   ].filter((id): id is number => typeof id === "number" && id > 0))];
   const imports = new Map<number, IgdbImport>();
-  let platformNames = new Map<number, string>();
   if (ids.length && creds.clientId && creds.clientSecret) {
     progress("details", 0, ids.length);
-    try { platformNames = await withRetry(() => igdbPlatforms(creds)); } catch { /* details still work without platform names */ }
     for (let i = 0; i < ids.length; i += CHUNK) {
       if (signal?.aborted) { report.cancelled = true; break; }
       const chunk = ids.slice(i, i + CHUNK);
@@ -322,7 +316,7 @@ export async function importFromStore(opts: StoreImportOptions): Promise<StoreIm
       report.duplicates++;
       continue;
     }
-    const game = buildStoreGame(r, m?.igdbId ? imports.get(m.igdbId) : undefined, platformNames);
+    const game = buildStoreGame(r, m?.igdbId ? imports.get(m.igdbId) : undefined);
     if (m?.igdbId) ownByIgdb.set(m.igdbId, game);
     games.push(game);
   }
@@ -427,7 +421,7 @@ async function resolveTitle(title: string, creds: IgdbCreds): Promise<{ id?: num
 }
 
 function toCsvGame(e: CsvEntry, hit?: IgdbImport): Game {
-  const base = buildStoreGame({ store: "epic", storeId: "csv", title: e.title, playtimeMinutes: e.seconds / 60 }, hit, new Map());
+  const base = buildStoreGame({ store: "epic", storeId: "csv", title: e.title, playtimeMinutes: e.seconds / 60 }, hit);
   return {
     ...base,
     platform: e.played[0] ?? "",

@@ -275,8 +275,6 @@
 .collection-detail-item:hover img { transform: translateY(-4px); box-shadow: 0 0 0 1px var(--accent), 0 16px 32px rgba(0, 0, 0, .55), 0 0 22px rgba(164, 149, 255, .35) }
 .collection-detail-item span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; transition: color .2s }
 .collection-detail-item:hover span { color: #c9c0ff }
-.collection-edit-button { margin-top: 20px }
-
 .collection-edit-form, .collection-create-form { display: grid; gap: 12px; max-width: 560px }
 .collection-edit-form label { display: grid; gap: 6px; color: var(--muted); font-size: 12px }
 .collection-edit-form small { text-align: right; color: var(--muted) }
@@ -383,19 +381,6 @@
 }
 
 .fav-ph { position: absolute; left: 50%; top: 38%; margin: -17px 0 0 -17px; color: #c9c0ff }
-
-.fav-info { position: absolute; z-index: 1; left: 12px; right: 12px; bottom: 11px; text-align: center }
-.fav-info strong { display: block; font-size: 13px; line-height: 1.25; text-shadow: 0 2px 10px #000 }
-.fav-slot.center .fav-info strong { font-size: 16px }
-
-.fav-info small {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    margin-top: 6px;
-    font-size: 11px;
-    color: #d6d0ee
-}
 
 .fav-pill {
     position: absolute;

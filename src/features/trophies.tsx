@@ -5,7 +5,6 @@ import type { AppData } from "../domain/game";
 import { evaluate, RARITY_LABEL, type Override, type Tier, type TrophyState } from "../domain/trophies";
 import "./trophies.css";
 
-// badges: src/images/badges/*  |  backgrounds: src/images/trophy-bg/*  (4 files, page order = natural filename order, e.g. 1.png … 4.png)
 const FILES = import.meta.glob("../images/badges/*.{png,webp,jpg}", { eager: true, query: "?url", import: "default" }) as Record<string, string>;
 const BGS = Object.entries(
   import.meta.glob("../images/trophy-bg/*.{png,webp,jpg}", { eager: true, query: "?url", import: "default" }) as Record<string, string>,

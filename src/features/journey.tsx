@@ -3,7 +3,7 @@ import {
   type CSSProperties,
 } from "react";
 import { createPortal } from "react-dom";
-import { ArrowDown, ArrowRight, ArrowUp, CalendarDays, ChevronDown, Clock3, Maximize2, Minimize2, Minus, Plus, Route, Trophy } from "lucide-react";
+import { ArrowDown, ArrowRight, ArrowUp, CalendarDays, ChevronDown, Clock3, Maximize2, Minimize2, Minus, Plus, Trophy } from "lucide-react";
 import type { Game, SortDirection } from "../domain/game";
 import { formatPlaytime } from "../domain/game";
 import { sortJourneyRows } from "../domain/journey-sort";

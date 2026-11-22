@@ -119,7 +119,7 @@
 - Single theme: `AppSettings.theme: "aurora"` (`src/domain/game.ts:30`), default at `:66`; `SettingsView` renders a static "Aurora" pill (`src/features/settings.tsx:18`); no `data-theme`, class toggle, provider, or `prefers-color-scheme` exists.
 - Settings persistence already works: `updateSettings` (`src/features/settings.tsx:8-10`) → `update` → 500 ms save; defaults merge in `src/data/repository.ts:23,89-93`.
 - Local component vars: `--p`, `--c`, `--rc` (`src/components/rarity-badge.tsx:11`), `--g` (`src/features/trophies.css:16-20`), `--tc` (`src/features/stats.css:2-22`).
-- ~151 hard-coded color literals remain across feature CSS; ECharts palette constants `C`, `MUTED`, `AX`, `TIP`, `LEG` (`src/domain/stats.ts:101-114`) are JS values. Web adds `web/src/cloud.css` and stale `web/worker/src/cloud.css` hard-coded colors.
+- ~151 hard-coded color literals remain across feature CSS; ECharts palette constants `C`, `MUTED`, `AX`, `TIP`, `LEG` (`src/domain/stats.ts:101-114`) are JS values. Web adds `web/src/cloud.css` hard-coded colors.
 - `docs/design-system.md` now explicitly marks `[data-theme="ember"]` overrides as a proposed pattern that is not implemented.
 
 **Probable Files to Modify:**
@@ -130,7 +130,7 @@
 - `src/style.css` — move tokens into theme selectors; remove literal `:root`/`body` colors.
 - `src/features/*.css` — replace hard-coded colors with semantic variables (start with `overview.css`, `journey.css`, `stats.css`).
 - `src/domain/stats.ts` — derive ECharts colors from CSS variables or pass a theme object.
-- `web/src/cloud.css`, `web/worker/src/cloud.css` — web-only surfaces.
+- `web/src/cloud.css` — web-only surface.
 - `web/vite.config.ts:36-54` — CSP `style-src` if injecting inline style tags.
 
 **Potential New Files (proposed):**

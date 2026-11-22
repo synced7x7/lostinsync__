@@ -1,7 +1,6 @@
 import { memo, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from "react";
 import { ChevronLeft, ChevronRight, Layers, RefreshCw } from "lucide-react";
 import type { Game } from "../domain/game";
-import { formatPlaytime } from "../domain/game";
 import { igdbFranchise, igdbGamesByIds, hasTauri } from "../data/igdb";
 import { loadFranchiseCache, saveFranchiseCache } from "../data/franchiseCache";
 import { buildFranchise, groupByFranchise, wantedType, ALL_TYPES, WANTED_TYPES, type SeriesGame, type FranchiseGroup, type FranchiseRow } from "../domain/franchise";
@@ -261,7 +260,7 @@ const FranchiseRowView = memo(function FranchiseRowView({ row, ready, status, pr
           <>
             <div className="fr-stat"><b>{row.done}</b><span>/ {row.total}</span><em>{row.pct}%</em></div>
             <div className="fr-bar"><i style={{ width: `${row.pct}%` }} /></div>
-            <small>{row.seconds > 0 ? `${formatPlaytime(row.seconds)} played` : "Completed"}{!row.fromSeries && !failed && " · library"}</small>
+            <small>Completed{!row.fromSeries && !failed && " · library"}</small>
             {!failed && (refreshing
               ? <small>Refreshing{progress && progress.total > 0 ? ` ${progress.done}/${progress.total}` : ""}…</small>
               : onRefresh && <button className="fr-refresh" onClick={() => onRefresh(row.key)} title="Refresh from IGDB"><RefreshCw size={12} /> Refresh</button>)}

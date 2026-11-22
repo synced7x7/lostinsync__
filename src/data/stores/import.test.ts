@@ -173,7 +173,7 @@ describe("buildStoreGame", () => {
   it("uses IGDB metadata and remote image URLs only", () => {
     const built = buildStoreGame(
       { store: "steam", storeId: "123", title: "Hades", playtimeMinutes: 62, lastPlayedUnix: 1_700_000_000 },
-      hit, new Map(),
+      hit,
     );
     expect(built.title).toBe("Hades");
     expect(built.igdbId).toBe(42);
@@ -184,7 +184,7 @@ describe("buildStoreGame", () => {
   });
 
   it("creates a local-only game when no IGDB match was found", () => {
-    const built = buildStoreGame({ store: "epic", storeId: "abc", title: "Unknown indie game" }, undefined, new Map());
+    const built = buildStoreGame({ store: "epic", storeId: "abc", title: "Unknown indie game" }, undefined);
     expect(built.igdbId).toBeUndefined();
     expect(built.title).toBe("Unknown indie game");
     expect(built.cover).toBeUndefined();
@@ -205,7 +205,7 @@ describe("igdbEnrichmentPatch", () => {
 
 describe("backup safety", () => {
   it("keeps store ids across a JSON round trip and strips any credential keys", () => {
-    const data = { games: [buildStoreGame({ store: "epic", storeId: "5", title: "X" }, undefined, new Map())], profile: {}, settings: {} } as unknown as AppData;
+    const data = { games: [buildStoreGame({ store: "epic", storeId: "5", title: "X" }, undefined)], profile: {}, settings: {} } as unknown as AppData;
     const parsed = JSON.parse(JSON.stringify(data)) as AppData;
     expect(parsed.games[0].storeLinks).toEqual([{ store: "epic", id: "5" }]);
 
