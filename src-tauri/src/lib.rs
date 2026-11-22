@@ -336,8 +336,10 @@ fn discover_games(rows: &Value) -> Vec<Value> {
 }
 
 fn discover_item(g: &Value) -> Value {
+    let art = g["artworks"][0]["image_id"].as_str().or(g["screenshots"][0]["image_id"].as_str());
     json!({
         "id": g["id"], "name": g["name"], "cover": g["cover"]["image_id"].as_str().map(|i| img(i, "cover_big_2x")),
+        "art": art.map(|i| img(i, "1080p")),
         "releaseTs": g["first_release_date"], "rating": g["total_rating"], "ratingCount": g["total_rating_count"],
         "hypes": g["hypes"], "follows": g["follows"], "summary": g["summary"]
     })
@@ -1090,8 +1092,9 @@ async fn igdb_discover_feed(
         _ => None,
     };
     if let Some((where_clause, sort)) = simple {
+        let fields = if feed == "anticipated" { format!("{base},artworks.image_id,screenshots.image_id") } else { base.to_string() };
         let body = format!(
-            "fields {base}; where {where_clause}; sort {sort}; limit {}; offset {};",
+            "fields {fields}; where {where_clause}; sort {sort}; limit {}; offset {};",
             limit.clamp(1, 30),
             offset.clamp(0, 90)
         );

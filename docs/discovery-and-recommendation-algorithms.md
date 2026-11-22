@@ -49,7 +49,7 @@ offset clamped to [0, 90], limit clamped to [1, 30]
 | Feed | Source/ranking | Key IGDB filter / sort | Notes |
 |---|---|---|---|
 | Trending Now | IGDB hypes + custom trending query | `trending_games(...)` | Direct IGDB retrieval; paged. |
-| Most Anticipated | IGDB direct sort/page | `first_release_date > now & hypes != null`, sort `hypes desc` | Not Rust-ranked. |
+| Most Anticipated | IGDB direct sort/page | `first_release_date > now & hypes != null`, sort `hypes desc` | Not Rust-ranked. Discover home shows it as a hero (6 fetched, up to 4 displayed) with artwork/screenshot `art`, release date, hypes, and a live countdown. |
 | For You | Rust-ranked | Candidate pool by top user genres; fallback to popular highly rated released games | Uses taste profile, owned-ID exclusion, diversity rerank. |
 | All Time Popular | IGDB direct sort/page | `total_rating_count > 0 & released`, sort `total_rating_count desc` | IGDB supports only one sort field. |
 | Top Rated | Rust-ranked | `total_rating != null & total_rating_count > 1500 & released`, pool sort `total_rating desc`, limit 100 | Bayesian ranking, `m=1500`. |

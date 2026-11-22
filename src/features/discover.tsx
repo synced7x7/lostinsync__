@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type CSSProperties, type ReactNode } from "react";
 import { ChevronLeft, Compass, Search, X } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Header } from "../components/shared";
@@ -7,16 +7,15 @@ import { formatCount, type AppData, type Game } from "../domain/game";
 import "./discover.css";
 
 const sections: { key: IgdbFeed; title: string; tone: string }[] = [
+  { key: "anticipated", title: "Most Anticipated", tone: "green" },
   { key: "trending", title: "Trending Now", tone: "rose" },
   { key: "forYou", title: "For You", tone: "violet" },
-  { key: "anticipated", title: "Most Anticipated", tone: "green" },
   { key: "popular", title: "All Time Popular", tone: "cyan" },
   { key: "topRated", title: "Top Rated", tone: "gold" },
   { key: "story", title: "Story-Driven Adventures", tone: "rose" },
   { key: "indie", title: "Indie Spotlight", tone: "cyan" },
   { key: "latest", title: "Latest Releases", tone: "rose" },
   { key: "upcoming", title: "Upcoming", tone: "blue" },
-
 ];
 
 /* ---------- For You: taste profile (frequency + rating) ---------- */
@@ -113,7 +112,7 @@ export function DiscoverView({ data }: { data: AppData }) {
     const worker = async () => {
       for (let s = queue.shift(); s; s = queue.shift()) {
         try {
-          const games = await igdbDiscoverFeedCached(s.key, taste, 0, 20, credentials);
+          const games = await igdbDiscoverFeedCached(s.key, taste, 0, s.key === "anticipated" ? 6 : 20, credentials);
           if (!stale) setFeeds((f) => ({ ...f, [s.key]: games }));
         } catch (reason) {
           if (!stale) {
@@ -155,12 +154,92 @@ export function DiscoverView({ data }: { data: AppData }) {
         />
    
       {error && <div className="discover-error">{error}</div>}
+      <AnticipatedHero games={feeds.anticipated} openGame={openGame} onViewAll={() => navigate("/discover?feed=anticipated")} />
       {sections.map((item) => {
+        if (item.key === "anticipated") return null; // shown as the hero above
         const games = feeds[item.key];
         if (!games) return <FeedSkeleton key={item.key} title={item.title} tone={item.tone} />;
         return games.length ? <FeedSection key={item.key} section={item} games={games} openGame={openGame} onViewAll={() => navigate(`/discover?feed=${item.key}`)} /> : null;
       })}
     </div>
+  );
+}
+
+/* ============================ Most Anticipated hero ============================ */
+const heroDate = new Intl.DateTimeFormat(undefined, { day: "numeric", month: "long", year: "numeric" });
+
+// One shared clock for all cards: ticks once per minute (aligned to the minute), idle while the tab is hidden.
+function useMinuteClock() {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    let timer = 0;
+    const schedule = () => { timer = window.setTimeout(tick, 60_000 - (Date.now() % 60_000) + 50); };
+    const tick = () => { if (!document.hidden) setNow(Date.now()); schedule(); };
+    const wake = () => { if (!document.hidden) setNow(Date.now()); };
+    schedule();
+    document.addEventListener("visibilitychange", wake);
+    return () => { window.clearTimeout(timer); document.removeEventListener("visibilitychange", wake); };
+  }, []);
+  return now;
+}
+
+function CountGroup({ value, len, label }: { value: number; len: number; label: string }) {
+  return (
+    <div className="hero-count-group">
+      <div className="hero-digits">
+        {String(value).padStart(len, "0").split("").map((d, i) => <span className="hero-digit" key={i}><b key={d}>{d}</b></span>)}
+      </div>
+      <small>{label}</small>
+    </div>
+  );
+}
+
+const HeroCard = memo(function HeroCard({ game, now, eager, onOpen }: { game: IgdbDiscoverGame; now: number; eager: boolean; onOpen: (g: IgdbDiscoverGame) => void }) {
+  const left = Math.max(0, (game.releaseTs ?? 0) * 1000 - now);
+  const src = game.art ?? game.cover;
+  return (
+    <button className="hero-card" style={{ "--hue": (game.id * 47) % 360 } as CSSProperties} onClick={() => onOpen(game)}>
+      {src && <img className={`hero-art${game.art ? "" : " cover"}`} src={src} alt="" loading={eager ? "eager" : "lazy"} decoding="async" />}
+      <div className="hero-shade" />
+      {game.hypes ? <span className="hero-hype">{formatCount(game.hypes)} hyped</span> : null}
+      <div className="hero-body">
+        <h3>{game.name}</h3>
+        {game.releaseTs ? <time dateTime={new Date(game.releaseTs * 1000).toISOString().slice(0, 10)}>{heroDate.format(game.releaseTs * 1000)}</time> : null}
+        <div className="hero-count">
+          <CountGroup value={Math.min(999, Math.floor(left / 86_400_000))} len={3} label="DAYS" />
+          <i className="hero-sep" />
+          <CountGroup value={Math.floor(left / 3_600_000) % 24} len={2} label="HOURS" />
+          <i className="hero-sep" />
+          <CountGroup value={Math.floor(left / 60_000) % 60} len={2} label="MINUTES" />
+        </div>
+      </div>
+    </button>
+  );
+});
+
+function AnticipatedHero({ games, openGame, onViewAll }: { games?: IgdbDiscoverGame[]; openGame: (id: number) => void; onViewAll: () => void }) {
+  const now = useMinuteClock();
+  const openRef = useRef(openGame);
+  openRef.current = openGame;
+  const open = useCallback((g: IgdbDiscoverGame) => { seedGame(g); prefetchGame(g.id); openRef.current(g.id); }, []); // stable, so memoized cards skip re-renders while typing in search
+  const picks = useMemo(() => {
+    const upcoming = (games ?? []).filter((g) => g.releaseTs);
+    return [...upcoming.filter((g) => g.art), ...upcoming.filter((g) => !g.art)].slice(0, 4);
+  }, [games]);
+  if (games && !picks.length) return null;
+  return (
+    <section className="discover-section">
+      <div className="discover-section-heading">
+        <div><p className="eyebrow">LIVE FROM IGDB</p><h2>Most Anticipated</h2></div>
+        <span className="discover-tone green" />
+        <button className="discover-view-all" onClick={onViewAll}>View all</button>
+      </div>
+      <div className="hero-grid">
+        {games
+          ? picks.map((g, i) => <HeroCard key={g.id} game={g} now={now} eager={i < 2} onOpen={open} />)
+          : Array.from({ length: 4 }, (_, i) => <div className="hero-card skeleton" key={i} />)}
+      </div>
+    </section>
   );
 }
 

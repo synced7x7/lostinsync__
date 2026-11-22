@@ -23,7 +23,7 @@ export type IgdbMedia = {
   videos: { id: string; name?: string }[];
 };
 export type IgdbDiscoverGame = {
-  id: number; name: string; cover?: string; releaseTs?: number; rating?: number;
+  id: number; name: string; cover?: string; art?: string; releaseTs?: number; rating?: number;
   ratingCount?: number; hypes?: number; follows?: number; summary?: string;
 };
 export type IgdbDiscover = {

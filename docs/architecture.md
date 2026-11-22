@@ -127,7 +127,7 @@ All commands are declared in `src-tauri/src/lib.rs`; store implementations live 
 | `igdb_details` | Full metadata + TTB + artwork selection → `IgdbGame` |
 | `igdb_images` | Covers/artworks/screenshots gallery → `IgdbDebugImage[]` |
 | `igdb_discover` | Legacy 10-feed snapshot (unused by current UI) |
-| `igdb_discover_feed` | **Active** paginated feed loader (`offset` 0–90, `limit` 1–30) |
+| `igdb_discover_feed` | **Active** paginated feed loader (`offset` 0–90, `limit` 1–30); anticipated feed includes artwork/screenshot `art` for the Discover hero |
 | `igdb_series` | Details-view series tree traversal (4 levels up/down) → collections + games |
 | `igdb_franchise` | Franchise lookup by name, with library-game ID fallback → deduplicated `gameIds` + matched franchises |
 | `igdb_games_by_ids` | Paged game details for up to 500 IDs, optionally filtered by `game_type` (null types kept) |
