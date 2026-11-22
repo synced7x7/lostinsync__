@@ -1,9 +1,9 @@
 // Web replacement for src/data/igdb.ts. Same exports, but instead of Tauri commands it talks to the
 // IGDB proxy (web/worker). The query building / parsing below is a port of the Rust commands in lib.rs.
 import type {
-  IgdbCreds, IgdbDebugImage, IgdbDiscover, IgdbDiscoverGame, IgdbExternalGame, IgdbFeed, IgdbGame, IgdbHit, IgdbImport, IgdbMedia, FranchiseGame, SeriesData,
+  IgdbCreds, IgdbDebugImage, IgdbDiscover, IgdbDiscoverGame, IgdbExternalGame, IgdbFeed, IgdbGame, IgdbHit, IgdbImport, IgdbMedia, FranchiseGame, SeriesData, TasteProfile,
 } from "../../src/data/igdb";
-export type { IgdbCreds, IgdbDebugImage, IgdbDiscover, IgdbDiscoverGame, IgdbExternalGame, IgdbFeed, IgdbGame, IgdbHit, IgdbImport, IgdbMedia, FranchiseGame, SeriesData };
+export type { IgdbCreds, IgdbDebugImage, IgdbDiscover, IgdbDiscoverGame, IgdbExternalGame, IgdbFeed, IgdbGame, IgdbHit, IgdbImport, IgdbMedia, FranchiseGame, SeriesData, TasteProfile };
 
 /** The offline UI enables import/sync/save-dialog features when this is true. The web build supports all of them. */
 export const hasTauri = true;
@@ -77,11 +77,15 @@ const preferredArtworkId = (artworks: J, types: J): string | undefined => {
 };
 const videosOf = (g: J) =>
   (Array.isArray(g?.videos) ? g.videos : []).flatMap((v: J) => (typeof v?.video_id === "string" ? [{ videoId: v.video_id as string, name: typeof v.name === "string" ? v.name as string : undefined }] : []));
-const discoverItem = (g: J): IgdbDiscoverGame => ({
-  id: g.id, name: g.name, cover: g.cover?.image_id ? img(g.cover.image_id, "cover_big") : undefined,
-  releaseTs: g.first_release_date, rating: g.total_rating, ratingCount: g.total_rating_count,
-  hypes: g.hypes, follows: g.follows, summary: g.summary,
-});
+const discoverItem = (g: J): IgdbDiscoverGame => {
+  const artId = firstImageId(g.artworks) ?? firstImageId(g.screenshots);
+  return {
+    id: g.id, name: g.name, cover: g.cover?.image_id ? img(g.cover.image_id, "cover_big") : undefined,
+    art: artId ? img(artId, "1080p") : undefined,
+    releaseTs: g.first_release_date, rating: g.total_rating, ratingCount: g.total_rating_count,
+    hypes: g.hypes, follows: g.follows, summary: g.summary,
+  };
+};
 const rows = (v: J): J[] => (Array.isArray(v) ? v : []);
 
 /* ───────── commands ───────── */
@@ -149,8 +153,8 @@ export async function igdbImages(id: number, c: IgdbCreds): Promise<IgdbDebugIma
   return out;
 }
 
-const DISCOVER_FIELDS = "name,summary,first_release_date,rating,rating_count,total_rating,total_rating_count,hypes,follows,cover.image_id";
-const FEED_FIELDS = "name,summary,first_release_date,total_rating,total_rating_count,hypes,follows,cover.image_id";
+const DISCOVER_FIELDS = "name,summary,first_release_date,rating,rating_count,total_rating,total_rating_count,hypes,follows,cover.image_id,artworks.image_id,screenshots.image_id";
+const FEED_FIELDS = "name,summary,first_release_date,total_rating,total_rating_count,hypes,follows,cover.image_id,artworks.image_id,screenshots.image_id";
 const genreFilter = (preferred: string[]) =>
   preferred.slice(0, 3).map((g) => g.trim()).filter(Boolean).map((g) => `genres.name = "${esc(g)}"`).join(" | ");
 const dq = (fields: string, where: string, sort: string) => `fields ${fields}; where ${where}; sort ${sort}; limit 20;`;
@@ -185,8 +189,9 @@ export async function igdbDiscover(preferredGenres: string[], c: IgdbCreds): Pro
   return result as IgdbDiscover;
 }
 
-export async function igdbDiscoverFeed(feed: IgdbFeed, preferredGenres: string[], offset: number, limit: number, c: IgdbCreds): Promise<IgdbDiscoverGame[]> {
+export async function igdbDiscoverFeed(feed: IgdbFeed, taste: TasteProfile, offset: number, limit: number, c: IgdbCreds): Promise<IgdbDiscoverGame[]> {
   const now = nowSecs();
+  const preferredGenres = Object.entries(taste.weights ?? {}).sort((a, b) => b[1] - a[1]).map(([g]) => g);
   const gf = genreFilter(preferredGenres);
   const safeOffset = Math.min(90, Math.max(0, offset));
   const safeLimit = Math.min(30, Math.max(1, limit));
@@ -403,8 +408,8 @@ const seriesCache = new Map<string, Entry<SeriesData>>();
 export const igdbDetailsCached = (id: number, c: IgdbCreds) => memo(detailsCache, `${c.clientId}:${id}`, () => igdbDetails(id, c), 150);
 export const igdbImagesCached = (id: number, c: IgdbCreds) => memo(imagesCache, `${c.clientId}:${id}`, () => igdbImages(id, c), 60);
 export const igdbDiscoverCached = (g: string[], c: IgdbCreds) => memo(discoverCache, `${c.clientId}:${g.join("|")}`, () => igdbDiscover(g, c), 10);
-export const igdbDiscoverFeedCached = (feed: IgdbFeed, g: string[], offset: number, limit: number, c: IgdbCreds) =>
-  memo(feedCache, `${c.clientId}:${feed}:${g.join("|")}:${offset}:${limit}`, () => igdbDiscoverFeed(feed, g, offset, limit, c), 60);
+export const igdbDiscoverFeedCached = (feed: IgdbFeed, taste: TasteProfile, offset: number, limit: number, c: IgdbCreds) =>
+  memo(feedCache, `${c.clientId}:${feed}:${feed === "forYou" ? taste.key : ""}:${offset}:${limit}:v2`, () => igdbDiscoverFeed(feed, taste, offset, limit, c), 60);
 export const igdbBundleContentsCached = (id: number, c: IgdbCreds) => memo(bundleCache, `${c.clientId}:${id}`, () => igdbBundleContents(id, c), 40);
 export const igdbSeriesCached = (id: number, c: IgdbCreds, types?: number[]) => memo(seriesCache, `${c.clientId}:${id}:${types?.join(",") ?? ""}`, () => igdbSeries(id, c, types), 40);
 const externalCache = new Map<string, Entry<IgdbExternalGame[]>>();
