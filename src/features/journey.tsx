@@ -68,7 +68,7 @@ const makeTicks = (min: number, last: number, daily = false) => {
 /* ───────────── path + braid geometry ───────────── */
 type P = { x: number; y: number };
 
-const bez = (a: P, b: P, c: P, d: P, n = 14): P[] =>
+const bez = (a: P, b: P, c: P, d: P, n = 24): P[] =>
   Array.from({ length: n + 1 }, (_, i) => {
     const t = i / n, u = 1 - t;
     return {
@@ -78,7 +78,8 @@ const bez = (a: P, b: P, c: P, d: P, n = 14): P[] =>
   });
 
 export const line = (a: P, b: P): P[] => {
-  const n = Math.max(1, Math.round(Math.hypot(b.x - a.x, b.y - a.y) / 8));
+  // fine sampling keeps the 22px braid wave smooth instead of a jagged polyline
+  const n = Math.max(1, Math.round(Math.hypot(b.x - a.x, b.y - a.y) / 3));
   return Array.from({ length: n + 1 }, (_, i) => ({
     x: a.x + ((b.x - a.x) * i) / n,
     y: a.y + ((b.y - a.y) * i) / n,
@@ -108,7 +109,7 @@ export const strand = (pts: P[], phase: number, amp: number) => {
       const edge = Math.min(1, len[i] / 70, (total - len[i]) / 70);
       const env = edge * edge * (3 - 2 * edge);
       const o = amp * env * Math.sin(len[i] / 22 + phase);
-      return `${i ? "L" : "M"} ${(p.x - (dy / m) * o).toFixed(1)} ${(p.y + (dx / m) * o).toFixed(1)}`;
+      return `${i ? "L" : "M"} ${(p.x - (dy / m) * o).toFixed(2)} ${(p.y + (dx / m) * o).toFixed(2)}`;
     })
     .join(" ");
 };
@@ -194,10 +195,12 @@ const Branch = memo(function Branch({ b, lod }: { b: Br; lod: boolean }) {
   const er = b.pillar || b.merge ? 7 : 6;
   return (
     <g>
-      <path className="jn-glow" stroke={c} d={glowOf(b)} />
-      {Array.from({ length: n }, (_, i) => (
-        <path key={i} className="jn-strand" style={{ stroke: mix(c, i) }} d={strandOf(b, i)} />
-      ))}
+      <g className="jn-braid" style={cssVar(c)}>
+        <path className="jn-glow" stroke={c} d={glowOf(b)} />
+        {Array.from({ length: n }, (_, i) => (
+          <path key={i} className="jn-strand" style={{ stroke: mix(c, i) }} d={strandOf(b, i)} />
+        ))}
+      </g>
       {!b.pillar && (
         <>
           <circle className="jn-halo" cx={b.x1} cy={b.T} r={11} fill={c} />

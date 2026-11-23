@@ -142,7 +142,7 @@ const ribbon = (xa: number, w: number): Rib => {
   if (r) return r;
   const pts = line({ x: 0, y: MID }, { x: w, y: MID });
   r = {
-    glow: pts.map((p, i) => `${i ? "L" : "M"} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(" "),
+    glow: pts.map((p, i) => `${i ? "L" : "M"} ${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join(" "),
     s: STRANDS.map((x) => strand(pts, x.phase + xa / 22, AMP)),
   };
   ribCache.set(k, r);
@@ -168,7 +168,7 @@ const Ribbon = memo(function Ribbon({ n, a, b, lit, color }: { n: number; a: num
           <rect width={w} height={H} fill={`url(#g${id})`} />
         </mask>
       </defs>
-      <g mask={`url(#m${id})`}>
+      <g className="jn-braid" style={cssVar(color)} mask={`url(#m${id})`}>
         <path className="jn-glow" stroke={color} d={r.glow} />
         {r.s.map((d, i) => <path key={i} className="jn-strand" style={{ stroke: mix(color, i) }} d={d} />)}
       </g>
