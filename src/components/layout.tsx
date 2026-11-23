@@ -135,7 +135,7 @@ function Sidebar({
           <div className="offline">
             <span title="Local-first workspace"></span>
           </div>
-          {isOpen && <small>v0.2.0 · Eclipse Awakening</small>}
+          {isOpen && <small>v2.0.0 · Eclipse Awakening</small>}
         </div>
       </aside>
       {!isOpen && (

@@ -122,7 +122,7 @@ Tauri produces a self-contained installer. End users do not need Node, Rust, or 
    ```powershell
    pnpm tauri:build
    ```
-4. The installer is written to `src-tauri/target/release/bundle/nsis/` (for example `Lost in Sync_0.1.0_x64-setup.exe`).
+4. The installer is written to `src-tauri/target/release/bundle/nsis/` (for example `Lost in Sync_2.0.0_x64-setup.exe`).
 
 Notes:
 - Build on the target operating system. A Windows installer must be built on Windows.

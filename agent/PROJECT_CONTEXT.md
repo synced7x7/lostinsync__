@@ -434,7 +434,7 @@ Rust parameter names are snake_case (`client_id`), Tauri maps JS camelCase keys.
 
 - `package.json`: scripts `dev`, `build` (`tsc --noEmit && vite build`), `typecheck`, `test` (`vitest run`), `tauri:dev`, `tauri:build`.
 - `tsconfig.json`: strict, `noEmit`, `jsx: react-jsx`.
-- `src-tauri/tauri.conf.json`: identifier `com.lostinsync.desktop`, version `0.1.0`, `devUrl http://localhost:5173`, `frontendDist ../dist`, fullscreen 1920×1080 window, CSP, asset protocol, Android suffix `.debug`.
+- `src-tauri/tauri.conf.json`: identifier `com.lostinsync.desktop`, version `2.0.0`, `devUrl http://localhost:5173`, `frontendDist ../dist`, fullscreen 1920×1080 window, CSP, asset protocol, Android suffix `.debug`.
 - `web/vite.config.ts`: dev port `5174`, build output `web/dist`, build-only CSP meta injection, three module swaps.
 - `web/worker/wrangler.toml`: worker `lis-igdb-proxy`, `main = src/index.ts`, compatibility date `2025-01-01`.
 - `vercel.json`: SPA rewrite to `/index.html` — **conflicts with `web/README.md` which says Cloudflare Pages**; actual production host must be verified.

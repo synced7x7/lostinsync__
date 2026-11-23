@@ -8,7 +8,7 @@
 
 Feature-rich, working **prototype / pre-1.0 product** with two shipping surfaces:
 
-- Offline-first Tauri v2 desktop app (primary), version `0.1.0` in `package.json:4` and `src-tauri/tauri.conf.json:5` (the sidebar footer displays `v0.1.1 · Genesis Crypt` in `src/components/layout.tsx:138` — version strings disagree).
+- Offline-first Tauri v2 desktop app (primary), version `2.0.0` in `package.json:4`, `src-tauri/tauri.conf.json:5` and `src-tauri/Cargo.toml:3` (sidebar footer displays `v2.0.0 · Eclipse Awakening` in `src/components/layout.tsx:138`).
 - Web build under `web/` that reuses the shared React app with three swapped modules and adds IndexedDB storage, encrypted credentials, and Google Drive backup.
 
 Built installer artifacts exist in `src-tauri/target/release/bundle/` (NSIS `.exe` and MSI). No development branch activity, commit history, or issue tracker was inspected, so "in progress" claims below are limited to what source and docs show.
