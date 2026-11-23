@@ -159,7 +159,7 @@ describe("storePatch", () => {
   });
 
   it("refreshes dates and mastery but keeps a manually changed status", () => {
-    const patch = storePatch(game({ status: "Shelved" }), {
+    const patch = storePatch(game({ status: "On hold" }), {
       store: "steam", storeId: "123", title: "Hades", playtimeMinutes: 60, recentlyPlayed: false,
       lastPlayedUnix: 1_700_000_000, achievements: { achieved: 40, total: 40, firstUnlockUnix: 1_600_000_000 },
     });
