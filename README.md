@@ -4,7 +4,8 @@
   <a href="https://lostinsync.vercel.app/">
     <img src="https://img.shields.io/badge/Lost%20in%20Sync-Live%20Website-8B5CF6?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Visit Lost in Sync" />
   </a>
-</p>
+</p><img width="1920" height="1080" alt="Screenshot (922)" src="https://github.com/user-attachments/assets/01dd1cdb-5939-4070-93e0-0fb2298508da" />
+
 
 <p align="center">
   <strong>A personal game library OS</strong>
