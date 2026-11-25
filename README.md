@@ -1,4 +1,4 @@
-<h1 align="center">Lost in Sync</h1>
+<img width="1920" height="1080" alt="Screenshot (920)" src="https://github.com/user-attachments/assets/8799e229-505c-4571-b78b-4c5be89bf089" /><h1 align="center">Lost in Sync</h1>
 
 <p align="center">
   <a href="https://lostinsync.vercel.app/">
@@ -18,9 +18,20 @@
 > **For the complete documentation, features, how to run, and usage guide, read the [A COMPLETE GUIDE TO LOSTINSYNC__](https://github.com/synced7x7/lostinsync__/releases).**
 ## Screenshots
 
+![Uploading Screenshot (922).png…]()
+<img width="1920" height="1080" alt="Screenshot (923)" src="https://github.com/user-attachments/assets/9d1c3692-0a68-40c9-a619-acc96fa09d01" />
+<img width="1920" height="1080" alt="Screenshot (924)" src="https://github.com/user-attachments/assets/368233d0-6559-4af9-a674-ea9b42b7ff06" />
+<img width="1920" height="1080" alt="Screenshot (925)" src="https://github.com/user-attachments/assets/84098664-4a86-44ee-ae46-100db91bcf34" />
+<img width="1920" height="1080" alt="Screenshot (926)" src="https://github.com/user-attachments/assets/1fbced72-8a48-472c-9f73-9910a7dd4da9" />
+<img width="1920" height="1080" alt="Screenshot (935)" src="https://github.com/user-attachments/assets/058c9ef9-76a0-4827-a019-41e9c00fccab" />
+
+
+
+
+
 <table>
   <tr>
-    <td align="center"><img width="1920" height="1080" alt="Screenshot (914)" src="https://github.com/user-attachments/assets/2653ae24-fbb2-4a5b-bbe9-3d16a4301a8b" /><br><sub>Overview</sub></td>
+    <td align="center"><img width="1920" height="1080" alt="Screenshot (921)" src="https://github.com/user-attachments/assets/9ba1bdb0-45be-42dd-8895-e0ebd383a10e" /><br><sub>Overview</sub></td>
     <td align="center"><img src="https://github.com/user-attachments/assets/da366d3f-d5b3-4aa5-ba84-0b607cac51e4" width="100%"><br><sub>Full screen view</sub></td>
      <td align="center"><img src="https://github.com/user-attachments/assets/51c82895-4809-4f60-a173-bc2647f5a677" width="100%"><br><sub>PS4 View</sub></td>
   </tr>
