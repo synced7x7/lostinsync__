@@ -1,54 +1,50 @@
-<img width="1920" height="1080" alt="Screenshot (920)" src="https://github.com/user-attachments/assets/8799e229-505c-4571-b78b-4c5be89bf089" /><h1 align="center">Lost in Sync</h1>
 
-<p align="center">
-  <a href="https://lostinsync.vercel.app/">
-    <img src="https://img.shields.io/badge/Lost%20in%20Sync-Live%20Website-8B5CF6?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Visit Lost in Sync" />
-  </a>
-</p><img width="1920" height="1080" alt="Screenshot (922)" src="https://github.com/user-attachments/assets/01dd1cdb-5939-4070-93e0-0fb2298508da" />
-
-
-<p align="center">
-  <strong>A personal game library OS</strong>
+<div align="center">
+  <h1>lostinsync__</h1>
+  <strong>A PERSONAL GAME TRACKER</strong>
   <br />
-  Track your collection, explore new games, follow franchise completion, and visualize your gaming history.
   <br />
-  On desktop, import your Steam and Epic Games libraries, wishlist, playtime and achievements directly into your collection, or bring in games from a generic CSV.
-</p>
+  <p>
+    Track your collection, explore new games, follow franchise completion, and visualize your gaming history.
+    <br />
+    On desktop, import your Steam and Epic Games libraries, wishlist, playtime, and achievements directly into your collection, or bring in games from a generic CSV.
+  </p>
+  
+  <p align="center">
+    <a href="https://github.com/synced7x7/lostinsync__/releases">
+      <img src="https://img.shields.io/badge/Desktop%20App-Latest%20Release-10B981?style=for-the-badge&logo=github&logoColor=white" alt="Download Desktop App" width=30% />
+      &nbsp; &nbsp; &nbsp;
+    </a><a href="https://lostinsync.vercel.app/">
+      <img src="https://img.shields.io/badge/Lost%20in%20Sync-Live%20Website-8B5CF6?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Visit Lost in Sync" width=30% />
+    </a>
+  </p>
+</div>
 
 > [!IMPORTANT]
 > **For the complete documentation, features, how to run, and usage guide, read the [A COMPLETE GUIDE TO LOSTINSYNC__](https://github.com/synced7x7/lostinsync__/releases).**
 ## Screenshots
 
-![Uploading Screenshot (922).png…]()
-<img width="1920" height="1080" alt="Screenshot (923)" src="https://github.com/user-attachments/assets/9d1c3692-0a68-40c9-a619-acc96fa09d01" />
-<img width="1920" height="1080" alt="Screenshot (924)" src="https://github.com/user-attachments/assets/368233d0-6559-4af9-a674-ea9b42b7ff06" />
-<img width="1920" height="1080" alt="Screenshot (925)" src="https://github.com/user-attachments/assets/84098664-4a86-44ee-ae46-100db91bcf34" />
-<img width="1920" height="1080" alt="Screenshot (926)" src="https://github.com/user-attachments/assets/1fbced72-8a48-472c-9f73-9910a7dd4da9" />
-<img width="1920" height="1080" alt="Screenshot (935)" src="https://github.com/user-attachments/assets/058c9ef9-76a0-4827-a019-41e9c00fccab" />
-
-
-
-
 
 <table>
   <tr>
     <td align="center"><img width="1920" height="1080" alt="Screenshot (921)" src="https://github.com/user-attachments/assets/9ba1bdb0-45be-42dd-8895-e0ebd383a10e" /><br><sub>Overview</sub></td>
+  <td align="center">  <img width="1920" height="1080" alt="Screenshot (920)" src="https://github.com/user-attachments/assets/8799e229-505c-4571-b78b-4c5be89bf089" /><br><sub>Overview II</sub></td>
     <td align="center"><img src="https://github.com/user-attachments/assets/da366d3f-d5b3-4aa5-ba84-0b607cac51e4" width="100%"><br><sub>Full screen view</sub></td>
+  </tr>
+  <tr>
      <td align="center"><img src="https://github.com/user-attachments/assets/51c82895-4809-4f60-a173-bc2647f5a677" width="100%"><br><sub>PS4 View</sub></td>
-  </tr>
-  <tr>
      <td align="center"><img src="https://github.com/user-attachments/assets/b69e4fc9-3fd4-4421-a363-f8519a340abe" width="100%"><br><sub>Grid View</sub></td>
-    <td align="center"><img src="https://github.com/user-attachments/assets/f979f887-95f7-41cd-88fa-6753575f041f" width="100%"><br><sub>Game Details</sub></td>
-    <td align="center"><img src="https://github.com/user-attachments/assets/08fac899-1ab2-47f4-9527-4b0c2be9e567" width="100%"><br><sub>Discover</sub></td>
+    <td align="center"><img width="1920" height="1080" alt="Screenshot (924)" src="https://github.com/user-attachments/assets/368233d0-6559-4af9-a674-ea9b42b7ff06" /><br><sub>Game Details</sub></td>
+    
   </tr>
   <tr>
-    <td align="center"><img src="https://github.com/user-attachments/assets/de0bc9ce-59c9-413a-b453-334ba0f05c08" width="100%"><br><sub>Discover II</sub></td>
-    <td align="center"><img src="https://github.com/user-attachments/assets/9f5360a2-fac1-4759-9d9c-a8906e8edcb1" width="100%"><br><sub>Game Journey</sub></td>
-    <td align="center"><img src="https://github.com/user-attachments/assets/6d8c2ebf-b51b-44a0-b638-627875c29d8d" width="100%"><br><sub>Game Journey II</sub></td>
+    <td align="center"><img width="1920" height="1080" alt="Screenshot (925)" src="https://github.com/user-attachments/assets/84098664-4a86-44ee-ae46-100db91bcf34" /><br><sub>Discover</sub></td>
+    <td align="center"><img width="1920" height="1080" alt="Screenshot (926)" src="https://github.com/user-attachments/assets/1fbced72-8a48-472c-9f73-9910a7dd4da9" /><br><sub>Discover II</sub></td>
+    <td align="center"><img src="https://github.com/user-attachments/assets/6d8c2ebf-b51b-44a0-b638-627875c29d8d" width="100%"><br><sub>Game Journey</sub></td>
   </tr>
   <tr>
-    <td align="center"><img src="https://github.com/user-attachments/assets/f1db2a69-8039-40cf-8c11-a5b4dc3ed943" width="100%"><br><sub>Game Journey III</sub></td>
-    <td align="center"><img src="https://github.com/user-attachments/assets/6c8a64d0-d952-4c2a-8fe2-74216fc8b0c3" width="100%"><br><sub>Franchise</sub></td>
+    <td align="center"><img src="https://github.com/user-attachments/assets/f1db2a69-8039-40cf-8c11-a5b4dc3ed943" width="100%"><br><sub>Game Journey II</sub></td>
+    <td align="center"><img width="1920" height="1080" alt="Screenshot (935)" src="https://github.com/user-attachments/assets/058c9ef9-76a0-4827-a019-41e9c00fccab" /><br><sub>Franchise</sub></td>
      <td align="center"><img src="https://github.com/user-attachments/assets/6c8a64d0-d952-4c2a-8fe2-74216fc8b0c3" width="100%"><br><sub>Stats</sub></td>
   </tr>
 </table>
@@ -157,71 +153,6 @@ Notes:
 - See `docs/store-import-guide.md` for Steam/Epic setup and the exact status, date, playtime and mastery mapping.
 
 ---
-
-## Project Structure
-
-```
-lostinsync__/
-├── src/                        # React / TypeScript frontend
-│   ├── main.tsx                # App root, global state, routing, shelf and grid views
-│   ├── style.css               # Aurora Glass theme tokens and core layouts
-│   ├── domain/
-│   │   ├── game.ts             # Game type, Status, AppData, optional store fields/helpers
-│   │   ├── franchise.ts        # Franchise grouping, game-type switch and completion slots
-│   │   ├── franchise.test.ts   # Franchise completion unit tests
-│   │   ├── gametype.ts         # IGDB game-type filtering
-│   │   ├── library-session.ts  # Session-only Library filters and saved defaults
-│   │   ├── playtime.ts         # Recorded-totalSeconds aggregation for Stats
-│   │   ├── store-links.ts      # IGDB external_games filtering, dedupe, ordering
-│   │   ├── store-links.test.ts # Store-link unit tests
-│   │   ├── trophies.ts         # Trophy tiers, rarity, evaluation, profile badge
-│   │   └── stats.ts            # Statistics data builders
-│   ├── data/
-│   │   ├── repository.ts       # AppRepository: Tauri and localStorage adapters
-│   │   ├── igdb.ts             # IGDB command wrappers with bounded caches
-│   │   ├── franchiseCache.ts   # Visible-row franchise cache adapter (Tauri SQLite / web memory)
-│   │   └── stores/             # Desktop store connectors, IGDB matching, import pipeline (incl. generic CSV), IPC and tests
-│   ├── components/
-│   │   ├── layout.tsx          # App layout and collapsible sidebar
-│   │   ├── navigation.ts       # Sidebar navigation items
-│   │   ├── rarity-badge.tsx    # Profile badge shown in the sidebar and Overview
-│   │   ├── store-icons.tsx     # Transparent brand SVG icons for IGDB storefronts
-│   │   └── shared.tsx          # Header, StarRating, TrophyToggle, DateField, ...
-│   └── features/
-│       ├── overview.tsx        # Profile banner and collection actions
-│       ├── library-components.tsx # Add game form and detail views
-│       ├── journey.tsx         # Interactive SVG and DOM timeline
-│       ├── franchises.tsx      # Franchise ribbons, per-row load progress and virtualized rows
-│       ├── franchises.css      # Franchise card, ribbon and arrow styling
-│       ├── discover.tsx        # Discover feeds and search
-│       ├── trophies.tsx        # Trophy and badge gallery
-│       ├── stats.tsx           # ECharts analytics
-│       ├── media.tsx           # Screenshot carousel and video embeds
-│       ├── series.tsx          # Franchise and collection browser
-│       ├── bundle.tsx          # Bundle contents (DLC and editions)
-│       ├── stores-settings.tsx # Desktop-only store import UI, progress and reports
-│       └── settings-data.tsx   # Settings, Library defaults, credentials, export/import, generic CSV import
-│
-├── src-tauri/                  # Rust / Tauri backend
-│   ├── src/lib.rs              # Tauri commands (SQLite, franchise cache, IGDB and store IPC)
-│   ├── src/stores.rs           # Store HTTP, Steam achievements/wishlist, Epic token file
-│   ├── Cargo.toml
-│   └── tauri.conf.json
-│
-├── docs/                       # Developer documentation
-│   ├── screenshots/            # Images used in this README
-│   ├── architecture.md
-│   ├── database-schema.md
-│   ├── design-system.md
-│   ├── features.md
-│   ├── igdb-image-endpoints.md
-│   ├── performance-optimization-report.md
-│   ├── roadmap.md
-│   └── store-import-guide.md
-│
-└── scripts/
-    └── check-environment.ps1   # Verify Node, pnpm, and Rust are on PATH
-```
 
 ## License
 
