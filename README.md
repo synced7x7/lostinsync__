@@ -42,13 +42,14 @@
     <td align="center"><img src="https://github.com/user-attachments/assets/08fac899-1ab2-47f4-9527-4b0c2be9e567" width="100%"><br><sub>Discover</sub></td>
   </tr>
   <tr>
-    <td align="center"><img src="https://github.com/user-attachments/assets/de0bc9ce-59c9-413a-b453-334ba0f05c08" width="100%"><br><sub>Game Journey</sub></td>
+    <td align="center"><img src="https://github.com/user-attachments/assets/de0bc9ce-59c9-413a-b453-334ba0f05c08" width="100%"><br><sub>Discover II</sub></td>
     <td align="center"><img src="https://github.com/user-attachments/assets/9f5360a2-fac1-4759-9d9c-a8906e8edcb1" width="100%"><br><sub>Game Journey</sub></td>
-    <td align="center"><img src="https://github.com/user-attachments/assets/6d8c2ebf-b51b-44a0-b638-627875c29d8d" width="100%"><br><sub>Game Journey</sub></td>
+    <td align="center"><img src="https://github.com/user-attachments/assets/6d8c2ebf-b51b-44a0-b638-627875c29d8d" width="100%"><br><sub>Game Journey II</sub></td>
   </tr>
   <tr>
-    <td align="center"><img src="https://github.com/user-attachments/assets/f1db2a69-8039-40cf-8c11-a5b4dc3ed943" width="100%"><br><sub>Game Journey</sub></td>
-    <td align="center"><img src="https://github.com/user-attachments/assets/6c8a64d0-d952-4c2a-8fe2-74216fc8b0c3" width="100%"><br><sub>Stats</sub></td>
+    <td align="center"><img src="https://github.com/user-attachments/assets/f1db2a69-8039-40cf-8c11-a5b4dc3ed943" width="100%"><br><sub>Game Journey III</sub></td>
+    <td align="center"><img src="https://github.com/user-attachments/assets/6c8a64d0-d952-4c2a-8fe2-74216fc8b0c3" width="100%"><br><sub>Franchise</sub></td>
+     <td align="center"><img src="https://github.com/user-attachments/assets/6c8a64d0-d952-4c2a-8fe2-74216fc8b0c3" width="100%"><br><sub>Stats</sub></td>
   </tr>
 </table>
 
