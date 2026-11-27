@@ -1,3 +1,4 @@
+import "./platform/android";
 import React, { StrictMode, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, lazy, Suspense, memo } from "react";
 import { librarySession, libraryDefaults, prefsToSettings, SORT_OPTIONS, type LibraryPrefs } from "./domain/library-session";
 import { createRoot } from "react-dom/client";

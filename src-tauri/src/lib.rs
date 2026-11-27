@@ -12,6 +12,9 @@ use base64::{ engine::general_purpose::STANDARD, Engine };
 
 mod stores;
 
+#[cfg(target_os = "android")]
+mod android;
+
 struct Database(Mutex<Connection>);
 
 fn migrate(connection: &Connection) -> Result<(), rusqlite::Error> {
@@ -1607,9 +1610,16 @@ async fn save_text_file(
     let Some(file) = picked else {
         return Ok(None);
     };
-    let path = file.into_path().map_err(|e| e.to_string())?;
-    std::fs::write(&path, contents).map_err(|e| e.to_string())?;
-    Ok(Some(path.to_string_lossy().to_string()))
+    #[cfg(target_os = "android")]
+    {
+        return android::write_picked(&app, file, &contents);
+    }
+    #[cfg(not(target_os = "android"))]
+    {
+        let path = file.into_path().map_err(|e| e.to_string())?;
+        std::fs::write(&path, contents).map_err(|e| e.to_string())?;
+        Ok(Some(path.to_string_lossy().to_string()))
+    }
 }
 
 /// Games that belong to a bundle (IGDB stores this on the child: `bundles` = "bundles this game is part of").
@@ -2066,10 +2076,12 @@ async fn get_backlog_recommendations(
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder
-        ::default()
+    let builder = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_opener::init());
+    #[cfg(target_os = "android")]
+    let builder = builder.plugin(tauri_plugin_fs::init());
+    builder
         .setup(|app| {
             let path = app.path().app_data_dir()?.join("lost-in-sync.sqlite");
             std::fs::create_dir_all(path.parent().expect("database path has a parent"))?;

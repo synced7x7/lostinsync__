@@ -1,0 +1,7 @@
+{
+  "identifier": "com.lostinsync.app",
+  "build": { "beforeDevCommand": "pnpm dev --host" },
+  "bundle": {
+    "android": { "minSdkVersion": 24, "versionCode": 20000 }
+  }
+}

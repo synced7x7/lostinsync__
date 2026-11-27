@@ -1,0 +1,31 @@
+html[data-platform="android"] {
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+}
+html[data-platform="android"] button,
+html[data-platform="android"] a,
+html[data-platform="android"] .jn-node,
+html[data-platform="android"] .nav-item {
+  touch-action: manipulation;
+}
+html[data-platform="android"] .app-shell { min-height: 100dvh; }
+html[data-platform="android"] .sidebar {
+  height: 100dvh;
+  min-height: 100dvh;
+  padding-top: calc(28px + env(safe-area-inset-top, 0px));
+  padding-bottom: calc(22px + env(safe-area-inset-bottom, 0px));
+}
+html[data-platform="android"] .page {
+  padding-top: calc(28px + env(safe-area-inset-top, 0px));
+  padding-bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+html[data-platform="android"] .fullscreen-sidebar-toggle {
+  margin-top: env(safe-area-inset-top, 0px);
+}
+html[data-platform="android"] .modal { max-height: calc(100dvh - 56px); }
+html[data-platform="android"] .modal.modal-wide { max-height: calc(100dvh - 32px); }
+html[data-platform="android"] .boot,
+html[data-platform="android"] .ps4-library--fullscreen { height: 100dvh; min-height: 100dvh; }
+html[data-platform="android"] .icon-btn { min-width: 40px; min-height: 40px; }
